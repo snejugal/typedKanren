@@ -96,7 +96,8 @@ instance (GUnifiable f f', GUnifiable g g') => GUnifiable (f :+: g) (f' :+: g') 
 
 instance (GUnifiable f f', GUnifiable g g') => GUnifiable (f :*: g) (f' :*: g') where
   gsubst _ _ = id
-  gunify _ _ _ = Just
+  gunify _ (x1 :*: y1) (x2 :*: y2) =
+    gunify (Proxy @f) x1 x2 >=> gunify (Proxy @g) y1 y2
   ginject (x :*: y) = ginject x :*: ginject y
   gextract (x :*: y) = do
     x' <- gextract x
