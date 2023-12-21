@@ -1,3 +1,4 @@
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TypeFamilyDependencies #-}
 {-# LANGUAGE OverloadedLists #-}
 {-# LANGUAGE DefaultSignatures #-}
@@ -6,11 +7,15 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE InstanceSigs #-}
 module Lib where
 
 import Data.IntMap (IntMap)
 import qualified Data.IntMap as IntMap
-import GHC.Exts (Any, IsList(..))
+import GHC.Exts (IsList(..))
 import Unsafe.Coerce (unsafeCoerce)
 import Data.Kind (Type)
 import Control.Monad ((>=>))
@@ -204,6 +209,14 @@ instance (Unifiable a, Unifiable b) => UnifiableTuple (a, b) where
       fresh $ \y ->
         f (x, y)
 
+instance (Unifiable a) => UnifiableTuple [a] where
+  freshTuple f = disjMany
+    [ f LNil
+    , fresh $ \x ->
+        fresh $ \xs ->
+          f (LCons x xs)
+    ]
+
 instance Eq (Term a) => UnifiableTuple (ValueOrVar a) where
   freshTuple = fresh
 
@@ -222,92 +235,25 @@ disjMany = foldr disj (const [])
 conde :: [[Goal]] -> Goal
 conde = disjMany . map conjMany
 
--- matche :: Unifiable a => ValueOrVar a -> [Term a -> Goal) -> Goal
--- matche (Value v) k = k v
--- matche (Var x) k =
+matche :: UnifiableTuple a => ValueOrVar a -> (Term a -> Goal) -> Goal
+matche (Value v) k = k v
+matche x@Var{} k =
+  freshTuple $ \v ->
+    conj (x === Value v) (k v)
 
 -- >>> extract' <$> run (\ (xs :: ValueOrVar [Int]) -> fresh (\ ys -> appendo xs ys [1, 2, 3]))
 -- [Just [],Just [1],Just [1,2],Just [1,2,3]]
 appendo :: Unifiable a => ValueOrVar [a] -> ValueOrVar [a] -> ValueOrVar [a] -> Goal
 appendo xs ys zs =
-  conde
-    [ [ [] === xs
-      , ys === zs ]
-    , [ freshTuple $ \ (x, xs') ->
-            conjMany
-            [ Value (LCons x xs') === xs
-            , freshTuple $ \ (z, zs') ->
-                  conjMany
-                  [ Value (LCons z zs') === zs
-                  , x === z
-                  , appendo xs' ys zs'
-                  ]
-            ]]]
-
-
--- -- safer, but not really, and not efficient
--- data Subst' where
--- 	NoSubst :: Subst'
--- 	SomeSubst :: (VarId a, a) -> Subst' -> Subst'
-
-
--- newtype Variable a = Variable Int deriving (Show, Eq)
-
--- data Value a = Unknown (Variable a) | Known a deriving (Show)
-
--- data State a = State [(Variable a, Value a)] (Variable a)
-
--- class Term a where
--- 	unify :: a -> a -> State a -> Maybe (State a)
-
--- unifyEq :: Eq a => a -> a -> State a -> Maybe (State a)
--- unifyEq x y state
--- 	| x == y = Just state
--- 	| otherwise = Nothing
-
--- instance Term Bool where
--- 	unify = unifyEq
-
--- instance Term Int where
--- 	unify = unifyEq
-
--- instance Term Integer where
--- 	unify = unifyEq
-
--- -- data LogicList a = Nil | Cons (Value a) (Value (LogicList a)) deriving (Show)
--- --
--- -- instance Term a => Term (LogicList a) where
--- --     unify Nil Nil state = Just state
--- --     unify (Cons x xs) (Cons y ys) state = unify x y state >>= unify xs ys
-
--- apply :: Value a -> State a -> Value a
--- apply value@(Known _) _ = value
--- apply (Unknown variable) (State values _) = case lookup variable values of
--- 	Just value -> value
--- 	Nothing -> Unknown variable
-
--- unify' :: Term a => Value a -> Value a -> State a -> Maybe (State a)
--- unify' left right state = case (left', right') of
--- 	(Unknown left'', Unknown right'') | left'' == right'' -> Just state
--- 	(Unknown variable, value) -> insert variable value
--- 	(value, Unknown variable) -> insert variable value
--- 	(Known left'', Known right'') -> unify left'' right'' state
---   where
--- 	left' = apply left state
--- 	right' = apply right state
-
--- 	State values nextVariable = state
--- 	insert variable value =
--- 		Just (State ((variable, value) : values) nextVariable)
-
--- type Goal a = State a -> [State a]
-
--- (===) :: Term a => Value a -> Value a -> Goal a
--- a === b = maybeToList . unify' a b
-
--- run :: (Value a -> Goal a) -> [Value a]
--- run f = map (apply initialVariable) (goal state)
---   where
--- 	state = State [] (Variable 1)
--- 	initialVariable = Unknown (Variable 0)
--- 	goal = f initialVariable
+  -- matche (xs, zs) $ \case
+  --   ([], _) -> ys === zs
+  --   (LCons x xs', LCons z zs') ->
+  --     conj (x === z) (appendo xs' ys zs')
+  --   _ -> const []
+  matche xs $ \case
+    LNil -> ys === zs
+    LCons x xs' ->
+      matche zs $ \case
+        LCons z zs' ->
+          conj (x === z) (appendo xs' ys zs')
+        _ -> const []
