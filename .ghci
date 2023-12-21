@@ -1,3 +1,4 @@
 :set prompt ">>> "
 :set -XOverloadedLists
 :set -XScopedTypeVariables
+:set -XTypeApplications

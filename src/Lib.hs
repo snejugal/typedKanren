@@ -290,7 +290,7 @@ unsafeExtractSomeValue (SomeValue x) = unsafeCoerce x
 (===) :: Unifiable a => ValueOrVar a -> ValueOrVar a -> Goal ()
 a === b = Goal (maybeToList . unify' a b)
 
--- >>> extract' <$> run (\ (xs :: ValueOrVar [Int]) -> [1, 2] === Value (LCons 1 xs))
+-- >>> extract' <$> run @[Int] (\ xs -> [1, 2] === Value (LCons 1 xs))
 -- [Just [2]]
 run :: Unifiable a => (ValueOrVar a -> Goal ()) -> [ValueOrVar a]
 run f =
@@ -347,14 +347,10 @@ matche x@Var{} k =
     x === Value v
     k v
 
--- >>> extract' <$> run (\ (xs :: ValueOrVar [Int]) -> fresh' (\ ys -> appendo xs ys [1, 2, 3]))
+-- >>> extract' <$> run @[Int] (\ xs -> fresh' (\ ys -> appendo xs ys [1, 2, 3]))
+-- [Just [],Just [1],Just [1,2],Just [1,2,3]]
 appendo :: Unifiable a => ValueOrVar [a] -> ValueOrVar [a] -> ValueOrVar [a] -> Goal ()
 appendo xs ys zs =
-  -- matche (xs, zs) $ \case
-  --   ([], _) -> ys === zs
-  --   (LCons x xs', LCons z zs') ->
-  --     conj (x === z) (appendo xs' ys zs')
-  --   _ -> const []
   matche xs $ \case
     LNil -> ys === zs
     LCons x xs' ->
@@ -372,8 +368,8 @@ allo p xs =
       p y
       allo p ys
 
--- >>> take 5 (run (tree @Int))
--- [Value LEmpty,Value (LLeaf (Var (VarId 1))),Value (LNode (Value LNil)),Value (LNode (Value (LCons (Var (VarId 2)) (Var (VarId 3))))),Value (LNode (Value (LCons (Var (VarId 2)) (Var (VarId 3)))))]
+-- >>> take 5 (run @(Tree Int) tree)
+-- [Value LEmpty,Value (LLeaf (Var (VarId 1))),Value (LNode (Value LNil)),Value (LNode (Value (LCons (Value LEmpty) (Value LNil)))),Value (LNode (Value (LCons (Value LEmpty) (Value (LCons (Value LEmpty) (Value LNil))))))]
 tree :: Unifiable a => ValueOrVar (Tree a) -> Goal ()
 tree t =
   matche t $ \case
