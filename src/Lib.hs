@@ -30,6 +30,18 @@ import Control.Applicative (Alternative (..))
 import GHC.Generics
 import Data.Proxy (Proxy(..))
 
+-- TODO:
+-- 1. Split into modules
+-- 2. Generate Logic data types fully automatically (probably via Template Haskell)
+-- 3. Document everything
+-- 4. Add tests
+-- 5. Implement fair disjunction
+-- 6. Think about nested patterns for matche
+-- 7. Add symbolic constraints (e.g. disequality, relations for numbers)
+-- 8. Maybe, allow effects (a la LogicT)
+-- 9. Benchmark
+-- 10. Add more examples
+
 genericSubst
   :: forall a. (Generic (Term a), GUnifiable (Rep a) (Rep (Term a)))
   => (forall x. VarId x -> Maybe (ValueOrVar x)) -> Term a -> Term a
@@ -163,6 +175,11 @@ instance Alternative Goal where
   empty = Goal (const [])
   Goal g1 <|> Goal g2 =
     Goal (g1 <> g2)
+
+-- NOTE: simple interleaving does not work!
+-- interleave :: [a] -> [a] -> [a]
+-- interleave (x:xs) (y:ys) = x : y : (xs `interleave` ys)
+-- interleave xs ys = xs <> ys
 
 data ValueOrVar a
   = Var (VarId a)
@@ -368,8 +385,12 @@ allo p xs =
       p y
       allo p ys
 
--- >>> take 5 (run @(Tree Int) tree)
--- [Value LEmpty,Value (LLeaf (Var (VarId 1))),Value (LNode (Value LNil)),Value (LNode (Value (LCons (Value LEmpty) (Value LNil)))),Value (LNode (Value (LCons (Value LEmpty) (Value (LCons (Value LEmpty) (Value LNil))))))]
+-- >>> mapM_ print $ take 5 (run @(Tree Int) tree)
+-- Value LEmpty
+-- Value (LLeaf (Var (VarId 1)))
+-- Value (LNode (Value LNil))
+-- Value (LNode (Value (LCons (Value LEmpty) (Value LNil))))
+-- Value (LNode (Value (LCons (Value LEmpty) (Value (LCons (Value LEmpty) (Value LNil))))))
 tree :: Unifiable a => ValueOrVar (Tree a) -> Goal ()
 tree t =
   matche t $ \case
