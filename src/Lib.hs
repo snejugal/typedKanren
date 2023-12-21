@@ -1,4 +1,5 @@
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE ApplicativeDo #-}
 {-# LANGUAGE TypeFamilyDependencies #-}
 {-# LANGUAGE OverloadedLists #-}
 {-# LANGUAGE DefaultSignatures #-}
@@ -18,8 +19,9 @@ import qualified Data.IntMap as IntMap
 import GHC.Exts (IsList(..))
 import Unsafe.Coerce (unsafeCoerce)
 import Data.Kind (Type)
-import Control.Monad ((>=>))
+import Control.Monad ((>=>), ap)
 import Data.Maybe (maybeToList, fromMaybe)
+import Control.Applicative (Alternative (..))
 
 
 -- Variable Identifiers -- machine-sized integers!
@@ -41,7 +43,26 @@ data State = State
   , maxVarId   :: !Int
   }
 
-type Goal = State -> [State]
+newtype Goal (a :: Type) = Goal { runGoal :: State -> [State] }
+
+instance Functor Goal where
+  fmap _ (Goal g) = Goal g
+
+instance Applicative Goal where
+  pure _ = Goal pure
+  Goal g1 <*> Goal g2 = Goal (g1 >=> g2)
+
+instance Monad Goal where
+  return = pure
+  (>>) = (*>)
+  Goal g1 >>= f = Goal (g1 >=> g2)
+    where
+      Goal g2 = f (error "Goal is not a Monad!")
+
+instance Alternative Goal where
+  empty = Goal (const [])
+  Goal g1 <|> Goal g2 =
+    Goal (g1 <> g2)
 
 data ValueOrVar a
   = Var (VarId a)
@@ -176,15 +197,15 @@ apply (Subst m) = subst' (\(VarId i) -> unsafeExtractSomeValue <$> IntMap.lookup
 unsafeExtractSomeValue :: SomeValue -> ValueOrVar a
 unsafeExtractSomeValue (SomeValue x) = unsafeCoerce x
 
-(===) :: Unifiable a => ValueOrVar a -> ValueOrVar a -> Goal
-a === b = maybeToList . unify' a b
+(===) :: Unifiable a => ValueOrVar a -> ValueOrVar a -> Goal ()
+a === b = Goal (maybeToList . unify' a b)
 
 -- >>> extract' <$> run (\ (xs :: ValueOrVar [Int]) -> [1, 2] === Value (LCons 1 xs))
 -- [Just [2]]
-run :: Unifiable a => (ValueOrVar a -> Goal) -> [ValueOrVar a]
+run :: Unifiable a => (ValueOrVar a -> Goal ()) -> [ValueOrVar a]
 run f =
   [ apply knownSubst queryVar
-  | State{..} <- f queryVar initialState
+  | State{..} <- runGoal (f queryVar) initialState
   ]
   where
     initialState = State
@@ -193,15 +214,15 @@ run f =
       }
     queryVar = Var (VarId 0)
 
-fresh :: (ValueOrVar a -> Goal) -> Goal
-fresh f State{..} = f (Var (VarId maxVarId)) newState
-  where
-    newState = State
-      { maxVarId = maxVarId + 1
-      , .. }
+fresh :: (ValueOrVar a -> Goal ()) -> Goal ()
+fresh f = Goal $ \State{..} ->
+  let newState = State
+        { maxVarId = maxVarId + 1
+        , .. }
+  in runGoal (f (Var (VarId maxVarId))) newState
 
 class Unifiable a => UnifiableTuple a where
-  freshTuple :: (Term a -> Goal) -> Goal
+  freshTuple :: (Term a -> Goal ()) -> Goal ()
 
 instance (Unifiable a, Unifiable b) => UnifiableTuple (a, b) where
   freshTuple f =
@@ -220,22 +241,24 @@ instance (Unifiable a) => UnifiableTuple [a] where
 instance Eq (Term a) => UnifiableTuple (ValueOrVar a) where
   freshTuple = fresh
 
-conj :: Goal -> Goal -> Goal
-conj = (>=>)
+conj :: Goal () -> Goal () -> Goal ()
+conj g1 g2 = do
+  g1
+  g2
 
-conjMany :: [Goal] -> Goal
-conjMany = foldr conj (\x -> [x])
+conjMany :: [Goal ()] -> Goal ()
+conjMany = foldr conj (pure ())
 
-disj :: Goal -> Goal -> Goal
-disj = (<>)
+disj :: Goal a -> Goal a -> Goal a
+disj = (<|>)
 
-disjMany :: [Goal] -> Goal
-disjMany = foldr disj (const [])
+disjMany :: [Goal a] -> Goal a
+disjMany = foldr disj empty
 
-conde :: [[Goal]] -> Goal
+conde :: [[Goal ()]] -> Goal ()
 conde = disjMany . map conjMany
 
-matche :: UnifiableTuple a => ValueOrVar a -> (Term a -> Goal) -> Goal
+matche :: UnifiableTuple a => ValueOrVar a -> (Term a -> Goal ()) -> Goal ()
 matche (Value v) k = k v
 matche x@Var{} k =
   freshTuple $ \v ->
@@ -243,7 +266,7 @@ matche x@Var{} k =
 
 -- >>> extract' <$> run (\ (xs :: ValueOrVar [Int]) -> fresh (\ ys -> appendo xs ys [1, 2, 3]))
 -- [Just [],Just [1],Just [1,2],Just [1,2,3]]
-appendo :: Unifiable a => ValueOrVar [a] -> ValueOrVar [a] -> ValueOrVar [a] -> Goal
+appendo :: Unifiable a => ValueOrVar [a] -> ValueOrVar [a] -> ValueOrVar [a] -> Goal ()
 appendo xs ys zs =
   -- matche (xs, zs) $ \case
   --   ([], _) -> ys === zs
@@ -254,6 +277,7 @@ appendo xs ys zs =
     LNil -> ys === zs
     LCons x xs' ->
       matche zs $ \case
-        LCons z zs' ->
-          conj (x === z) (appendo xs' ys zs')
-        _ -> const []
+        LCons z zs' -> do
+          x === z
+          appendo xs' ys zs'
+        _ -> empty
