@@ -1,3 +1,8 @@
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ApplicativeDo #-}
 {-# LANGUAGE TypeFamilyDependencies #-}
@@ -22,6 +27,88 @@ import Data.Kind (Type)
 import Control.Monad ((>=>), ap)
 import Data.Maybe (maybeToList, fromMaybe)
 import Control.Applicative (Alternative (..))
+import GHC.Generics
+import Data.Proxy (Proxy(..))
+
+genericSubst
+  :: forall a. (Generic (Term a), GUnifiable (Rep a) (Rep (Term a)))
+  => (forall x. VarId x -> Maybe (ValueOrVar x)) -> Term a -> Term a
+genericSubst k term = to (gsubst (Proxy @(Rep a)) k (from term))
+
+genericUnify
+  :: forall a. (Generic (Term a), GUnifiable (Rep a) (Rep (Term a)))
+  => Term a -> Term a -> State -> Maybe State
+genericUnify l r = gunify (Proxy @(Rep a)) (from l) (from r)
+
+genericInject
+  :: (Generic a, Generic (Term a), GUnifiable (Rep a) (Rep (Term a)))
+  => a -> Term a
+genericInject x = to (ginject (from x))
+
+genericExtract
+  :: (Generic a, Generic (Term a), GUnifiable (Rep a) (Rep (Term a)))
+  => Term a -> Maybe a
+genericExtract x = to <$> gextract (from x)
+
+class GUnifiable f f' where
+  gsubst :: Proxy f -> (forall x. VarId x -> Maybe (ValueOrVar x)) -> f' p -> f' p
+  gunify :: Proxy f -> f' p -> f' p -> State -> Maybe State
+  ginject :: f p -> f' p
+  gextract :: f' p -> Maybe (f p)
+
+instance GUnifiable V1 V1 where
+  gsubst _ _ = id
+  gunify _ _ _ = Just
+  ginject = id
+  gextract = Just
+
+instance GUnifiable U1 U1 where
+  gsubst _ _ = id
+  gunify _ _ _ = Just
+  ginject = id
+  gextract = Just
+
+data Triple a = Triple a a a
+
+-- Rec0 a :*: (Rec0 a :*: Rec0 a)
+-- Rec0 (ValueOrVar a) :*: (Rec0 (ValueOrVar a) :*: Rec0 (ValueOrVar a))
+
+instance (GUnifiable f f', GUnifiable g g') => GUnifiable (f :+: g) (f' :+: g') where
+  gsubst _ k (L1 x) = L1 (gsubst (Proxy @f) k x)
+  gsubst _ k (R1 y) = R1 (gsubst (Proxy @g) k y)
+
+  gunify _ (L1 x) (L1 y) = gunify (Proxy @f) x y
+  gunify _ (R1 x) (R1 y) = gunify (Proxy @g) x y
+  gunify _ _ _ = const Nothing
+
+  ginject (L1 x) = L1 (ginject x)
+  ginject (R1 y) = R1 (ginject y)
+
+  gextract (L1 x) = L1 <$> gextract x
+  gextract (R1 y) = R1 <$> gextract y
+
+instance (GUnifiable f f', GUnifiable g g') => GUnifiable (f :*: g) (f' :*: g') where
+  gsubst _ _ = id
+  gunify _ _ _ = Just
+  ginject (x :*: y) = ginject x :*: ginject y
+  gextract (x :*: y) = do
+    x' <- gextract x
+    y' <- gextract y
+    return (x' :*: y')
+
+-- data Id a = Id a
+
+instance Unifiable c => GUnifiable (K1 i c) (K1 i' (ValueOrVar c)) where
+  gsubst _ k (K1 c) = K1 (subst' k c)
+  gunify _ (K1 x) (K1 y) = unify' x y
+  ginject (K1 x) = K1 (inject' x)
+  gextract (K1 x) = K1 <$> extract' x
+
+instance GUnifiable f f' => GUnifiable (M1 i t f) (M1 i' t' f') where
+  gsubst _ k (M1 m) = M1 (gsubst (Proxy @f) k m)
+  gunify _ (M1 x) (M1 y) = gunify (Proxy @f) x y
+  ginject (M1 x) = M1 (ginject x)
+  gextract (M1 x) = M1 <$> gextract x
 
 
 -- Variable Identifiers -- machine-sized integers!
@@ -95,54 +182,44 @@ class Unifiable a where
 
 instance (Unifiable a, Unifiable b) => Unifiable (a, b) where
   type Term (a, b) = (ValueOrVar a, ValueOrVar b)
-
-  subst :: (forall x. VarId x -> Maybe (ValueOrVar x)) -> Term (a, b) -> Term (a, b)
-  subst k (x, y) = (subst' k x, subst' k y)
-
-  unify :: Term (a, b) -> Term (a, b) -> State -> Maybe State
-  unify (a1, b1) (a2, b2) =
-    unify' a1 a2 >=> unify' b1 b2
-
-  inject :: (a, b) -> Term (a, b)
-  inject (x, y) = (Value (inject x), Value (inject y))
-
-  extract :: Term (a, b) -> Maybe (a, b)
-  extract (Value x, Value y) = do
-    x' <- extract x
-    y' <- extract y
-    return (x', y')
-  extract _ = Nothing
+  subst = genericSubst
+  unify = genericUnify
+  inject = genericInject
+  extract = genericExtract
 
 data LogicList a
   = LNil
   | LCons (ValueOrVar a) (ValueOrVar [a])
+  deriving (Generic)
 
 deriving instance (Show (Term a)) => Show (LogicList a)
 
 instance Unifiable a => Unifiable [a] where
   type Term [a] = LogicList a
+  subst = genericSubst
+  unify = genericUnify
+  inject = genericInject
+  extract = genericExtract
 
-  subst :: (forall x. VarId x -> Maybe (ValueOrVar x)) -> Term [a] -> Term [a]
-  subst _ LNil = LNil
-  subst k (LCons x xs) = LCons (subst' k x) (subst' k xs)
+data Tree a
+  = Empty
+  | Leaf a
+  | Node [Tree a]
+  deriving (Generic, Show)
 
-  unify :: Term [a] -> Term [a] -> State -> Maybe State
-  unify LNil LNil = Just
-  unify (LCons x xs) (LCons y ys) =
-    unify' x y >=> unify' xs ys
-  unify _ _ = const Nothing
+data LogicTree a
+  = LEmpty
+  | LLeaf (ValueOrVar a)
+  | LNode (ValueOrVar [Tree a])
+  deriving (Generic)
+deriving instance (Show (Term a)) => Show (LogicTree a)
 
-  inject :: [a] -> Term [a]
-  inject [] = LNil
-  inject (x:xs) = LCons (Value (inject x)) (Value (inject xs))
-
-  extract :: Term [a] -> Maybe [a]
-  extract LNil = Just []
-  extract (LCons (Value x) (Value xs)) = do
-    x' <- extract x
-    xs' <- extract xs
-    return (x' : xs')
-  extract _ = Nothing
+instance Unifiable a => Unifiable (Tree a) where
+  type Term (Tree a) = LogicTree a
+  subst = genericSubst
+  unify = genericUnify
+  inject = genericInject
+  extract = genericExtract
 
 instance IsList (LogicList a) where
   type Item (LogicList a) = ValueOrVar a
@@ -238,6 +315,15 @@ instance (Unifiable a) => UnifiableTuple [a] where
           f (LCons x xs)
     ]
 
+instance Unifiable a => UnifiableTuple (Tree a) where
+  freshTuple f = disjMany
+    [ f LEmpty
+    , fresh $ \x -> f (LLeaf x)
+    , fresh $ \subtrees ->
+        f (LNode subtrees)
+    ]
+
+
 instance Eq (Term a) => UnifiableTuple (ValueOrVar a) where
   freshTuple = fresh
 
@@ -281,3 +367,20 @@ appendo xs ys zs =
           x === z
           appendo xs' ys zs'
         _ -> empty
+
+allo :: Unifiable a => (ValueOrVar a -> Goal ()) -> ValueOrVar [a] -> Goal ()
+allo p xs =
+  matche xs $ \case
+    LNil -> return ()
+    LCons y ys -> do
+      p y
+      allo p ys
+
+-- >>> take 5 (run (tree @Int))
+-- [Just Empty,Nothing,Just (Node []),Nothing,Nothing]
+tree :: Unifiable a => ValueOrVar (Tree a) -> Goal ()
+tree t =
+  matche t $ \case
+    LEmpty -> return ()
+    LLeaf _ -> return ()
+    LNode subtrees -> allo tree subtrees
