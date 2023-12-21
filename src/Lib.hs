@@ -5,6 +5,7 @@
 {-# HLINT ignore "Replace case with maybe" #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE LambdaCase #-}
 module Lib where
 
 import Data.IntMap (IntMap)
@@ -13,7 +14,7 @@ import GHC.Exts (Any, IsList(..))
 import Unsafe.Coerce (unsafeCoerce)
 import Data.Kind (Type)
 import Control.Monad ((>=>))
-import Data.Maybe (maybeToList)
+import Data.Maybe (maybeToList, fromMaybe)
 
 
 -- Variable Identifiers -- machine-sized integers!
@@ -25,7 +26,10 @@ import Data.Maybe (maybeToList)
 newtype VarId a = VarId Int
   deriving (Show, Eq)
 
-newtype Subst = Subst (IntMap Any)
+data SomeValue where
+  SomeValue :: Unifiable a => ValueOrVar a -> SomeValue
+
+newtype Subst = Subst (IntMap SomeValue)
 
 data State = State
   { knownSubst :: !Subst
@@ -43,6 +47,11 @@ deriving instance (Show (Term a)) => Show (ValueOrVar a)
 class Unifiable a where
   type Term (a :: Type) = r | r -> a
   type Term a = a
+
+  subst :: (forall x. VarId x -> Maybe (ValueOrVar x)) -> Term a -> Term a
+  default subst :: (a ~ Term a) => (forall x. VarId x -> Maybe (ValueOrVar x)) -> Term a -> Term a
+  subst _ = id
+
   unify :: Term a -> Term a -> State -> Maybe State
   default unify :: Eq (Term a) => Term a -> Term a -> State -> Maybe State
   unify x y state
@@ -59,6 +68,9 @@ class Unifiable a where
 
 instance (Unifiable a, Unifiable b) => Unifiable (a, b) where
   type Term (a, b) = (ValueOrVar a, ValueOrVar b)
+
+  subst :: (forall x. VarId x -> Maybe (ValueOrVar x)) -> Term (a, b) -> Term (a, b)
+  subst k (x, y) = (subst' k x, subst' k y)
 
   unify :: Term (a, b) -> Term (a, b) -> State -> Maybe State
   unify (a1, b1) (a2, b2) =
@@ -82,6 +94,10 @@ deriving instance (Show (Term a)) => Show (LogicList a)
 
 instance Unifiable a => Unifiable [a] where
   type Term [a] = LogicList a
+
+  subst :: (forall x. VarId x -> Maybe (ValueOrVar x)) -> Term [a] -> Term [a]
+  subst _ LNil = LNil
+  subst k (LCons x xs) = LCons (subst' k x) (subst' k xs)
 
   unify :: Term [a] -> Term [a] -> State -> Maybe State
   unify LNil LNil = Just
@@ -116,10 +132,19 @@ instance Num (Term a) => Num (ValueOrVar a) where
 instance Unifiable Int
 instance Unifiable Bool
 
-addSubst :: (VarId a, ValueOrVar a) -> State -> State
+addSubst :: Unifiable a => (VarId a, ValueOrVar a) -> State -> State
 addSubst (VarId i, value) State{knownSubst = Subst m, ..} = State
-  { knownSubst = Subst (IntMap.insert i (unsafeCoerce value) m)
+  { knownSubst = Subst $
+      IntMap.insert i (SomeValue value) $
+        updateSomeValue <$> m
   , .. }
+  where
+    updateSomeValue (SomeValue x) =
+      SomeValue (apply (Subst (IntMap.singleton i (SomeValue value))) x)
+
+subst' :: Unifiable a => (forall x. VarId x -> Maybe (ValueOrVar x)) -> ValueOrVar a -> ValueOrVar a
+subst' k (Value x) = Value (subst k x)
+subst' k x@(Var i) = fromMaybe x (k i)
 
 -- >>> unify' (Value (Pair (Var 0, )))
 unify' :: Unifiable a => ValueOrVar a -> ValueOrVar a -> State -> Maybe State
@@ -138,19 +163,18 @@ extract' :: Unifiable a => ValueOrVar a -> Maybe a
 extract' Var{} = Nothing
 extract' (Value x) = extract x
 
-apply :: Subst -> ValueOrVar a -> ValueOrVar a
-apply subst@(Subst m) x@(Var (VarId i)) =
-  case IntMap.lookup i m of
-    Just anyValue -> apply subst (unsafeCoerce anyValue)  -- FIXME: very ineffective!
-    Nothing -> x
-apply _subst value@Value{} = value
+apply :: Unifiable a => Subst -> ValueOrVar a -> ValueOrVar a
+apply (Subst m) = subst' (\(VarId i) -> unsafeExtractSomeValue <$> IntMap.lookup i m)
+
+unsafeExtractSomeValue :: SomeValue -> ValueOrVar a
+unsafeExtractSomeValue (SomeValue x) = unsafeCoerce x
 
 (===) :: Unifiable a => ValueOrVar a -> ValueOrVar a -> Goal
 a === b = maybeToList . unify' a b
 
 -- >>> extract' <$> run (\ (xs :: ValueOrVar [Int]) -> [1, 2] === Value (LCons 1 xs))
 -- [Just [2]]
-run :: (ValueOrVar a -> Goal) -> [ValueOrVar a]
+run :: Unifiable a => (ValueOrVar a -> Goal) -> [ValueOrVar a]
 run f =
   [ apply knownSubst queryVar
   | State{..} <- f queryVar initialState
@@ -183,6 +207,30 @@ disjMany = foldr disj (const [])
 
 conde :: [[Goal]] -> Goal
 conde = disjMany . map conjMany
+
+-- matche :: Unifiable a => ValueOrVar a -> [Term a -> Goal) -> Goal
+-- matche (Value v) k = k v
+-- matche (Var x) k =
+
+-- >>> extract' <$> run (\ (xs :: ValueOrVar [Int]) -> fresh (\ ys -> appendo xs ys [1, 2, 3]))
+-- [Just [],Just [1],Just [1,2],Just [1,2,3]]
+appendo :: Unifiable a => ValueOrVar [a] -> ValueOrVar [a] -> ValueOrVar [a] -> Goal
+appendo xs ys zs =
+  conde
+    [ [ [] === xs
+      , ys === zs ]
+    , [ fresh $ \ x ->
+          fresh $ \ xs' ->
+            conjMany
+            [ Value (LCons x xs') === xs
+            , fresh $ \ z ->
+                fresh $ \ zs' ->
+                  conjMany
+                  [ Value (LCons z zs') === zs
+                  , x === z
+                  , appendo xs' ys zs'
+                  ]
+            ]]]
 
 
 -- -- safer, but not really, and not efficient
