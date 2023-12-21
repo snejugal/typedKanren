@@ -43,6 +43,7 @@ data ValueOrVar a
   | Value (Term a)
 
 deriving instance (Show (Term a)) => Show (ValueOrVar a)
+deriving instance (Eq (Term a)) => Eq (ValueOrVar a)
 
 class Unifiable a where
   type Term (a :: Type) = r | r -> a
@@ -131,6 +132,7 @@ instance Num (Term a) => Num (ValueOrVar a) where
 
 instance Unifiable Int
 instance Unifiable Bool
+instance Eq (Term a) => Unifiable (ValueOrVar a)
 
 addSubst :: Unifiable a => (VarId a, ValueOrVar a) -> State -> State
 addSubst (VarId i, value) State{knownSubst = Subst m, ..} = State
@@ -193,6 +195,18 @@ fresh f State{..} = f (Var (VarId maxVarId)) newState
       { maxVarId = maxVarId + 1
       , .. }
 
+class Unifiable a => UnifiableTuple a where
+  freshTuple :: (Term a -> Goal) -> Goal
+
+instance (Unifiable a, Unifiable b) => UnifiableTuple (a, b) where
+  freshTuple f =
+    fresh $ \x ->
+      fresh $ \y ->
+        f (x, y)
+
+instance Eq (Term a) => UnifiableTuple (ValueOrVar a) where
+  freshTuple = fresh
+
 conj :: Goal -> Goal -> Goal
 conj = (>=>)
 
@@ -219,12 +233,10 @@ appendo xs ys zs =
   conde
     [ [ [] === xs
       , ys === zs ]
-    , [ fresh $ \ x ->
-          fresh $ \ xs' ->
+    , [ freshTuple $ \ (x, xs') ->
             conjMany
             [ Value (LCons x xs') === xs
-            , fresh $ \ z ->
-                fresh $ \ zs' ->
+            , freshTuple $ \ (z, zs') ->
                   conjMany
                   [ Value (LCons z zs') === zs
                   , x === z
