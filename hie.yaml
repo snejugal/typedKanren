@@ -1,3 +1,10 @@
 cradle:
   stack:
-    stackYaml: "./stack.yaml"
+    - path: "./src"
+      component: "static-minikanren:lib"
+
+    - path: "./app/Main.hs"
+      component: "static-minikanren:exe:static-minikanren-exe"
+
+    - path: "./test"
+      component: "static-minikanren:test:static-minikanren-test"
