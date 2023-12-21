@@ -24,7 +24,7 @@ import qualified Data.IntMap as IntMap
 import GHC.Exts (IsList(..))
 import Unsafe.Coerce (unsafeCoerce)
 import Data.Kind (Type)
-import Control.Monad ((>=>), ap)
+import Control.Monad ((>=>))
 import Data.Maybe (maybeToList, fromMaybe)
 import Control.Applicative (Alternative (..))
 import GHC.Generics
@@ -50,28 +50,31 @@ genericExtract
   => Term a -> Maybe a
 genericExtract x = to <$> gextract (from x)
 
+genericFresh
+  :: forall a. (Generic (Term a), GUnifiable (Rep a) (Rep (Term a)))
+  => (Term a -> Goal ()) -> Goal ()
+genericFresh k = gfresh (Proxy @(Rep a)) (k . to)
+
 class GUnifiable f f' where
   gsubst :: Proxy f -> (forall x. VarId x -> Maybe (ValueOrVar x)) -> f' p -> f' p
   gunify :: Proxy f -> f' p -> f' p -> State -> Maybe State
   ginject :: f p -> f' p
   gextract :: f' p -> Maybe (f p)
+  gfresh :: Proxy f -> (f' p -> Goal ()) -> Goal ()
 
 instance GUnifiable V1 V1 where
   gsubst _ _ = id
   gunify _ _ _ = Just
   ginject = id
   gextract = Just
+  gfresh _ _ = return ()
 
 instance GUnifiable U1 U1 where
   gsubst _ _ = id
   gunify _ _ _ = Just
   ginject = id
   gextract = Just
-
-data Triple a = Triple a a a
-
--- Rec0 a :*: (Rec0 a :*: Rec0 a)
--- Rec0 (ValueOrVar a) :*: (Rec0 (ValueOrVar a) :*: Rec0 (ValueOrVar a))
+  gfresh _ k = k U1
 
 instance (GUnifiable f f', GUnifiable g g') => GUnifiable (f :+: g) (f' :+: g') where
   gsubst _ k (L1 x) = L1 (gsubst (Proxy @f) k x)
@@ -87,6 +90,10 @@ instance (GUnifiable f f', GUnifiable g g') => GUnifiable (f :+: g) (f' :+: g') 
   gextract (L1 x) = L1 <$> gextract x
   gextract (R1 y) = R1 <$> gextract y
 
+  gfresh _ k = disj
+    (gfresh (Proxy @f) (k . L1))
+    (gfresh (Proxy @g) (k . R1))
+
 instance (GUnifiable f f', GUnifiable g g') => GUnifiable (f :*: g) (f' :*: g') where
   gsubst _ _ = id
   gunify _ _ _ = Just
@@ -95,6 +102,10 @@ instance (GUnifiable f f', GUnifiable g g') => GUnifiable (f :*: g) (f' :*: g') 
     x' <- gextract x
     y' <- gextract y
     return (x' :*: y')
+  gfresh _ k =
+    gfresh (Proxy @f) $ \x ->
+      gfresh (Proxy @g) $ \y ->
+        k (x :*: y)
 
 -- data Id a = Id a
 
@@ -103,13 +114,14 @@ instance Unifiable c => GUnifiable (K1 i c) (K1 i' (ValueOrVar c)) where
   gunify _ (K1 x) (K1 y) = unify' x y
   ginject (K1 x) = K1 (inject' x)
   gextract (K1 x) = K1 <$> extract' x
+  gfresh _ k = fresh' (k . K1)
 
 instance GUnifiable f f' => GUnifiable (M1 i t f) (M1 i' t' f') where
   gsubst _ k (M1 m) = M1 (gsubst (Proxy @f) k m)
   gunify _ (M1 x) (M1 y) = gunify (Proxy @f) x y
   ginject (M1 x) = M1 (ginject x)
   gextract (M1 x) = M1 <$> gextract x
-
+  gfresh _ k = gfresh (Proxy @f) (k . M1)
 
 -- Variable Identifiers -- machine-sized integers!
 -- Terms?
@@ -291,41 +303,24 @@ run f =
       }
     queryVar = Var (VarId 0)
 
-fresh :: (ValueOrVar a -> Goal ()) -> Goal ()
-fresh f = Goal $ \State{..} ->
+fresh' :: (ValueOrVar a -> Goal ()) -> Goal ()
+fresh' f = Goal $ \State{..} ->
   let newState = State
         { maxVarId = maxVarId + 1
         , .. }
   in runGoal (f (Var (VarId maxVarId))) newState
 
-class Unifiable a => UnifiableTuple a where
-  freshTuple :: (Term a -> Goal ()) -> Goal ()
+class Unifiable a => UnifiableFresh a where
+  fresh :: (Term a -> Goal ()) -> Goal ()
 
-instance (Unifiable a, Unifiable b) => UnifiableTuple (a, b) where
-  freshTuple f =
-    fresh $ \x ->
-      fresh $ \y ->
-        f (x, y)
+instance (Unifiable a, Unifiable b) => UnifiableFresh (a, b) where
+  fresh = genericFresh
 
-instance (Unifiable a) => UnifiableTuple [a] where
-  freshTuple f = disjMany
-    [ f LNil
-    , fresh $ \x ->
-        fresh $ \xs ->
-          f (LCons x xs)
-    ]
+instance (Unifiable a) => UnifiableFresh [a] where
+  fresh = genericFresh
 
-instance Unifiable a => UnifiableTuple (Tree a) where
-  freshTuple f = disjMany
-    [ f LEmpty
-    , fresh $ \x -> f (LLeaf x)
-    , fresh $ \subtrees ->
-        f (LNode subtrees)
-    ]
-
-
-instance Eq (Term a) => UnifiableTuple (ValueOrVar a) where
-  freshTuple = fresh
+instance Unifiable a => UnifiableFresh (Tree a) where
+  fresh = genericFresh
 
 conj :: Goal () -> Goal () -> Goal ()
 conj g1 g2 = do
@@ -344,14 +339,14 @@ disjMany = foldr disj empty
 conde :: [[Goal ()]] -> Goal ()
 conde = disjMany . map conjMany
 
-matche :: UnifiableTuple a => ValueOrVar a -> (Term a -> Goal ()) -> Goal ()
+matche :: UnifiableFresh a => ValueOrVar a -> (Term a -> Goal ()) -> Goal ()
 matche (Value v) k = k v
 matche x@Var{} k =
-  freshTuple $ \v ->
-    conj (x === Value v) (k v)
+  fresh $ \v -> do
+    x === Value v
+    k v
 
--- >>> extract' <$> run (\ (xs :: ValueOrVar [Int]) -> fresh (\ ys -> appendo xs ys [1, 2, 3]))
--- [Just [],Just [1],Just [1,2],Just [1,2,3]]
+-- >>> extract' <$> run (\ (xs :: ValueOrVar [Int]) -> fresh' (\ ys -> appendo xs ys [1, 2, 3]))
 appendo :: Unifiable a => ValueOrVar [a] -> ValueOrVar [a] -> ValueOrVar [a] -> Goal ()
 appendo xs ys zs =
   -- matche (xs, zs) $ \case
@@ -377,7 +372,7 @@ allo p xs =
       allo p ys
 
 -- >>> take 5 (run (tree @Int))
--- [Just Empty,Nothing,Just (Node []),Nothing,Nothing]
+-- [Value LEmpty,Value (LLeaf (Var (VarId 1))),Value (LNode (Value LNil)),Value (LNode (Value (LCons (Var (VarId 2)) (Var (VarId 3))))),Value (LNode (Value (LCons (Var (VarId 2)) (Var (VarId 3)))))]
 tree :: Unifiable a => ValueOrVar (Tree a) -> Goal ()
 tree t =
   matche t $ \case
