@@ -174,12 +174,14 @@ instance Monad Goal where
 instance Alternative Goal where
   empty = Goal (const [])
   Goal g1 <|> Goal g2 =
-    Goal (g1 <> g2)
+    Goal (\state -> g1 state `interleave` g2 state)
 
--- NOTE: simple interleaving does not work!
--- interleave :: [a] -> [a] -> [a]
--- interleave (x:xs) (y:ys) = x : y : (xs `interleave` ys)
--- interleave xs ys = xs <> ys
+-- TODO: This implementation at least terminates, but is not enough for fair
+-- disjunction in all cases. In particular, `run treeo` still looks as if
+-- by depth-first search.
+interleave :: [a] -> [a] -> [a]
+interleave [] ys = ys
+interleave (x:xs) ys = x : interleave ys xs
 
 data ValueOrVar a
   = Var (VarId a)
