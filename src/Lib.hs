@@ -25,10 +25,13 @@ import GHC.Exts (IsList(..))
 import Unsafe.Coerce (unsafeCoerce)
 import Data.Kind (Type)
 import Control.Monad ((>=>))
-import Data.Maybe (maybeToList, fromMaybe)
+import Data.Maybe (fromMaybe)
 import Control.Applicative (Alternative (..))
 import GHC.Generics
 import Data.Proxy (Proxy(..))
+import qualified Data.Foldable as Foldable
+
+import Stream
 
 -- TODO:
 -- 1. Split into modules
@@ -155,7 +158,7 @@ data State = State
   , maxVarId   :: !Int
   }
 
-newtype Goal (a :: Type) = Goal { runGoal :: State -> [State] }
+newtype Goal (a :: Type) = Goal { runGoal :: State -> Stream State }
 
 instance Functor Goal where
   fmap _ (Goal g) = Goal g
@@ -172,16 +175,9 @@ instance Monad Goal where
       Goal g2 = f (error "Goal is not a Monad!")
 
 instance Alternative Goal where
-  empty = Goal (const [])
+  empty = Goal (const Done)
   Goal g1 <|> Goal g2 =
     Goal (\state -> g1 state `interleave` g2 state)
-
--- TODO: This implementation at least terminates, but is not enough for fair
--- disjunction in all cases. In particular, `run treeo` still looks as if
--- by depth-first search.
-interleave :: [a] -> [a] -> [a]
-interleave [] ys = ys
-interleave (x:xs) ys = x : interleave ys xs
 
 data ValueOrVar a
   = Var (VarId a)
@@ -307,21 +303,19 @@ unsafeExtractSomeValue :: SomeValue -> ValueOrVar a
 unsafeExtractSomeValue (SomeValue x) = unsafeCoerce x
 
 (===) :: Unifiable a => ValueOrVar a -> ValueOrVar a -> Goal ()
-a === b = Goal (maybeToList . unify' a b)
+a === b = Goal (maybeToStream . unify' a b)
 
 -- >>> extract' <$> run @[Int] (\ xs -> [1, 2] === Value (LCons 1 xs))
 -- [Just [2]]
 run :: Unifiable a => (ValueOrVar a -> Goal ()) -> [ValueOrVar a]
-run f =
-  [ apply knownSubst queryVar
-  | State{..} <- runGoal (f queryVar) initialState
-  ]
+run f = Foldable.toList (fmap resolveQueryVar (runGoal (f queryVar) initialState))
   where
     initialState = State
       { knownSubst = Subst IntMap.empty
       , maxVarId = 1
       }
     queryVar = Var (VarId 0)
+    resolveQueryVar State{..} = apply knownSubst queryVar
 
 fresh' :: (ValueOrVar a -> Goal ()) -> Goal ()
 fresh' f = Goal $ \State{..} ->
