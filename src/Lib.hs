@@ -6,7 +6,6 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ApplicativeDo #-}
 {-# LANGUAGE TypeFamilyDependencies #-}
-{-# LANGUAGE OverloadedLists #-}
 {-# LANGUAGE DefaultSignatures #-}
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 {-# HLINT ignore "Replace case with maybe" #-}
@@ -17,6 +16,7 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+
 module Lib where
 
 import Data.IntMap (IntMap)
@@ -229,26 +229,6 @@ instance Unifiable a => Unifiable [a] where
   inject = genericInject
   extract = genericExtract
 
-data Tree a
-  = Empty
-  | Leaf a
-  | Node [Tree a]
-  deriving (Generic, Show)
-
-data LogicTree a
-  = LEmpty
-  | LLeaf (ValueOrVar a)
-  | LNode (ValueOrVar [Tree a])
-  deriving (Generic)
-deriving instance (Show (Term a)) => Show (LogicTree a)
-
-instance Unifiable a => Unifiable (Tree a) where
-  type Term (Tree a) = LogicTree a
-  subst = genericSubst
-  unify = genericUnify
-  inject = genericInject
-  extract = genericExtract
-
 instance IsList (LogicList a) where
   type Item (LogicList a) = ValueOrVar a
   fromList [] = LNil
@@ -333,9 +313,6 @@ instance (Unifiable a, Unifiable b) => UnifiableFresh (a, b) where
 instance (Unifiable a) => UnifiableFresh [a] where
   fresh = genericFresh
 
-instance Unifiable a => UnifiableFresh (Tree a) where
-  fresh = genericFresh
-
 conj :: Goal () -> Goal () -> Goal ()
 conj g1 g2 = do
   g1
@@ -380,16 +357,3 @@ allo p xs =
     LCons y ys -> do
       p y
       allo p ys
-
--- >>> mapM_ print $ take 5 (run @(Tree Int) tree)
--- Value LEmpty
--- Value (LLeaf (Var (VarId 1)))
--- Value (LNode (Value LNil))
--- Value (LNode (Value (LCons (Value LEmpty) (Value LNil))))
--- Value (LNode (Value (LCons (Value LEmpty) (Value (LCons (Value LEmpty) (Value LNil))))))
-tree :: Unifiable a => ValueOrVar (Tree a) -> Goal ()
-tree t =
-  matche t $ \case
-    LEmpty -> return ()
-    LLeaf _ -> return ()
-    LNode subtrees -> allo tree subtrees
