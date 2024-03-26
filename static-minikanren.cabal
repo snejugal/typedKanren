@@ -25,6 +25,7 @@ source-repository head
 
 library
   exposed-modules:
+      DeriveLogic
       Lib
       Stream
   other-modules:
@@ -37,6 +38,7 @@ library
   build-depends:
       base >=4.7 && <5
     , containers
+    , template-haskell
   default-language: Haskell2010
 
 executable static-minikanren-exe
@@ -52,6 +54,7 @@ executable static-minikanren-exe
       base >=4.7 && <5
     , containers
     , static-minikanren
+    , template-haskell
   default-language: Haskell2010
 
 test-suite static-minikanren-test
@@ -68,4 +71,5 @@ test-suite static-minikanren-test
       base >=4.7 && <5
     , containers
     , static-minikanren
+    , template-haskell
   default-language: Haskell2010

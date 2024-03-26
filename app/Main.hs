@@ -3,17 +3,18 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 module Main (main) where
 
 import Lib
+import DeriveLogic
+
 import GHC.Generics (Generic)
 
 data Tree = Empty | Node Tree Tree
   deriving (Show, Generic)
-
-data LogicTree = LEmpty | LNode (ValueOrVar Tree) (ValueOrVar Tree)
-  deriving (Show, Generic)
+deriveLogic ''Tree
 
 instance Unifiable Tree where
   type Term Tree = LogicTree
@@ -25,9 +26,9 @@ instance Unifiable Tree where
 
 treeo :: ValueOrVar Tree -> Goal ()
 treeo x = conde
-  [ [x === Value LEmpty]
+  [ [x === Value LogicEmpty]
   , [ fresh $ \(left, right) -> do
-        x === Value (LNode left right)
+        x === Value (LogicNode left right)
         treeo left
         treeo right
     ]

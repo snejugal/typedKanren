@@ -18,6 +18,7 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 module Lib where
 
@@ -26,7 +27,7 @@ import qualified Data.IntMap as IntMap
 import GHC.Exts (IsList(..))
 import Unsafe.Coerce (unsafeCoerce)
 import Data.Kind (Type)
-import Control.Monad ((>=>))
+import Control.Monad ((>=>), replicateM)
 import Data.Maybe (fromMaybe)
 import Control.Applicative (Alternative (..))
 import GHC.Generics
@@ -34,6 +35,7 @@ import Data.Proxy (Proxy(..))
 import qualified Data.Foldable as Foldable
 
 import Stream
+import DeriveLogic
 
 -- TODO:
 -- 1. Split into modules
