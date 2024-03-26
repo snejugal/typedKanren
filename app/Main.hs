@@ -16,14 +16,6 @@ data Tree = Empty | Node Tree Tree
   deriving (Show, Generic)
 deriveLogic ''Tree
 
-instance Unifiable Tree where
-  type Term Tree = LogicTree
-
-  subst = genericSubst
-  unify = genericUnify
-  inject = genericInject
-  extract = genericExtract
-
 treeo :: ValueOrVar Tree -> Goal ()
 treeo x = conde
   [ [x === Value LogicEmpty]
