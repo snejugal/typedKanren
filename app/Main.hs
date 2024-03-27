@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -ddump-splices #-}
+{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE DeriveGeneric #-}

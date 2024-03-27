@@ -35,7 +35,6 @@ import Data.Proxy (Proxy(..))
 import qualified Data.Foldable as Foldable
 
 import Stream
-import DeriveLogic
 
 -- TODO:
 -- 1. Split into modules
