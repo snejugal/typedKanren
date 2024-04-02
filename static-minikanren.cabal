@@ -25,9 +25,12 @@ source-repository head
 
 library
   exposed-modules:
+      Core
       DeriveLogic
-      Lib
+      GenericUnifiable
+      Goal
       Stream
+      UnifiableBase
   other-modules:
       Paths_static_minikanren
   autogen-modules:
@@ -44,6 +47,7 @@ library
 executable static-minikanren-exe
   main-is: Main.hs
   other-modules:
+      Example
       Paths_static_minikanren
   autogen-modules:
       Paths_static_minikanren

@@ -5,7 +5,8 @@ module DeriveLogic (deriveLogic) where
 import GHC.Generics (Generic)
 import Language.Haskell.TH
 
-import Lib
+import Core
+import GenericUnifiable
 
 deriveLogic :: Name -> Q [Dec]
 deriveLogic ty = do

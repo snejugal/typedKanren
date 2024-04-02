@@ -9,8 +9,10 @@
 
 module Main (main) where
 
-import Lib
+import Core
+import Goal
 import DeriveLogic
+import UnifiableBase ()
 
 import GHC.Generics (Generic)
 
