@@ -6,6 +6,12 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE GADTs #-}
+
+{-# OPTIONS_GHC -ddump-splices #-}
+{-# LANGUAGE ConstraintKinds #-}
 
 module Example where
 
@@ -17,6 +23,27 @@ import DeriveLogic
 import GenericUnifiable
 import Goal
 import UnifiableBase
+
+data TwoInts = Int :* Int
+  deriving (Show, Generic)
+deriveLogic ''TwoInts
+
+data Record = Record { foo :: Int, bar :: TwoInts }
+  deriving (Show, Generic)
+deriveLogic ''Record
+
+-- data Erase = forall a. Erase a
+-- deriveLogic ''Erase
+
+data Gadt where
+  Gadt :: Int -> Gadt
+  deriving (Generic)
+deriveLogic ''Gadt
+
+data RecordGadt where
+  RecordGadt :: { gadt :: Gadt } -> RecordGadt
+  deriving (Generic)
+deriveLogic ''RecordGadt
 
 -- >>> extract' <$> run @[Int] (\ xs -> fresh' (\ ys -> appendo xs ys [1, 2, 3]))
 -- [Just [],Just [1],Just [1,2],Just [1,2,3]]
