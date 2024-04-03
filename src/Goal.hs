@@ -1,5 +1,6 @@
-{-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE KindSignatures  #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE TupleSections   #-}
 
 module Goal (
   Goal,
@@ -15,30 +16,30 @@ module Goal (
   matche
 ) where
 
-import Control.Monad ((>=>))
-import Control.Applicative (Alternative (..))
-import qualified Data.Foldable as Foldable
-import Data.Kind (Type)
-import qualified Data.IntMap as IntMap
+import           Control.Applicative (Alternative (..))
+import           Control.Monad       (ap, (>=>))
+import qualified Data.Foldable       as Foldable
+import qualified Data.IntMap         as IntMap
+import           Data.Kind           (Type)
 
-import Stream
-import Core
+import           Core
+import           Stream
 
-newtype Goal (a :: Type) = Goal { runGoal :: State -> Stream State }
+newtype Goal (a :: Type) = Goal { runGoal :: State -> Stream (State, a) }
 
 instance Functor Goal where
-  fmap _ (Goal g) = Goal g
+  fmap f (Goal g) = Goal (fmap (fmap (fmap f)) g)
 
 instance Applicative Goal where
-  pure _ = Goal pure
-  Goal g1 <*> Goal g2 = Goal (g1 >=> g2)
+  pure x = Goal (\s -> Yield (s, x) Done)
+  (<*>) = ap
 
 instance Monad Goal where
   return = pure
   (>>) = (*>)
-  Goal g1 >>= f = Goal (g1 >=> g2)
-    where
-      Goal g2 = f (error "Goal is not a Monad!")
+  Goal g1 >>= f = Goal $ \s -> do
+    (s', x) <- g1 s
+    runGoal (f x) s'
 
 instance Alternative Goal where
   empty = Goal (const Done)
@@ -46,7 +47,7 @@ instance Alternative Goal where
     Goal (\state -> g1 state `interleave` g2 state)
 
 (===) :: Unifiable a => ValueOrVar a -> ValueOrVar a -> Goal ()
-a === b = Goal (maybeToStream . unify' a b)
+a === b = Goal (maybeToStream . fmap (,()) . unify' a b)
 
 conj :: Goal () -> Goal () -> Goal ()
 conj g1 g2 = do
@@ -68,7 +69,7 @@ conde = disjMany . map conjMany
 -- >>> extract' <$> run @[Int] (\ xs -> [1, 2] === Value (LCons 1 xs))
 -- [Just [2]]
 run :: Unifiable a => (ValueOrVar a -> Goal ()) -> [ValueOrVar a]
-run f = Foldable.toList (fmap resolveQueryVar (runGoal (f queryVar) initialState))
+run f = Foldable.toList (fmap (resolveQueryVar . fst) (runGoal (f queryVar) initialState))
   where
     initialState = State
       { knownSubst = Subst IntMap.empty
