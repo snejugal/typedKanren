@@ -1,9 +1,10 @@
 {-# LANGUAGE KindSignatures  #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TupleSections   #-}
+{-# LANGUAGE ImpredicativeTypes #-}
 
 module Goal (
-  Goal,
+  Goal(..),
   (===),
   conj,
   conjMany,
@@ -13,7 +14,10 @@ module Goal (
   run,
   UnifiableFresh(..),
   fresh',
-  matche
+  matche,
+  Matched(..),
+  CaseGoal(..),
+  mcase,
 ) where
 
 import           Control.Applicative (Alternative (..))
@@ -94,3 +98,9 @@ matche x@Var{} k =
   fresh $ \v -> do
     x === Value v
     k v
+
+newtype Matched a = Matched (State, ValueOrVar a)
+newtype CaseGoal a = CaseGoal { unwrapCaseGoal :: Goal a }
+
+mcase :: ValueOrVar a -> (Matched a -> CaseGoal x) -> Goal x
+mcase value f = Goal (\state -> runGoal (unwrapCaseGoal (f (Matched (state, value)))) state)

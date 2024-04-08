@@ -7,6 +7,7 @@
 {-# LANGUAGE TypeFamilyDependencies #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE NamedFieldPuns #-}
 
 module Core (
   VarId(..), -- TODO: constructor shouldn't be public
@@ -16,6 +17,7 @@ module Core (
   inject',
   extract',
   apply,
+  makeVariable,
 
   State(..),
   Subst(..),
@@ -92,6 +94,9 @@ data State = State
   { knownSubst :: !Subst
   , maxVarId   :: !Int
   }
+
+makeVariable :: State -> (State, ValueOrVar a)
+makeVariable State{maxVarId, ..} = (State{maxVarId = maxVarId + 1, ..}, Var (VarId maxVarId))
 
 class Unifiable a where
   type Term (a :: Type) = r | r -> a

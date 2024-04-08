@@ -48,6 +48,15 @@ executables:
     - -with-rtsopts=-N
     dependencies:
     - static-minikanren
+  match-exe:
+    main:                Main.hs
+    source-dirs:         app/Match
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - static-minikanren
 
 tests:
   static-minikanren-test:

@@ -14,8 +14,8 @@ import Goal
 import GenericUnifiable
 
 data LogicList a
-  = LNil
-  | LCons (ValueOrVar a) (ValueOrVar [a])
+  = LogicNil
+  | LogicCons (ValueOrVar a) (ValueOrVar [a])
   deriving (Generic)
 
 deriving instance (Show (Term a)) => Show (LogicList a)
@@ -29,8 +29,8 @@ instance Unifiable a => Unifiable [a] where
 
 instance IsList (LogicList a) where
   type Item (LogicList a) = ValueOrVar a
-  fromList [] = LNil
-  fromList (x:xs) = LCons x (Value (fromList xs))
+  fromList [] = LogicNil
+  fromList (x:xs) = LogicCons x (Value (fromList xs))
 
 instance Unifiable Int
 instance Unifiable Bool

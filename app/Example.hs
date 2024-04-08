@@ -53,10 +53,10 @@ deriveLogic ''Newtype
 appendo :: Unifiable a => ValueOrVar [a] -> ValueOrVar [a] -> ValueOrVar [a] -> Goal ()
 appendo xs ys zs =
   matche xs $ \case
-    LNil -> ys === zs
-    LCons x xs' ->
+    LogicNil -> ys === zs
+    LogicCons x xs' ->
       matche zs $ \case
-        LCons z zs' -> do
+        LogicCons z zs' -> do
           x === z
           appendo xs' ys zs'
         _ -> empty
@@ -64,8 +64,8 @@ appendo xs ys zs =
 allo :: Unifiable a => (ValueOrVar a -> Goal ()) -> ValueOrVar [a] -> Goal ()
 allo p xs =
   matche xs $ \case
-    LNil -> return ()
-    LCons y ys -> do
+    LogicNil -> return ()
+    LogicCons y ys -> do
       p y
       allo p ys
 
@@ -106,20 +106,20 @@ both p = \case
 
 matchLNil :: Unifiable a => ValueOrVar [a] -> Maybe (Goal (Term [a]))
 matchLNil = \case
-  Value t@LNil -> Just (return t)
+  Value t@LogicNil -> Just (return t)
   var@Var{} -> Just $ do
-    let t = LNil
+    let t = LogicNil
     var === Value t
     return t
   _ -> Nothing
 
 matchLCons :: Unifiable a => ValueOrVar [a] -> Maybe (Goal (Term [a]))
 matchLCons = \case
-  Value t@LCons{} -> Just (return t)
+  Value t@LogicCons{} -> Just (return t)
   var@Var{} -> Just $ do
     fresh' $ \x ->
       fresh' $ \xs -> do
-        let t = LCons x xs
+        let t = LogicCons x xs
         var === Value t
         return t
   _ -> Nothing
@@ -133,10 +133,10 @@ pattern LCons' g <- (matchLCons -> Just g)
 allo' :: Unifiable a => (ValueOrVar a -> Goal ()) -> ValueOrVar [a] -> Goal ()
 allo' p = \case
   LNil' g -> g >>= \case
-    LNil -> return ()
+    LogicNil -> return ()
     _ -> error "impossible"
   LCons' g -> g >>= \case
-    LCons y ys -> do
+    LogicCons y ys -> do
       p y
       allo' p ys
     _ -> error "impossible"
