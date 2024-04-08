@@ -24,10 +24,17 @@ logifyDec (DataD ctx name tyVars kind constructors _deriv) = do
     derives = [DerivClause Nothing [ConT ''Generic]]
   instances <- genInstance name tyVars name'
   return (typeDefinition : instances)
+logifyDec (NewtypeD ctx name tyVars kind constructor _deriv) = do
+  constructor' <- logifyConstructor constructor
+  let
+    typeDefinition = NewtypeD ctx name' tyVars kind constructor' derives
+    name' = logifyName name
+    derives = [DerivClause Nothing [ConT ''Generic]]
+  instances <- genInstance name tyVars name'
+  return (typeDefinition : instances)
 
 logifyDec FunD{} = fail "Cannot derive logic instances for a function!"
 logifyDec ValD{} = fail "Cannot derive logic instances for a value!"
-logifyDec NewtypeD{} = fail "Deriving logic instances for newtypes is not implemented yet!"
 logifyDec TySynD{} = fail "Cannot derive logic instances for type synonyms!"
 logifyDec ClassD{} = fail "Cannot derive logic instances for type classes!"
 logifyDec InstanceD{} = fail "Cannot derive logic instances for type class instances!"

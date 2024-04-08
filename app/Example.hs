@@ -45,6 +45,9 @@ data RecordGadt where
   deriving (Generic)
 deriveLogic ''RecordGadt
 
+newtype Newtype a = Newtype a deriving (Generic)
+deriveLogic ''Newtype
+
 -- >>> extract' <$> run @[Int] (\ xs -> fresh' (\ ys -> appendo xs ys [1, 2, 3]))
 -- [Just [],Just [1],Just [1,2],Just [1,2,3]]
 appendo :: Unifiable a => ValueOrVar [a] -> ValueOrVar [a] -> ValueOrVar [a] -> Goal ()
