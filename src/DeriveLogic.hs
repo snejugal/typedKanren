@@ -8,6 +8,7 @@ import Language.Haskell.TH hiding (cxt, bang)
 
 import Core
 import GenericUnifiable
+import Data.Foldable (foldl')
 
 deriveLogic :: Name -> Q [Dec]
 deriveLogic ty = do
@@ -104,10 +105,10 @@ logifyGadt (ConT name) = return (ConT (logifyName name))
 logifyGadt ty = fail ("Found something complicated in GADT constructor's return type: " ++ show ty)
 
 genInstance :: Name -> [TyVarBndr ()] -> Name -> Q [Dec]
-genInstance name _vars name' = do
-  let ctx = return (TupleT 0)
-      name_ = return (ConT name)
-      name'_ = return (ConT name')
+genInstance name vars name' = do
+  let ctx = return (genConstraints vars)
+      name_ = return (applyVars name vars)
+      name'_ = return (applyVars name' vars)
   [d| instance $ctx => Unifiable $name_ where
         type Term $name_ = $name'_
         subst = genericSubst
@@ -115,3 +116,16 @@ genInstance name _vars name' = do
         inject = genericInject
         extract = genericExtract
      |]
+
+genConstraints :: [TyVarBndr ()] -> Type
+genConstraints vars = foldl' AppT tuple constraints
+  where
+    tuple = TupleT (length vars)
+    constraints = map (AppT (ConT ''Unifiable) . VarT . extractVar) vars
+
+applyVars :: Name -> [TyVarBndr flag] -> Type
+applyVars name vars = foldl' AppT (ConT name) (map (VarT . extractVar) vars)
+
+extractVar :: TyVarBndr flag -> Name
+extractVar (PlainTV v _) = v
+extractVar (KindedTV v _ _) = v

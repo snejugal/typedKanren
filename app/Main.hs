@@ -16,15 +16,15 @@ import UnifiableBase ()
 
 import GHC.Generics (Generic)
 
-data Tree = Empty | Node Tree Tree
+data Tree a = Empty | Node a (Tree a) (Tree a)
   deriving (Show, Generic)
 deriveLogic ''Tree
 
-treeo :: ValueOrVar Tree -> Goal ()
+treeo :: ValueOrVar (Tree Int) -> Goal ()
 treeo x = conde
   [ [x === Value LogicEmpty]
   , [ fresh $ \(left, right) -> do
-        x === Value (LogicNode left right)
+        x === Value (LogicNode 0 left right)
         treeo left
         treeo right
     ]
