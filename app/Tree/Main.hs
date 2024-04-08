@@ -1,4 +1,3 @@
-{-# OPTIONS_GHC -ddump-splices #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -9,12 +8,12 @@
 
 module Main (main) where
 
+import GHC.Generics (Generic)
+
 import Core
 import Goal
 import DeriveLogic
 import UnifiableBase ()
-
-import GHC.Generics (Generic)
 
 data Tree a = Empty | Node a (Tree a) (Tree a)
   deriving (Show, Generic)
@@ -31,5 +30,4 @@ treeo x = conde
   ]
 
 main :: IO ()
-main = do
-  mapM_ print $ extract' <$> take 10 (run treeo)
+main = mapM_ print $ extract' <$> take 10 (run treeo)

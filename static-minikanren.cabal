@@ -44,15 +44,14 @@ library
     , template-haskell
   default-language: Haskell2010
 
-executable static-minikanren-exe
+executable tree-exe
   main-is: Main.hs
   other-modules:
-      Example
       Paths_static_minikanren
   autogen-modules:
       Paths_static_minikanren
   hs-source-dirs:
-      app
+      app/Tree
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       base >=4.7 && <5
