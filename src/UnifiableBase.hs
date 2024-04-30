@@ -34,9 +34,3 @@ instance IsList (LogicList a) where
 
 instance Unifiable Int
 instance Unifiable Bool
-
-instance (Unifiable a, Unifiable b) => UnifiableFresh (a, b) where
-  fresh = genericFresh
-
-instance (Unifiable a) => UnifiableFresh [a] where
-  fresh = genericFresh

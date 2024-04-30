@@ -13,7 +13,6 @@ module GenericUnifiable (
   genericUnify,
   genericInject,
   genericExtract,
-  genericFresh
 ) where
 
 import Control.Monad ((>=>))
@@ -28,21 +27,18 @@ class GUnifiable f f' where
   gunify :: Proxy f -> f' p -> f' p -> State -> Maybe State
   ginject :: f p -> f' p
   gextract :: f' p -> Maybe (f p)
-  gfresh :: Proxy f -> (f' p -> Goal ()) -> Goal ()
 
 instance GUnifiable V1 V1 where
   gsubst _ _ = id
   gunify _ _ _ = Just
   ginject = id
   gextract = Just
-  gfresh _ _ = return ()
 
 instance GUnifiable U1 U1 where
   gsubst _ _ = id
   gunify _ _ _ = Just
   ginject = id
   gextract = Just
-  gfresh _ k = k U1
 
 instance (GUnifiable f f', GUnifiable g g') => GUnifiable (f :+: g) (f' :+: g') where
   gsubst _ k (L1 x) = L1 (gsubst (Proxy @f) k x)
@@ -58,10 +54,6 @@ instance (GUnifiable f f', GUnifiable g g') => GUnifiable (f :+: g) (f' :+: g') 
   gextract (L1 x) = L1 <$> gextract x
   gextract (R1 y) = R1 <$> gextract y
 
-  gfresh _ k = disj
-    (gfresh (Proxy @f) (k . L1))
-    (gfresh (Proxy @g) (k . R1))
-
 instance (GUnifiable f f', GUnifiable g g') => GUnifiable (f :*: g) (f' :*: g') where
   gsubst _ k (x :*: y) = gsubst (Proxy @f) k x :*: gsubst (Proxy @g) k y
   gunify _ (x1 :*: y1) (x2 :*: y2) =
@@ -71,24 +63,18 @@ instance (GUnifiable f f', GUnifiable g g') => GUnifiable (f :*: g) (f' :*: g') 
     x' <- gextract x
     y' <- gextract y
     return (x' :*: y')
-  gfresh _ k =
-    gfresh (Proxy @f) $ \x ->
-      gfresh (Proxy @g) $ \y ->
-        k (x :*: y)
 
 instance Unifiable c => GUnifiable (K1 i c) (K1 i' (ValueOrVar c)) where
   gsubst _ k (K1 c) = K1 (subst' k c)
   gunify _ (K1 x) (K1 y) = unify' x y
   ginject (K1 x) = K1 (inject' x)
   gextract (K1 x) = K1 <$> extract' x
-  gfresh _ k = fresh' (k . K1)
 
 instance GUnifiable f f' => GUnifiable (M1 i t f) (M1 i' t' f') where
   gsubst _ k (M1 m) = M1 (gsubst (Proxy @f) k m)
   gunify _ (M1 x) (M1 y) = gunify (Proxy @f) x y
   ginject (M1 x) = M1 (ginject x)
   gextract (M1 x) = M1 <$> gextract x
-  gfresh _ k = gfresh (Proxy @f) (k . M1)
 
 instance (Unifiable a, Unifiable b) => Unifiable (a, b) where
   type Term (a, b) = (ValueOrVar a, ValueOrVar b)
@@ -116,8 +102,3 @@ genericExtract
   :: (Generic a, Generic (Term a), GUnifiable (Rep a) (Rep (Term a)))
   => Term a -> Maybe a
 genericExtract x = to <$> gextract (from x)
-
-genericFresh
-  :: forall a. (Generic (Term a), GUnifiable (Rep a) (Rep (Term a)))
-  => (Term a -> Goal ()) -> Goal ()
-genericFresh k = gfresh (Proxy @(Rep a)) (k . to)

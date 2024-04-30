@@ -12,12 +12,6 @@ module Goal (
   disjMany,
   conde,
   run,
-  UnifiableFresh(..),
-  fresh',
-  matche,
-  Matched(..),
-  CaseGoal(..),
-  mcase,
 ) where
 
 import           Control.Applicative (Alternative (..))
@@ -82,25 +76,6 @@ run f = Foldable.toList (fmap (resolveQueryVar . fst) (runGoal (f queryVar) init
     queryVar = Var (VarId 0)
     resolveQueryVar State{..} = apply knownSubst queryVar
 
-class Unifiable a => UnifiableFresh a where
-  fresh :: (Term a -> Goal ()) -> Goal ()
 
-fresh' :: (ValueOrVar a -> Goal b) -> Goal b
-fresh' f = Goal $ \State{..} ->
-  let newState = State
-        { maxVarId = maxVarId + 1
-        , .. }
-  in runGoal (f (Var (VarId maxVarId))) newState
 
-matche :: UnifiableFresh a => ValueOrVar a -> (Term a -> Goal ()) -> Goal ()
-matche (Value v) k = k v
-matche x@Var{} k =
-  fresh $ \v -> do
-    x === Value v
-    k v
 
-newtype Matched a = Matched (State, ValueOrVar a)
-newtype CaseGoal a = CaseGoal { unwrapCaseGoal :: Goal a }
-
-mcase :: ValueOrVar a -> (Matched a -> CaseGoal x) -> Goal x
-mcase value f = Goal (\state -> runGoal (unwrapCaseGoal (f (Matched (state, value)))) state)
