@@ -6,6 +6,7 @@
 
 module Goal (
   Goal(..),
+  failo,
   (===),
   conj,
   conjMany,
@@ -45,6 +46,9 @@ instance Alternative Goal where
   empty = Goal (const Done)
   Goal g1 <|> Goal g2 =
     Goal (\state -> g1 state `interleave` g2 state)
+
+failo :: Goal x
+failo = Goal (const Done)
 
 (===) :: Unifiable a => ValueOrVar a -> ValueOrVar a -> Goal ()
 a === b = Goal (maybeToStream . fmap (,()) . unify' a b)
