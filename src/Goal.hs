@@ -2,6 +2,7 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TupleSections   #-}
 {-# LANGUAGE ImpredicativeTypes #-}
+{-# LANGUAGE FlexibleInstances #-}
 
 module Goal (
   Goal(..),
@@ -12,6 +13,7 @@ module Goal (
   disjMany,
   conde,
   run,
+  Fresh(..),
 ) where
 
 import           Control.Applicative (Alternative (..))
@@ -76,6 +78,19 @@ run f = Foldable.toList (fmap (resolveQueryVar . fst) (runGoal (f queryVar) init
     queryVar = Var (VarId 0)
     resolveQueryVar State{..} = apply knownSubst queryVar
 
+class Fresh a where
+  fresh :: (a -> Goal x) -> Goal x
 
+instance Fresh () where
+  fresh f = f ()
 
+instance Fresh (ValueOrVar a) where
+  fresh f = Goal $ \state ->
+    let (state', variable) = makeVariable state
+    in runGoal (f variable) state'
 
+instance Fresh (ValueOrVar a, ValueOrVar b) where
+  fresh f =
+    fresh $ \a ->
+      fresh $ \b ->
+        f (a, b)
