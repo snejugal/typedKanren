@@ -98,3 +98,9 @@ instance Fresh (ValueOrVar a, ValueOrVar b) where
     fresh $ \a ->
       fresh $ \b ->
         f (a, b)
+
+instance Fresh (ValueOrVar a, ValueOrVar b, ValueOrVar c) where
+  fresh f =
+    fresh $ \(a, b) ->
+      fresh $ \c ->
+        f (a, b, c)
