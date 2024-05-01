@@ -4,6 +4,7 @@
 module Main where
 
 import Data.Function ((&))
+import Data.Maybe (fromJust)
 
 import Core
 import Goal
@@ -15,10 +16,18 @@ listo = matche
   & on _LogicNil return
   & on _LogicCons (\(_, xs) -> listo xs)
 
+appendo :: Unifiable a => ValueOrVar [a] -> ValueOrVar [a] -> ValueOrVar [a] -> Goal ()
+appendo xs ys zs = xs & (matche
+  & on _LogicNil (\() -> ys === zs)
+  & on _LogicCons (\(x, xs') ->
+      fresh $ \zs' -> do
+        zs === Value (LogicCons x zs')
+        appendo xs' ys zs'))
+
 showLogicList :: Show (Term a) => ValueOrVar [a] -> String
-showLogicList xs = prefix ++ go xs ++ suffix
+showLogicList list = prefix ++ go list ++ suffix
   where
-    (prefix, suffix) = case xs of
+    (prefix, suffix) = case list of
       Value _ -> ("[", "]")
       _ -> ("", "")
 
@@ -30,5 +39,19 @@ showLogicList xs = prefix ++ go xs ++ suffix
           Value LogicNil -> ""
           _ -> ", "
 
+lists :: [ValueOrVar [Int]]
+lists = run listo
+
+partitions :: [Int] -> [([Int], [Int])]
+partitions xs = fmap (fromJust . extract') $ run $
+  \result -> fresh $ \(left, right) -> do
+    result === Value (left, right)
+    appendo left right (inject' xs)
+
 main :: IO ()
-main = mapM_ print (take 5 (showLogicList <$> run (listo @Int)))
+main = do
+  putStrLn "lists:"
+  mapM_ print (take 5 (showLogicList <$> lists))
+
+  putStrLn "\npartitions [1, 2, 3]:"
+  mapM_ print (partitions [1, 2, 3])
