@@ -12,10 +12,10 @@ import Control.Lens ( Prism', review )
 
 on :: (Unifiable s, Fresh a)
    => Prism' (Term s) a
-   -> (a -> Goal ())
-   -> (ValueOrVar s -> Goal ())
+   -> (a -> Goal x)
+   -> (ValueOrVar s -> Goal x)
    -> ValueOrVar s
-   -> Goal ()
+   -> Goal x
 on p f g x = disj (g x) thisArm
   where
     thisArm = case x of
@@ -26,5 +26,5 @@ on p f g x = disj (g x) thisArm
         Left a -> f a
         Right _ -> failo
 
-matche :: ValueOrVar a -> Goal ()
+matche :: ValueOrVar a -> Goal x
 matche = const failo
