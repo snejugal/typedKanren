@@ -4,6 +4,8 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE ConstraintKinds #-}
 
 module UnifiableBase where
 
@@ -12,9 +14,14 @@ import GHC.Generics
 
 import Core
 import Goal
+import DeriveLogic
 import GenericUnifiable
 import Control.Lens (Prism, Prism', prism)
 import Data.Void (Void)
+import Control.Lens.TH (makePrisms)
+
+deriveLogic ''Either
+makePrisms ''LogicEither
 
 data LogicList a
   = LogicNil
