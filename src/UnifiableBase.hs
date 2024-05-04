@@ -14,6 +14,7 @@ import Core
 import Goal
 import GenericUnifiable
 import Control.Lens (Prism, Prism', prism)
+import Data.Void (Void)
 
 data LogicList a
   = LogicNil
@@ -46,3 +47,4 @@ instance IsList (LogicList a) where
 
 instance Unifiable Int
 instance Unifiable Bool
+instance Unifiable Void
