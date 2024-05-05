@@ -1,12 +1,16 @@
-{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# OPTIONS_GHC -Wno-redundant-constraints #-}
 {-# LANGUAGE TupleSections #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TypeFamilyDependencies #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
-module Match (on, matche, on', matche', Exhausted, Biprism, biprism) where
+module Match (on, matche, on', matche', Exhausted, Matchable(..), enter', Biprism, biprism) where
 
 import Core
 import Goal
@@ -48,9 +52,6 @@ biprism setl setr get = dimap get' set' . right'
 reviewl :: Biprism s t a b -> a -> s
 reviewl p = getConst . unTagged . p . Tagged . Const
 
--- reviewr :: Biprism s t a b -> b -> t
--- reviewr p = unTagged . unTagged . p . Tagged . Tagged
-
 newtype Either' a b c = Either' (Either a (b, c))
 
 instance Functor (Either' a b) where
@@ -75,25 +76,47 @@ matching p x = case p (Either' . Left) x of
 class Exhausted a
 
 instance Exhausted Void
-instance (Exhausted a, Exhausted b) => Exhausted (Either a b)
+instance (Exhausted a, Exhausted b) => Exhausted (a, b)
 
-on' :: (Unifiable s, Fresh a)
-    => Biprism (Term s) (Term t) a (ValueOrVar Void) -- fixme: exactly one variable basically
-    -> (a -> Goal x)
-    -> (ValueOrVar t -> Goal x)
-    -> ValueOrVar s
+on' :: (Matchable a m, Fresh v)
+    => Biprism (Matched a m) (Matched a m') ((), v) (Void, v)
+    -> (v -> Goal x)
+    -> (MatchedValueOrVar a m' -> Goal x)
+    -> MatchedValueOrVar a m
     -> Goal x
-on' p f g x =
-  case x of
-    Var (VarId varId) -> disj otherArms thisArm
+on' p f g x = case x of
+    Var' varId -> disj otherArms thisArm
       where
-        otherArms = g (Var (VarId varId))
+        otherArms = g (Var' varId)
         thisArm = fresh $ \vars -> do
-          x === Value (reviewl p vars)
+          let value = back (reviewl p ((), vars))
+          Var varId === Value value
           f vars
-    Value value -> case matching p value of
-      Right a -> f a
-      Left other -> g (Value other)
+    Value' value -> case matching p value of
+      Right (_, a) -> f a
+      Left other -> g (Value' other)
 
-matche' :: Exhausted a => ValueOrVar a -> Goal x
+matche' :: Exhausted m => MatchedValueOrVar a m -> Goal x
 matche' = const failo
+
+data MatchedValueOrVar a m
+  = Var' (VarId a)
+  | Value' (Matched a m)
+
+class Unifiable a => Matchable a m where
+  type Matched a m = r | r -> a m
+  type Initial a
+
+  enter :: Term a -> Matched a (Initial a)
+  back :: Matched a m -> Term a
+
+enter'
+  :: forall a x. Matchable a (Initial a)
+  => (MatchedValueOrVar a (Initial a) -> x)
+  -> ValueOrVar a
+  -> x
+enter' f x = f x'
+  where
+    x' = case x of
+      Var varId -> Var' varId
+      Value value -> Value' (enter @a @(Initial a) value)

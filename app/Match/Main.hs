@@ -1,6 +1,8 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TypeFamilies #-}
 
 module Main where
 
@@ -53,23 +55,71 @@ partitions xs = fmap (fromJust . extract') $ run $
 
 -- Exhaustive pattern-matching
 
-_LogicLeft' :: Biprism (LogicEither a c) (LogicEither b c) (ValueOrVar a) (ValueOrVar b)
-_LogicLeft' = biprism LogicLeft LogicLeft $ \case
-  LogicLeft a -> Right a
-  LogicRight b -> Left (LogicRight b)
+data LogicEither' l r a b
+  = LogicLeft' l (ValueOrVar a)
+  | LogicRight' r (ValueOrVar b)
 
-_LogicRight' :: Biprism (LogicEither c a) (LogicEither c b) (ValueOrVar a) (ValueOrVar b)
-_LogicRight' = biprism LogicRight LogicRight $ \case
-  LogicRight a -> Right a
-  LogicLeft b -> Left (LogicLeft b)
+_LogicLeft' :: Biprism (LogicEither' l r a b) (LogicEither' l' r a' b) (l, ValueOrVar a) (l', ValueOrVar a')
+_LogicLeft' = biprism (uncurry LogicLeft') (uncurry LogicLeft') $ \case
+  LogicLeft' l a -> Right (l, a)
+  LogicRight' r b -> Left (LogicRight' r b)
+
+_LogicRight' :: Biprism (LogicEither' l r a b) (LogicEither' l r' a b') (r, ValueOrVar b) (r', ValueOrVar b')
+_LogicRight' = biprism (uncurry LogicRight') (uncurry LogicRight') $ \case
+  LogicRight' r b -> Right (r, b)
+  LogicLeft' l a -> Left (LogicLeft' l a)
+
+instance (Unifiable a, Unifiable b) => Matchable (Either a b) (l, r) where
+  type Matched (Either a b) (l, r) = LogicEither' l r a b
+  type Initial (Either a b) = ((), ())
+
+  enter (LogicLeft a) = LogicLeft' () a
+  enter (LogicRight b) = LogicRight' () b
+
+  back (LogicLeft' _ a) = LogicLeft a
+  back (LogicRight' _ b) = LogicRight b
 
 eithero :: ValueOrVar (Either Bool Int) -> Goal ()
 eithero = matche'
   & on' _LogicLeft' (\x -> x === Value True)
   & on' _LogicRight' (\x -> x === Value 42)
+  & enter'
+
+data LogicList' n c a
+  = LogicNil' n
+  | LogicCons' c (ValueOrVar a) (ValueOrVar [a])
+
+_LogicNil' :: Biprism (LogicList' n c a) (LogicList' n' c a) (n, ()) (n', ())
+_LogicNil' = biprism (\(n, ()) -> LogicNil' n) (\(n, ()) -> LogicNil' n) $ \case
+  LogicNil' n -> Right (n, ())
+  LogicCons' c a as -> Left (LogicCons' c a as)
+
+_LogicCons' :: Biprism (LogicList' n c a) (LogicList' n c' a') (c, (ValueOrVar a, ValueOrVar [a])) (c', (ValueOrVar a', ValueOrVar [a']))
+_LogicCons' = biprism (\(c, (a, as)) -> LogicCons' c a as) (\(c, (a, as)) -> LogicCons' c a as) $ \case
+  LogicCons' c a s -> Right (c, (a, s))
+  LogicNil' n -> Left (LogicNil' n)
+
+instance Unifiable a => Matchable [a] (n, c) where
+  type Matched [a] (n, c) = LogicList' n c a
+  type Initial [a] = ((), ())
+
+  enter LogicNil = LogicNil' ()
+  enter (LogicCons a as) = LogicCons' () a as
+
+  back (LogicNil' _) = LogicNil
+  back (LogicCons' _ a as) = LogicCons a as
+
+listo' :: Unifiable a => ValueOrVar [a] -> Goal ()
+listo' = matche'
+  & on' _LogicNil' return
+  & on' _LogicCons' (\(_, as) -> listo' as)
+  & enter'
 
 eithers :: [ValueOrVar (Either Bool Int)]
 eithers = run eithero
+
+lists' :: [ValueOrVar [Int]]
+lists' = run listo'
 
 main :: IO ()
 main = do
@@ -81,3 +131,6 @@ main = do
 
   putStrLn "\neithers:"
   mapM_ print (extract' <$> eithers)
+
+  putStrLn "\nlists':"
+  mapM_ print (take 5 (showLogicList <$> lists'))
