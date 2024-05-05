@@ -25,6 +25,8 @@ dependencies:
 - template-haskell
 - lens
 - lens-family-core
+- bifunctors
+- tagged
 
 ghc-options:
 - -Wall

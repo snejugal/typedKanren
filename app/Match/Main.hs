@@ -53,21 +53,15 @@ partitions xs = fmap (fromJust . extract') $ run $
 
 -- Exhaustive pattern-matching
 
-_LogicLeft' :: Iso (LogicEither a b) (LogicEither x y) (Either (LogicEither Void b) (ValueOrVar a)) (ValueOrVar x)
-_LogicLeft' = iso to back
-  where
-    to = \case
-      LogicLeft a -> Right a
-      LogicRight b -> Left (LogicRight b)
-    back = LogicLeft
+_LogicLeft' :: Biprism (LogicEither a c) (LogicEither b c) (ValueOrVar a) (ValueOrVar b)
+_LogicLeft' = biprism LogicLeft LogicLeft $ \case
+  LogicLeft a -> Right a
+  LogicRight b -> Left (LogicRight b)
 
-_LogicRight' :: Iso (LogicEither a b) (LogicEither x y) (Either (LogicEither a Void) (ValueOrVar b)) (ValueOrVar y)
-_LogicRight' = iso to back
-  where
-    to = \case
-      LogicRight a -> Right a
-      LogicLeft b -> Left (LogicLeft b)
-    back = LogicRight
+_LogicRight' :: Biprism (LogicEither c a) (LogicEither c b) (ValueOrVar a) (ValueOrVar b)
+_LogicRight' = biprism LogicRight LogicRight $ \case
+  LogicRight a -> Right a
+  LogicLeft b -> Left (LogicLeft b)
 
 eithero :: ValueOrVar (Either Bool Int) -> Goal ()
 eithero = matche'
