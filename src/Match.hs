@@ -2,7 +2,6 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE ConstraintKinds #-}
-{-# OPTIONS_GHC -Wno-redundant-constraints #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeFamilyDependencies #-}
@@ -10,12 +9,12 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
-module Match (on, matche, on', matche', Exhausted, Matchable(..), enter', Biprism, biprism) where
+module Match (on, matche, on', matche', Exhausted(..), Matchable(..), enter', Biprism, biprism) where
 
 import Core
 import Goal
 import Control.Lens ( Prism', review, Choice (right'), Profunctor (dimap) )
-import Data.Void (Void)
+import Data.Void (Void, absurd)
 import Data.Biapplicative (Biapplicative (bipure, (<<*>>)), Bifunctor (first, bimap))
 import Data.Tagged (Tagged(Tagged, unTagged))
 import Data.Functor.Const (Const(Const, getConst))
@@ -73,10 +72,11 @@ matching p x = case p (Either' . Left) x of
   Either' (Left a) -> Right a
   Either' (Right (_, t)) -> Left t
 
-class Exhausted a
+class Exhausted a where
+  exhausted :: a -> x
 
-instance Exhausted Void
-instance (Exhausted a, Exhausted b) => Exhausted (a, b)
+instance Exhausted Void where
+  exhausted = absurd
 
 on' :: (Matchable a m, Fresh v)
     => Biprism (Matched a m) (Matched a m') ((), v) (Void, v)
@@ -96,8 +96,9 @@ on' p f g x = case x of
       Right (_, a) -> f a
       Left other -> g (Value' other)
 
-matche' :: Exhausted m => MatchedValueOrVar a m -> Goal x
-matche' = const failo
+matche' :: Exhausted (Matched a m) => MatchedValueOrVar a m -> Goal x
+matche' (Value' value) = exhausted value
+matche' (Var' _) = failo
 
 data MatchedValueOrVar a m
   = Var' (VarId a)

@@ -79,6 +79,10 @@ instance (Unifiable a, Unifiable b) => Matchable (Either a b) (l, r) where
   back (LogicLeft' _ a) = LogicLeft a
   back (LogicRight' _ b) = LogicRight b
 
+instance (Exhausted l, Exhausted r) => Exhausted (LogicEither' l r a b) where
+  exhausted (LogicLeft' l _) = exhausted l
+  exhausted (LogicRight' r _) = exhausted r
+
 eithero :: ValueOrVar (Either Bool Int) -> Goal ()
 eithero = matche'
   & on' _LogicLeft' (\x -> x === Value True)
@@ -108,6 +112,10 @@ instance Unifiable a => Matchable [a] (n, c) where
 
   back (LogicNil' _) = LogicNil
   back (LogicCons' _ a as) = LogicCons a as
+
+instance (Exhausted n, Exhausted c) => Exhausted (LogicList' n c a) where
+  exhausted (LogicNil' n) = exhausted n
+  exhausted (LogicCons' c _ _) = exhausted c
 
 listo' :: Unifiable a => ValueOrVar [a] -> Goal ()
 listo' = matche'
