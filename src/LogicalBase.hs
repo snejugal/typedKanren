@@ -8,7 +8,7 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
-module UnifiableBase where
+module LogicalBase where
 
 import GHC.Exts (IsList (..))
 import GHC.Generics
@@ -18,7 +18,7 @@ import Control.Lens.TH (makePrisms)
 import Core
 import Data.Void (Void)
 import DeriveLogic
-import GenericUnifiable
+import GenericLogical
 
 deriveLogic ''Either
 makePrisms ''LogicEither
@@ -40,7 +40,7 @@ _LogicCons = prism (uncurry LogicCons) $ \case
 
 deriving instance (Show (Term a)) => Show (LogicList a)
 
-instance (Unifiable a) => Unifiable [a] where
+instance (Logical a) => Logical [a] where
   type Term [a] = LogicList a
   subst = genericSubst
   unify = genericUnify
@@ -52,13 +52,13 @@ instance IsList (LogicList a) where
   fromList [] = LogicNil
   fromList (x : xs) = LogicCons x (Value (fromList xs))
 
-instance (Unifiable a, Unifiable b) => Unifiable (a, b) where
+instance (Logical a, Logical b) => Logical (a, b) where
   type Term (a, b) = (ValueOrVar a, ValueOrVar b)
   subst = genericSubst
   unify = genericUnify
   inject = genericInject
   extract = genericExtract
 
-instance Unifiable Int
-instance Unifiable Bool
-instance Unifiable Void
+instance Logical Int
+instance Logical Bool
+instance Logical Void

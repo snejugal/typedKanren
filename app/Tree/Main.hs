@@ -16,7 +16,7 @@ import Core
 import DeriveLogic
 import Goal
 import Match
-import UnifiableBase ()
+import LogicalBase ()
 
 data Tree a = Empty | Node a (Tree a) (Tree a)
   deriving (Show, Generic)
@@ -35,7 +35,7 @@ treeo =
           treeo right
       )
 
-inverto :: (Unifiable a) => ValueOrVar (Tree a) -> ValueOrVar (Tree a) -> Goal ()
+inverto :: (Logical a) => ValueOrVar (Tree a) -> ValueOrVar (Tree a) -> Goal ()
 inverto tree inverted =
   tree
     & ( matche

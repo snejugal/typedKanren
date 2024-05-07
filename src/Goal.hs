@@ -50,7 +50,7 @@ instance Alternative Goal where
 failo :: Goal x
 failo = Goal (const Done)
 
-(===) :: (Unifiable a) => ValueOrVar a -> ValueOrVar a -> Goal ()
+(===) :: (Logical a) => ValueOrVar a -> ValueOrVar a -> Goal ()
 a === b = Goal (maybeToStream . fmap (,()) . unify' a b)
 
 conj :: Goal () -> Goal () -> Goal ()
@@ -72,7 +72,7 @@ conde = disjMany . map conjMany
 
 -- >>> extract' <$> run @[Int] (\ xs -> [1, 2] === Value (LCons 1 xs))
 -- [Just [2]]
-run :: (Unifiable a) => (ValueOrVar a -> Goal ()) -> [ValueOrVar a]
+run :: (Logical a) => (ValueOrVar a -> Goal ()) -> [ValueOrVar a]
 run f = Foldable.toList (fmap (resolveQueryVar . fst) (runGoal (f queryVar) initialState))
  where
   initialState =

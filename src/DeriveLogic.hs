@@ -8,7 +8,7 @@ import Language.Haskell.TH hiding (bang, cxt)
 
 import Core
 import Data.Foldable (foldl')
-import GenericUnifiable
+import GenericLogical
 
 deriveLogic :: Name -> Q [Dec]
 deriveLogic ty = do
@@ -116,7 +116,7 @@ genInstance name vars name' = do
       name_ = return (applyVars name vars)
       name'_ = return (applyVars name' vars)
   [d|
-    instance ($ctx) => Unifiable $name_ where
+    instance ($ctx) => Logical $name_ where
       type Term $name_ = $name'_
       subst = genericSubst
       unify = genericUnify
@@ -128,7 +128,7 @@ genConstraints :: [TyVarBndr ()] -> Type
 genConstraints vars = foldl' AppT tuple constraints
  where
   tuple = TupleT (length vars)
-  constraints = map (AppT (ConT ''Unifiable) . VarT . extractVar) vars
+  constraints = map (AppT (ConT ''Logical) . VarT . extractVar) vars
 
 applyVars :: Name -> [TyVarBndr flag] -> Type
 applyVars name vars = foldl' AppT (ConT name) (map (VarT . extractVar) vars)

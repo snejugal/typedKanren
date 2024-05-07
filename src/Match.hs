@@ -20,7 +20,7 @@ import Data.Void (Void, absurd)
 import Goal
 
 on
-  :: (Unifiable s, Fresh a)
+  :: (Logical s, Fresh a)
   => Prism' (Term s) a
   -> (a -> Goal x)
   -> (ValueOrVar s -> Goal x)
@@ -109,7 +109,7 @@ data MatchedValueOrVar a m
   = Var' (VarId a)
   | Value' (Matched a m)
 
-class (Unifiable a) => Matchable a m where
+class (Logical a) => Matchable a m where
   type Matched a m = r | r -> a m
   type Initial a
 

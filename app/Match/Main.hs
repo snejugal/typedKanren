@@ -14,15 +14,15 @@ import Data.Void (Void)
 import Core
 import Goal
 import Match
-import UnifiableBase
+import LogicalBase
 
-listo :: (Unifiable a) => ValueOrVar [a] -> Goal ()
+listo :: (Logical a) => ValueOrVar [a] -> Goal ()
 listo =
   matche
     & on _LogicNil return
     & on _LogicCons (\(_, xs) -> listo xs)
 
-appendo :: (Unifiable a) => ValueOrVar [a] -> ValueOrVar [a] -> ValueOrVar [a] -> Goal ()
+appendo :: (Logical a) => ValueOrVar [a] -> ValueOrVar [a] -> ValueOrVar [a] -> Goal ()
 appendo xs ys zs =
   xs
     & ( matche
@@ -77,7 +77,7 @@ _LogicRight' = biprism (uncurry LogicRight') (uncurry LogicRight') $ \case
   LogicRight' r b -> Right (r, b)
   LogicLeft' l a -> Left (LogicLeft' l a)
 
-instance (Unifiable a, Unifiable b) => Matchable (Either a b) (l, r) where
+instance (Logical a, Logical b) => Matchable (Either a b) (l, r) where
   type Matched (Either a b) (l, r) = LogicEither' l r a b
   type Initial (Either a b) = ((), ())
 
@@ -112,7 +112,7 @@ _LogicCons' = biprism (\(c, (a, as)) -> LogicCons' c a as) (\(c, (a, as)) -> Log
   LogicCons' c a s -> Right (c, (a, s))
   LogicNil' n -> Left (LogicNil' n)
 
-instance (Unifiable a) => Matchable [a] (n, c) where
+instance (Logical a) => Matchable [a] (n, c) where
   type Matched [a] (n, c) = LogicList' n c a
   type Initial [a] = ((), ())
 
@@ -126,7 +126,7 @@ instance (Exhausted n, Exhausted c) => Exhausted (LogicList' n c a) where
   exhausted (LogicNil' n) = exhausted n
   exhausted (LogicCons' c _ _) = exhausted c
 
-listo' :: (Unifiable a) => ValueOrVar [a] -> Goal ()
+listo' :: (Logical a) => ValueOrVar [a] -> Goal ()
 listo' =
   matche'
     & on' _LogicNil' return
