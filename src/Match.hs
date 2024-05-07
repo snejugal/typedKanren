@@ -1,52 +1,56 @@
-{-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE ConstraintKinds #-}
-{-# LANGUAGE TupleSections #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE TypeFamilyDependencies #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TupleSections #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeFamilyDependencies #-}
+{-# LANGUAGE UndecidableInstances #-}
 
-module Match (on, matche, on', matche', Exhausted(..), Matchable(..), enter', Biprism, biprism) where
+module Match (on, matche, on', matche', Exhausted (..), Matchable (..), enter', Biprism, biprism) where
 
+import Control.Lens (Choice (right'), Prism', Profunctor (dimap), review)
 import Core
-import Goal
-import Control.Lens ( Prism', review, Choice (right'), Profunctor (dimap) )
+import Data.Biapplicative (Biapplicative (bipure, (<<*>>)), Bifunctor (bimap, first))
+import Data.Functor.Const (Const (Const, getConst))
+import Data.Tagged (Tagged (Tagged, unTagged))
 import Data.Void (Void, absurd)
-import Data.Biapplicative (Biapplicative (bipure, (<<*>>)), Bifunctor (first, bimap))
-import Data.Tagged (Tagged(Tagged, unTagged))
-import Data.Functor.Const (Const(Const, getConst))
+import Goal
 
-on :: (Unifiable s, Fresh a)
-   => Prism' (Term s) a
-   -> (a -> Goal x)
-   -> (ValueOrVar s -> Goal x)
-   -> ValueOrVar s
-   -> Goal x
+on
+  :: (Unifiable s, Fresh a)
+  => Prism' (Term s) a
+  -> (a -> Goal x)
+  -> (ValueOrVar s -> Goal x)
+  -> ValueOrVar s
+  -> Goal x
 on p f g x = disj (g x) thisArm
-  where
-    thisArm = case x of
-      Var _ -> fresh $ \vars -> do
-        x === Value (review p vars)
-        f vars
-      Value value -> case p Left value of
-        Left a -> f a
-        Right _ -> failo
+ where
+  thisArm = case x of
+    Var _ -> fresh $ \vars -> do
+      x === Value (review p vars)
+      f vars
+    Value value -> case p Left value of
+      Left a -> f a
+      Right _ -> failo
 
 matche :: ValueOrVar a -> Goal x
 matche = const failo
 
-type Biprism s t a b = forall p f. (Choice p, Biapplicative f) =>
-  p a (f a b) -> p s (f s t)
+type Biprism s t a b =
+  forall p f
+   . (Choice p, Biapplicative f)
+  => p a (f a b)
+  -> p s (f s t)
 
 biprism :: (a -> s) -> (b -> t) -> (s -> Either t a) -> Biprism s t a b
 biprism setl setr get = dimap get' set' . right'
-  where
-    get' x = first (x,) (get x)
-    set' (Right fab) = bimap setl setr fab
-    set' (Left (s, t)) = bipure s t
+ where
+  get' x = first (x,) (get x)
+  set' (Right fab) = bimap setl setr fab
+  set' (Left (s, t)) = bipure s t
 
 reviewl :: Biprism s t a b -> a -> s
 reviewl p = getConst . unTagged . p . Tagged . Const
@@ -78,25 +82,26 @@ class Exhausted a where
 instance Exhausted Void where
   exhausted = absurd
 
-on' :: (Matchable a m, Fresh v)
-    => Biprism (Matched a m) (Matched a m') ((), v) (Void, v)
-    -> (v -> Goal x)
-    -> (MatchedValueOrVar a m' -> Goal x)
-    -> MatchedValueOrVar a m
-    -> Goal x
+on'
+  :: (Matchable a m, Fresh v)
+  => Biprism (Matched a m) (Matched a m') ((), v) (Void, v)
+  -> (v -> Goal x)
+  -> (MatchedValueOrVar a m' -> Goal x)
+  -> MatchedValueOrVar a m
+  -> Goal x
 on' p f g x = case x of
-    Var' varId -> disj otherArms thisArm
-      where
-        otherArms = g (Var' varId)
-        thisArm = fresh $ \vars -> do
-          let value = back (reviewl p ((), vars))
-          Var varId === Value value
-          f vars
-    Value' value -> case matching p value of
-      Right (_, a) -> f a
-      Left other -> g (Value' other)
+  Var' varId -> disj otherArms thisArm
+   where
+    otherArms = g (Var' varId)
+    thisArm = fresh $ \vars -> do
+      let value = back (reviewl p ((), vars))
+      Var varId === Value value
+      f vars
+  Value' value -> case matching p value of
+    Right (_, a) -> f a
+    Left other -> g (Value' other)
 
-matche' :: Exhausted (Matched a m) => MatchedValueOrVar a m -> Goal x
+matche' :: (Exhausted (Matched a m)) => MatchedValueOrVar a m -> Goal x
 matche' (Value' value) = exhausted value
 matche' (Var' _) = failo
 
@@ -104,7 +109,7 @@ data MatchedValueOrVar a m
   = Var' (VarId a)
   | Value' (Matched a m)
 
-class Unifiable a => Matchable a m where
+class (Unifiable a) => Matchable a m where
   type Matched a m = r | r -> a m
   type Initial a
 
@@ -112,12 +117,13 @@ class Unifiable a => Matchable a m where
   back :: Matched a m -> Term a
 
 enter'
-  :: forall a x. Matchable a (Initial a)
+  :: forall a x
+   . (Matchable a (Initial a))
   => (MatchedValueOrVar a (Initial a) -> x)
   -> ValueOrVar a
   -> x
 enter' f x = f x'
-  where
-    x' = case x of
-      Var varId -> Var' varId
-      Value value -> Value' (enter @a @(Initial a) value)
+ where
+  x' = case x of
+    Var varId -> Var' varId
+    Value value -> Value' (enter @a @(Initial a) value)

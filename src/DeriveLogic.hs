@@ -2,13 +2,13 @@
 
 module DeriveLogic (deriveLogic) where
 
-import GHC.Generics (Generic)
 import Data.Char (toUpper)
-import Language.Haskell.TH hiding (cxt, bang)
+import GHC.Generics (Generic)
+import Language.Haskell.TH hiding (bang, cxt)
 
 import Core
-import GenericUnifiable
 import Data.Foldable (foldl')
+import GenericUnifiable
 
 deriveLogic :: Name -> Q [Dec]
 deriveLogic ty = do
@@ -32,7 +32,6 @@ logifyDec (NewtypeD ctx name tyVars kind constructor _deriv) = do
     derives = [DerivClause Nothing [ConT ''Generic]]
   instances <- genInstance name tyVars name'
   return (typeDefinition : instances)
-
 logifyDec FunD{} = fail "Cannot derive logic instances for a function!"
 logifyDec ValD{} = fail "Cannot derive logic instances for a value!"
 logifyDec TySynD{} = fail "Cannot derive logic instances for type synonyms!"
@@ -58,18 +57,18 @@ logifyDec ImplicitParamBindD{} = fail "Cannot derive logic instances for an impl
 
 logifyConstructor :: Con -> Q Con
 logifyConstructor (NormalC name types) = return (NormalC name' types')
-  where
-    name' = logifyName name
-    types' = map logifyBangType types
+ where
+  name' = logifyName name
+  types' = map logifyBangType types
 logifyConstructor (RecC name fields) = return (RecC name' fields')
-  where
-    name' = logifyName name
-    fields' = map logifyField fields
+ where
+  name' = logifyName name
+  fields' = map logifyField fields
 logifyConstructor (InfixC left name right) = return (InfixC left' name' right')
-  where
-    left' = logifyBangType left
-    right' = logifyBangType right
-    name' = mkName (":?" ++ tail (nameBase name))
+ where
+  left' = logifyBangType left
+  right' = logifyBangType right
+  name' = mkName (":?" ++ tail (nameBase name))
 logifyConstructor (ForallC vars cxt inner) = ForallC vars cxt <$> logifyConstructor inner
 logifyConstructor (GadtC names types ty) = do
   let names' = map logifyName names
@@ -87,10 +86,10 @@ logifyName name = mkName ("Logic" ++ nameBase name)
 
 logifyField :: VarBangType -> VarBangType
 logifyField (name, bang, ty) = (name', bang, ty')
-  where
-    firstLetter:nameRest = nameBase name
-    name' = mkName ("logic" ++ toUpper firstLetter : nameRest)
-    ty' = logifyType ty
+ where
+  firstLetter : nameRest = nameBase name
+  name' = mkName ("logic" ++ toUpper firstLetter : nameRest)
+  ty' = logifyType ty
 
 logifyBangType :: BangType -> BangType
 logifyBangType = fmap logifyType
@@ -116,19 +115,20 @@ genInstance name vars name' = do
   let ctx = return (genConstraints vars)
       name_ = return (applyVars name vars)
       name'_ = return (applyVars name' vars)
-  [d| instance $ctx => Unifiable $name_ where
-        type Term $name_ = $name'_
-        subst = genericSubst
-        unify = genericUnify
-        inject = genericInject
-        extract = genericExtract
-     |]
+  [d|
+    instance ($ctx) => Unifiable $name_ where
+      type Term $name_ = $name'_
+      subst = genericSubst
+      unify = genericUnify
+      inject = genericInject
+      extract = genericExtract
+    |]
 
 genConstraints :: [TyVarBndr ()] -> Type
 genConstraints vars = foldl' AppT tuple constraints
-  where
-    tuple = TupleT (length vars)
-    constraints = map (AppT (ConT ''Unifiable) . VarT . extractVar) vars
+ where
+  tuple = TupleT (length vars)
+  constraints = map (AppT (ConT ''Unifiable) . VarT . extractVar) vars
 
 applyVars :: Name -> [TyVarBndr flag] -> Type
 applyVars name vars = foldl' AppT (ConT name) (map (VarT . extractVar) vars)

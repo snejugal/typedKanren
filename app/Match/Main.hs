@@ -1,57 +1,65 @@
-{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 
 module Main where
 
+import Control.Lens (Iso, iso)
 import Data.Function ((&))
 import Data.Maybe (fromJust)
 import Data.Void (Void)
-import Control.Lens (Iso, iso)
 
 import Core
 import Goal
 import Match
 import UnifiableBase
 
-listo :: Unifiable a => ValueOrVar [a] -> Goal ()
-listo = matche
-  & on _LogicNil return
-  & on _LogicCons (\(_, xs) -> listo xs)
+listo :: (Unifiable a) => ValueOrVar [a] -> Goal ()
+listo =
+  matche
+    & on _LogicNil return
+    & on _LogicCons (\(_, xs) -> listo xs)
 
-appendo :: Unifiable a => ValueOrVar [a] -> ValueOrVar [a] -> ValueOrVar [a] -> Goal ()
-appendo xs ys zs = xs & (matche
-  & on _LogicNil (\() -> ys === zs)
-  & on _LogicCons (\(x, xs') ->
-      fresh $ \zs' -> do
-        zs === Value (LogicCons x zs')
-        appendo xs' ys zs'))
+appendo :: (Unifiable a) => ValueOrVar [a] -> ValueOrVar [a] -> ValueOrVar [a] -> Goal ()
+appendo xs ys zs =
+  xs
+    & ( matche
+          & on _LogicNil (\() -> ys === zs)
+          & on
+            _LogicCons
+            ( \(x, xs') ->
+                fresh $ \zs' -> do
+                  zs === Value (LogicCons x zs')
+                  appendo xs' ys zs'
+            )
+      )
 
-showLogicList :: Show (Term a) => ValueOrVar [a] -> String
+showLogicList :: (Show (Term a)) => ValueOrVar [a] -> String
 showLogicList list = prefix ++ go list ++ suffix
-  where
-    (prefix, suffix) = case list of
-      Value _ -> ("[", "]")
-      _ -> ("", "")
+ where
+  (prefix, suffix) = case list of
+    Value _ -> ("[", "]")
+    _ -> ("", "")
 
-    go (Var _) = "..?"
-    go (Value LogicNil) = ""
-    go (Value (LogicCons x xs)) = show x ++ sep ++ go xs
-      where
-        sep = case xs of
-          Value LogicNil -> ""
-          _ -> ", "
+  go (Var _) = "..?"
+  go (Value LogicNil) = ""
+  go (Value (LogicCons x xs)) = show x ++ sep ++ go xs
+   where
+    sep = case xs of
+      Value LogicNil -> ""
+      _ -> ", "
 
 lists :: [ValueOrVar [Int]]
 lists = run listo
 
 partitions :: [Int] -> [([Int], [Int])]
-partitions xs = fmap (fromJust . extract') $ run $
-  \result -> fresh $ \(left, right) -> do
-    result === Value (left, right)
-    appendo left right (inject' xs)
+partitions xs = fmap (fromJust . extract') $
+  run $
+    \result -> fresh $ \(left, right) -> do
+      result === Value (left, right)
+      appendo left right (inject' xs)
 
 -- Exhaustive pattern-matching
 
@@ -84,10 +92,11 @@ instance (Exhausted l, Exhausted r) => Exhausted (LogicEither' l r a b) where
   exhausted (LogicRight' r _) = exhausted r
 
 eithero :: ValueOrVar (Either Bool Int) -> Goal ()
-eithero = matche'
-  & on' _LogicLeft' (\x -> x === Value True)
-  & on' _LogicRight' (\x -> x === Value 42)
-  & enter'
+eithero =
+  matche'
+    & on' _LogicLeft' (\x -> x === Value True)
+    & on' _LogicRight' (\x -> x === Value 42)
+    & enter'
 
 data LogicList' n c a
   = LogicNil' n
@@ -103,7 +112,7 @@ _LogicCons' = biprism (\(c, (a, as)) -> LogicCons' c a as) (\(c, (a, as)) -> Log
   LogicCons' c a s -> Right (c, (a, s))
   LogicNil' n -> Left (LogicNil' n)
 
-instance Unifiable a => Matchable [a] (n, c) where
+instance (Unifiable a) => Matchable [a] (n, c) where
   type Matched [a] (n, c) = LogicList' n c a
   type Initial [a] = ((), ())
 
@@ -117,11 +126,12 @@ instance (Exhausted n, Exhausted c) => Exhausted (LogicList' n c a) where
   exhausted (LogicNil' n) = exhausted n
   exhausted (LogicCons' c _ _) = exhausted c
 
-listo' :: Unifiable a => ValueOrVar [a] -> Goal ()
-listo' = matche'
-  & on' _LogicNil' return
-  & on' _LogicCons' (\(_, as) -> listo' as)
-  & enter'
+listo' :: (Unifiable a) => ValueOrVar [a] -> Goal ()
+listo' =
+  matche'
+    & on' _LogicNil' return
+    & on' _LogicCons' (\(_, as) -> listo' as)
+    & enter'
 
 eithers :: [ValueOrVar (Either Bool Int)]
 eithers = run eithero

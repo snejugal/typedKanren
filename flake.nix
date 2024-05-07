@@ -16,6 +16,7 @@
             (haskell-language-server.override {
               supportedGhcVersions = [ "96" ];
             })
+            haskellPackages.fourmolu
           ];
         };
       }

@@ -1,24 +1,24 @@
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE StandaloneDeriving #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 module UnifiableBase where
 
-import GHC.Exts (IsList(..))
+import GHC.Exts (IsList (..))
 import GHC.Generics
 
+import Control.Lens (Prism, Prism', prism)
+import Control.Lens.TH (makePrisms)
 import Core
-import Goal
+import Data.Void (Void)
 import DeriveLogic
 import GenericUnifiable
-import Control.Lens (Prism, Prism', prism)
-import Data.Void (Void)
-import Control.Lens.TH (makePrisms)
+import Goal
 
 deriveLogic ''Either
 makePrisms ''LogicEither
@@ -40,7 +40,7 @@ _LogicCons = prism (uncurry LogicCons) $ \case
 
 deriving instance (Show (Term a)) => Show (LogicList a)
 
-instance Unifiable a => Unifiable [a] where
+instance (Unifiable a) => Unifiable [a] where
   type Term [a] = LogicList a
   subst = genericSubst
   unify = genericUnify
@@ -50,7 +50,7 @@ instance Unifiable a => Unifiable [a] where
 instance IsList (LogicList a) where
   type Item (LogicList a) = ValueOrVar a
   fromList [] = LogicNil
-  fromList (x:xs) = LogicCons x (Value (fromList xs))
+  fromList (x : xs) = LogicCons x (Value (fromList xs))
 
 instance Unifiable Int
 instance Unifiable Bool

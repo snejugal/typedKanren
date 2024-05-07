@@ -1,11 +1,11 @@
-{-# LANGUAGE KindSignatures  #-}
-{-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE TupleSections   #-}
-{-# LANGUAGE ImpredicativeTypes #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE ImpredicativeTypes #-}
+{-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE TupleSections #-}
 
 module Goal (
-  Goal(..),
+  Goal (..),
   failo,
   (===),
   conj,
@@ -14,19 +14,19 @@ module Goal (
   disjMany,
   conde,
   run,
-  Fresh(..),
+  Fresh (..),
 ) where
 
-import           Control.Applicative (Alternative (..))
-import           Control.Monad       (ap, (>=>))
-import qualified Data.Foldable       as Foldable
-import qualified Data.IntMap         as IntMap
-import           Data.Kind           (Type)
+import Control.Applicative (Alternative (..))
+import Control.Monad (ap, (>=>))
+import qualified Data.Foldable as Foldable
+import qualified Data.IntMap as IntMap
+import Data.Kind (Type)
 
-import           Core
-import           Stream
+import Core
+import Stream
 
-newtype Goal (a :: Type) = Goal { runGoal :: State -> Stream (State, a) }
+newtype Goal (a :: Type) = Goal {runGoal :: State -> Stream (State, a)}
 
 instance Functor Goal where
   fmap f (Goal g) = Goal (fmap (fmap (fmap f)) g)
@@ -50,7 +50,7 @@ instance Alternative Goal where
 failo :: Goal x
 failo = Goal (const Done)
 
-(===) :: Unifiable a => ValueOrVar a -> ValueOrVar a -> Goal ()
+(===) :: (Unifiable a) => ValueOrVar a -> ValueOrVar a -> Goal ()
 a === b = Goal (maybeToStream . fmap (,()) . unify' a b)
 
 conj :: Goal () -> Goal () -> Goal ()
@@ -72,15 +72,16 @@ conde = disjMany . map conjMany
 
 -- >>> extract' <$> run @[Int] (\ xs -> [1, 2] === Value (LCons 1 xs))
 -- [Just [2]]
-run :: Unifiable a => (ValueOrVar a -> Goal ()) -> [ValueOrVar a]
+run :: (Unifiable a) => (ValueOrVar a -> Goal ()) -> [ValueOrVar a]
 run f = Foldable.toList (fmap (resolveQueryVar . fst) (runGoal (f queryVar) initialState))
-  where
-    initialState = State
+ where
+  initialState =
+    State
       { knownSubst = Subst IntMap.empty
       , maxVarId = 1
       }
-    queryVar = Var (VarId 0)
-    resolveQueryVar State{..} = apply knownSubst queryVar
+  queryVar = Var (VarId 0)
+  resolveQueryVar State{..} = apply knownSubst queryVar
 
 class Fresh a where
   fresh :: (a -> Goal x) -> Goal x
@@ -91,7 +92,7 @@ instance Fresh () where
 instance Fresh (ValueOrVar a) where
   fresh f = Goal $ \state ->
     let (state', variable) = makeVariable state
-    in runGoal (f variable) state'
+     in runGoal (f variable) state'
 
 instance Fresh (ValueOrVar a, ValueOrVar b) where
   fresh f =

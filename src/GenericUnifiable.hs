@@ -1,11 +1,11 @@
-{-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeOperators #-}
 
 module GenericUnifiable (
   GUnifiable,
@@ -16,8 +16,8 @@ module GenericUnifiable (
 ) where
 
 import Control.Monad ((>=>))
+import Data.Proxy (Proxy (..))
 import GHC.Generics
-import Data.Proxy (Proxy(..))
 
 import Core
 import Goal
@@ -64,13 +64,13 @@ instance (GUnifiable f f', GUnifiable g g') => GUnifiable (f :*: g) (f' :*: g') 
     y' <- gextract y
     return (x' :*: y')
 
-instance Unifiable c => GUnifiable (K1 i c) (K1 i' (ValueOrVar c)) where
+instance (Unifiable c) => GUnifiable (K1 i c) (K1 i' (ValueOrVar c)) where
   gsubst _ k (K1 c) = K1 (subst' k c)
   gunify _ (K1 x) (K1 y) = unify' x y
   ginject (K1 x) = K1 (inject' x)
   gextract (K1 x) = K1 <$> extract' x
 
-instance GUnifiable f f' => GUnifiable (M1 i t f) (M1 i' t' f') where
+instance (GUnifiable f f') => GUnifiable (M1 i t f) (M1 i' t' f') where
   gsubst _ k (M1 m) = M1 (gsubst (Proxy @f) k m)
   gunify _ (M1 x) (M1 y) = gunify (Proxy @f) x y
   ginject (M1 x) = M1 (ginject x)
@@ -84,21 +84,30 @@ instance (Unifiable a, Unifiable b) => Unifiable (a, b) where
   extract = genericExtract
 
 genericSubst
-  :: forall a. (Generic (Term a), GUnifiable (Rep a) (Rep (Term a)))
-  => (forall x. VarId x -> Maybe (ValueOrVar x)) -> Term a -> Term a
+  :: forall a
+   . (Generic (Term a), GUnifiable (Rep a) (Rep (Term a)))
+  => (forall x. VarId x -> Maybe (ValueOrVar x))
+  -> Term a
+  -> Term a
 genericSubst k term = to (gsubst (Proxy @(Rep a)) k (from term))
 
 genericUnify
-  :: forall a. (Generic (Term a), GUnifiable (Rep a) (Rep (Term a)))
-  => Term a -> Term a -> State -> Maybe State
+  :: forall a
+   . (Generic (Term a), GUnifiable (Rep a) (Rep (Term a)))
+  => Term a
+  -> Term a
+  -> State
+  -> Maybe State
 genericUnify l r = gunify (Proxy @(Rep a)) (from l) (from r)
 
 genericInject
   :: (Generic a, Generic (Term a), GUnifiable (Rep a) (Rep (Term a)))
-  => a -> Term a
+  => a
+  -> Term a
 genericInject x = to (ginject (from x))
 
 genericExtract
   :: (Generic a, Generic (Term a), GUnifiable (Rep a) (Rep (Term a)))
-  => Term a -> Maybe a
+  => Term a
+  -> Maybe a
 genericExtract x = to <$> gextract (from x)
