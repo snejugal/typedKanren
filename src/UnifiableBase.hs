@@ -6,6 +6,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# OPTIONS_GHC -Wno-orphans #-}
 
 module UnifiableBase where
 
@@ -18,7 +19,6 @@ import Core
 import Data.Void (Void)
 import DeriveLogic
 import GenericUnifiable
-import Goal
 
 deriveLogic ''Either
 makePrisms ''LogicEither
@@ -51,6 +51,13 @@ instance IsList (LogicList a) where
   type Item (LogicList a) = ValueOrVar a
   fromList [] = LogicNil
   fromList (x : xs) = LogicCons x (Value (fromList xs))
+
+instance (Unifiable a, Unifiable b) => Unifiable (a, b) where
+  type Term (a, b) = (ValueOrVar a, ValueOrVar b)
+  subst = genericSubst
+  unify = genericUnify
+  inject = genericInject
+  extract = genericExtract
 
 instance Unifiable Int
 instance Unifiable Bool

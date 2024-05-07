@@ -18,7 +18,7 @@ module Goal (
 ) where
 
 import Control.Applicative (Alternative (..))
-import Control.Monad (ap, (>=>))
+import Control.Monad (ap)
 import qualified Data.Foldable as Foldable
 import qualified Data.IntMap as IntMap
 import Data.Kind (Type)

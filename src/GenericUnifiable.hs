@@ -20,7 +20,6 @@ import Data.Proxy (Proxy (..))
 import GHC.Generics
 
 import Core
-import Goal
 
 class GUnifiable f f' where
   gsubst :: Proxy f -> (forall x. VarId x -> Maybe (ValueOrVar x)) -> f' p -> f' p
@@ -75,13 +74,6 @@ instance (GUnifiable f f') => GUnifiable (M1 i t f) (M1 i' t' f') where
   gunify _ (M1 x) (M1 y) = gunify (Proxy @f) x y
   ginject (M1 x) = M1 (ginject x)
   gextract (M1 x) = M1 <$> gextract x
-
-instance (Unifiable a, Unifiable b) => Unifiable (a, b) where
-  type Term (a, b) = (ValueOrVar a, ValueOrVar b)
-  subst = genericSubst
-  unify = genericUnify
-  inject = genericInject
-  extract = genericExtract
 
 genericSubst
   :: forall a
