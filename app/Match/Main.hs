@@ -1,48 +1,144 @@
-{-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE PatternSynonyms #-}
-{-# LANGUAGE ViewPatterns #-}
-{-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE ImpredicativeTypes #-}
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE OverloadedLists #-}
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TypeFamilies #-}
 
-module Main (main) where
+module Main where
+
+import Data.Function ((&))
+import Data.Maybe (fromJust)
+import Data.Void (Void)
+import Control.Lens (Iso, iso)
 
 import Core
 import Goal
+import Match
 import UnifiableBase
 
-pattern LogicNil' :: Unifiable a => (forall x. Goal x -> CaseGoal x) -> Matched [a]
-pattern LogicNil' applyEffects <- (matchLogicNil -> Just applyEffects)
+listo :: Unifiable a => ValueOrVar [a] -> Goal ()
+listo = matche
+  & on _LogicNil return
+  & on _LogicCons (\(_, xs) -> listo xs)
 
-matchLogicNil :: Unifiable a => Matched [a] -> Maybe (forall x. Goal x -> CaseGoal x)
-matchLogicNil (Matched (_, Value LogicNil)) = Just CaseGoal
-matchLogicNil (Matched (_, Value _)) = Nothing
-matchLogicNil (Matched (state, Var t)) = Just applyEffects
+appendo :: Unifiable a => ValueOrVar [a] -> ValueOrVar [a] -> ValueOrVar [a] -> Goal ()
+appendo xs ys zs = xs & (matche
+  & on _LogicNil (\() -> ys === zs)
+  & on _LogicCons (\(x, xs') ->
+      fresh $ \zs' -> do
+        zs === Value (LogicCons x zs')
+        appendo xs' ys zs'))
+
+showLogicList :: Show (Term a) => ValueOrVar [a] -> String
+showLogicList list = prefix ++ go list ++ suffix
   where
-    state' = state
-    applyEffects :: forall x. Goal x -> CaseGoal x
-    applyEffects g = CaseGoal (Goal (\_ -> runGoal (Var t === Value LogicNil >> g) state'))
+    (prefix, suffix) = case list of
+      Value _ -> ("[", "]")
+      _ -> ("", "")
 
-pattern LogicCons' :: Unifiable a => (forall x. Goal x -> CaseGoal x) -> ValueOrVar a -> ValueOrVar [a] -> Matched [a]
-pattern LogicCons' applyEffects x xs <- (matchLogicCons -> Just (applyEffects, x, xs))
+    go (Var _) = "..?"
+    go (Value LogicNil) = ""
+    go (Value (LogicCons x xs)) = show x ++ sep ++ go xs
+      where
+        sep = case xs of
+          Value LogicNil -> ""
+          _ -> ", "
 
-matchLogicCons :: Unifiable a => Matched [a] -> Maybe (forall x. Goal x -> CaseGoal x, ValueOrVar a, ValueOrVar [a])
-matchLogicCons (Matched (_, Value (LogicCons x xs))) = Just (CaseGoal, x, xs)
-matchLogicCons (Matched (_, Value _)) = Nothing
-matchLogicCons (Matched (state, Var t)) = Just (applyEffects, x, xs)
-  where
-    (state', x) = makeVariable state
-    (state'', xs) = makeVariable state'
-    applyEffects :: Goal x -> CaseGoal x
-    applyEffects g = CaseGoal (Goal (\_ -> runGoal (Var t === Value (LogicCons x xs) >> g) state''))
+lists :: [ValueOrVar [Int]]
+lists = run listo
 
-foo :: ValueOrVar [Int] -> Goal ()
-foo x = mcase x $ \case
-  LogicCons' applyEffects x xs -> applyEffects $ do
-    x === 0
-    xs === []
-  LogicNil' applyEffects -> applyEffects $ return ()
+partitions :: [Int] -> [([Int], [Int])]
+partitions xs = fmap (fromJust . extract') $ run $
+  \result -> fresh $ \(left, right) -> do
+    result === Value (left, right)
+    appendo left right (inject' xs)
+
+-- Exhaustive pattern-matching
+
+data LogicEither' l r a b
+  = LogicLeft' l (ValueOrVar a)
+  | LogicRight' r (ValueOrVar b)
+
+_LogicLeft' :: Biprism (LogicEither' l r a b) (LogicEither' l' r a' b) (l, ValueOrVar a) (l', ValueOrVar a')
+_LogicLeft' = biprism (uncurry LogicLeft') (uncurry LogicLeft') $ \case
+  LogicLeft' l a -> Right (l, a)
+  LogicRight' r b -> Left (LogicRight' r b)
+
+_LogicRight' :: Biprism (LogicEither' l r a b) (LogicEither' l r' a b') (r, ValueOrVar b) (r', ValueOrVar b')
+_LogicRight' = biprism (uncurry LogicRight') (uncurry LogicRight') $ \case
+  LogicRight' r b -> Right (r, b)
+  LogicLeft' l a -> Left (LogicLeft' l a)
+
+instance (Unifiable a, Unifiable b) => Matchable (Either a b) (l, r) where
+  type Matched (Either a b) (l, r) = LogicEither' l r a b
+  type Initial (Either a b) = ((), ())
+
+  enter (LogicLeft a) = LogicLeft' () a
+  enter (LogicRight b) = LogicRight' () b
+
+  back (LogicLeft' _ a) = LogicLeft a
+  back (LogicRight' _ b) = LogicRight b
+
+instance (Exhausted l, Exhausted r) => Exhausted (LogicEither' l r a b) where
+  exhausted (LogicLeft' l _) = exhausted l
+  exhausted (LogicRight' r _) = exhausted r
+
+eithero :: ValueOrVar (Either Bool Int) -> Goal ()
+eithero = matche'
+  & on' _LogicLeft' (\x -> x === Value True)
+  & on' _LogicRight' (\x -> x === Value 42)
+  & enter'
+
+data LogicList' n c a
+  = LogicNil' n
+  | LogicCons' c (ValueOrVar a) (ValueOrVar [a])
+
+_LogicNil' :: Biprism (LogicList' n c a) (LogicList' n' c a) (n, ()) (n', ())
+_LogicNil' = biprism (\(n, ()) -> LogicNil' n) (\(n, ()) -> LogicNil' n) $ \case
+  LogicNil' n -> Right (n, ())
+  LogicCons' c a as -> Left (LogicCons' c a as)
+
+_LogicCons' :: Biprism (LogicList' n c a) (LogicList' n c' a') (c, (ValueOrVar a, ValueOrVar [a])) (c', (ValueOrVar a', ValueOrVar [a']))
+_LogicCons' = biprism (\(c, (a, as)) -> LogicCons' c a as) (\(c, (a, as)) -> LogicCons' c a as) $ \case
+  LogicCons' c a s -> Right (c, (a, s))
+  LogicNil' n -> Left (LogicNil' n)
+
+instance Unifiable a => Matchable [a] (n, c) where
+  type Matched [a] (n, c) = LogicList' n c a
+  type Initial [a] = ((), ())
+
+  enter LogicNil = LogicNil' ()
+  enter (LogicCons a as) = LogicCons' () a as
+
+  back (LogicNil' _) = LogicNil
+  back (LogicCons' _ a as) = LogicCons a as
+
+instance (Exhausted n, Exhausted c) => Exhausted (LogicList' n c a) where
+  exhausted (LogicNil' n) = exhausted n
+  exhausted (LogicCons' c _ _) = exhausted c
+
+listo' :: Unifiable a => ValueOrVar [a] -> Goal ()
+listo' = matche'
+  & on' _LogicNil' return
+  & on' _LogicCons' (\(_, as) -> listo' as)
+  & enter'
+
+eithers :: [ValueOrVar (Either Bool Int)]
+eithers = run eithero
+
+lists' :: [ValueOrVar [Int]]
+lists' = run listo'
 
 main :: IO ()
-main = print $ extract' <$> run foo
+main = do
+  putStrLn "lists:"
+  mapM_ print (take 5 (showLogicList <$> lists))
+
+  putStrLn "\npartitions [1, 2, 3]:"
+  mapM_ print (partitions [1, 2, 3])
+
+  putStrLn "\neithers:"
+  mapM_ print (extract' <$> eithers)
+
+  putStrLn "\nlists':"
+  mapM_ print (take 5 (showLogicList <$> lists'))

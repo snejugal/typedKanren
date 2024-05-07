@@ -23,6 +23,10 @@ dependencies:
 - base >= 4.7 && < 5
 - containers
 - template-haskell
+- lens
+- lens-family-core
+- bifunctors
+- tagged
 
 ghc-options:
 - -Wall

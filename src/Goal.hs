@@ -2,9 +2,11 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TupleSections   #-}
 {-# LANGUAGE ImpredicativeTypes #-}
+{-# LANGUAGE FlexibleInstances #-}
 
 module Goal (
   Goal(..),
+  failo,
   (===),
   conj,
   conjMany,
@@ -12,12 +14,7 @@ module Goal (
   disjMany,
   conde,
   run,
-  UnifiableFresh(..),
-  fresh',
-  matche,
-  Matched(..),
-  CaseGoal(..),
-  mcase,
+  Fresh(..),
 ) where
 
 import           Control.Applicative (Alternative (..))
@@ -49,6 +46,9 @@ instance Alternative Goal where
   empty = Goal (const Done)
   Goal g1 <|> Goal g2 =
     Goal (\state -> g1 state `interleave` g2 state)
+
+failo :: Goal x
+failo = Goal (const Done)
 
 (===) :: Unifiable a => ValueOrVar a -> ValueOrVar a -> Goal ()
 a === b = Goal (maybeToStream . fmap (,()) . unify' a b)
@@ -82,25 +82,25 @@ run f = Foldable.toList (fmap (resolveQueryVar . fst) (runGoal (f queryVar) init
     queryVar = Var (VarId 0)
     resolveQueryVar State{..} = apply knownSubst queryVar
 
-class Unifiable a => UnifiableFresh a where
-  fresh :: (Term a -> Goal ()) -> Goal ()
+class Fresh a where
+  fresh :: (a -> Goal x) -> Goal x
 
-fresh' :: (ValueOrVar a -> Goal b) -> Goal b
-fresh' f = Goal $ \State{..} ->
-  let newState = State
-        { maxVarId = maxVarId + 1
-        , .. }
-  in runGoal (f (Var (VarId maxVarId))) newState
+instance Fresh () where
+  fresh f = f ()
 
-matche :: UnifiableFresh a => ValueOrVar a -> (Term a -> Goal ()) -> Goal ()
-matche (Value v) k = k v
-matche x@Var{} k =
-  fresh $ \v -> do
-    x === Value v
-    k v
+instance Fresh (ValueOrVar a) where
+  fresh f = Goal $ \state ->
+    let (state', variable) = makeVariable state
+    in runGoal (f variable) state'
 
-newtype Matched a = Matched (State, ValueOrVar a)
-newtype CaseGoal a = CaseGoal { unwrapCaseGoal :: Goal a }
+instance Fresh (ValueOrVar a, ValueOrVar b) where
+  fresh f =
+    fresh $ \a ->
+      fresh $ \b ->
+        f (a, b)
 
-mcase :: ValueOrVar a -> (Matched a -> CaseGoal x) -> Goal x
-mcase value f = Goal (\state -> runGoal (unwrapCaseGoal (f (Matched (state, value)))) state)
+instance Fresh (ValueOrVar a, ValueOrVar b, ValueOrVar c) where
+  fresh f =
+    fresh $ \(a, b) ->
+      fresh $ \c ->
+        f (a, b, c)

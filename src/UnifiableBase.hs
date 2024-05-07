@@ -3,6 +3,9 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE ConstraintKinds #-}
 
 module UnifiableBase where
 
@@ -11,12 +14,29 @@ import GHC.Generics
 
 import Core
 import Goal
+import DeriveLogic
 import GenericUnifiable
+import Control.Lens (Prism, Prism', prism)
+import Data.Void (Void)
+import Control.Lens.TH (makePrisms)
+
+deriveLogic ''Either
+makePrisms ''LogicEither
 
 data LogicList a
   = LogicNil
   | LogicCons (ValueOrVar a) (ValueOrVar [a])
   deriving (Generic)
+
+_LogicNil :: Prism' (LogicList a) ()
+_LogicNil = prism (const LogicNil) $ \case
+  LogicNil -> Right ()
+  LogicCons x xs -> Left (LogicCons x xs)
+
+_LogicCons :: Prism (LogicList a) (LogicList b) (ValueOrVar a, ValueOrVar [a]) (ValueOrVar b, ValueOrVar [b])
+_LogicCons = prism (uncurry LogicCons) $ \case
+  LogicCons x xs -> Right (x, xs)
+  LogicNil -> Left LogicNil
 
 deriving instance (Show (Term a)) => Show (LogicList a)
 
@@ -34,9 +54,4 @@ instance IsList (LogicList a) where
 
 instance Unifiable Int
 instance Unifiable Bool
-
-instance (Unifiable a, Unifiable b) => UnifiableFresh (a, b) where
-  fresh = genericFresh
-
-instance (Unifiable a) => UnifiableFresh [a] where
-  fresh = genericFresh
+instance Unifiable Void
