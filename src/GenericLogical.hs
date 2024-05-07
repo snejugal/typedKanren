@@ -77,29 +77,29 @@ instance (GLogical f f') => GLogical (M1 i t f) (M1 i' t' f') where
 
 genericSubst
   :: forall a
-   . (Generic (Term a), GLogical (Rep a) (Rep (Term a)))
+   . (Generic (Logic a), GLogical (Rep a) (Rep (Logic a)))
   => (forall x. VarId x -> Maybe (ValueOrVar x))
-  -> Term a
-  -> Term a
+  -> Logic a
+  -> Logic a
 genericSubst k term = to (gsubst (Proxy @(Rep a)) k (from term))
 
 genericUnify
   :: forall a
-   . (Generic (Term a), GLogical (Rep a) (Rep (Term a)))
-  => Term a
-  -> Term a
+   . (Generic (Logic a), GLogical (Rep a) (Rep (Logic a)))
+  => Logic a
+  -> Logic a
   -> State
   -> Maybe State
 genericUnify l r = gunify (Proxy @(Rep a)) (from l) (from r)
 
 genericInject
-  :: (Generic a, Generic (Term a), GLogical (Rep a) (Rep (Term a)))
+  :: (Generic a, Generic (Logic a), GLogical (Rep a) (Rep (Logic a)))
   => a
-  -> Term a
+  -> Logic a
 genericInject x = to (ginject (from x))
 
 genericExtract
-  :: (Generic a, Generic (Term a), GLogical (Rep a) (Rep (Term a)))
-  => Term a
+  :: (Generic a, Generic (Logic a), GLogical (Rep a) (Rep (Logic a)))
+  => Logic a
   -> Maybe a
 genericExtract x = to <$> gextract (from x)

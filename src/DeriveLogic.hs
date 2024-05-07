@@ -117,7 +117,7 @@ genInstance name vars name' = do
       name'_ = return (applyVars name' vars)
   [d|
     instance ($ctx) => Logical $name_ where
-      type Term $name_ = $name'_
+      type Logic $name_ = $name'_
       subst = genericSubst
       unify = genericUnify
       inject = genericInject

@@ -21,7 +21,7 @@ import Goal
 
 on
   :: (Logical s, Fresh a)
-  => Prism' (Term s) a
+  => Prism' (Logic s) a
   -> (a -> Goal x)
   -> (ValueOrVar s -> Goal x)
   -> ValueOrVar s
@@ -113,8 +113,8 @@ class (Logical a) => Matchable a m where
   type Matched a m = r | r -> a m
   type Initial a
 
-  enter :: Term a -> Matched a (Initial a)
-  back :: Matched a m -> Term a
+  enter :: Logic a -> Matched a (Initial a)
+  back :: Matched a m -> Logic a
 
 enter'
   :: forall a x

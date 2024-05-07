@@ -13,8 +13,8 @@ import Data.Void (Void)
 
 import Core
 import Goal
-import Match
 import LogicalBase
+import Match
 
 listo :: (Logical a) => ValueOrVar [a] -> Goal ()
 listo =
@@ -36,7 +36,7 @@ appendo xs ys zs =
             )
       )
 
-showLogicList :: (Show (Term a)) => ValueOrVar [a] -> String
+showLogicList :: (Show (Logic a)) => ValueOrVar [a] -> String
 showLogicList list = prefix ++ go list ++ suffix
  where
   (prefix, suffix) = case list of

@@ -38,10 +38,10 @@ _LogicCons = prism (uncurry LogicCons) $ \case
   LogicCons x xs -> Right (x, xs)
   LogicNil -> Left LogicNil
 
-deriving instance (Show (Term a)) => Show (LogicList a)
+deriving instance (Show (Logic a)) => Show (LogicList a)
 
 instance (Logical a) => Logical [a] where
-  type Term [a] = LogicList a
+  type Logic [a] = LogicList a
   subst = genericSubst
   unify = genericUnify
   inject = genericInject
@@ -53,7 +53,7 @@ instance IsList (LogicList a) where
   fromList (x : xs) = LogicCons x (Value (fromList xs))
 
 instance (Logical a, Logical b) => Logical (a, b) where
-  type Term (a, b) = (ValueOrVar a, ValueOrVar b)
+  type Logic (a, b) = (ValueOrVar a, ValueOrVar b)
   subst = genericSubst
   unify = genericUnify
   inject = genericInject

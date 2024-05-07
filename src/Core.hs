@@ -36,16 +36,16 @@ newtype VarId a = VarId Int
 
 data ValueOrVar a
   = Var (VarId a)
-  | Value (Term a)
+  | Value (Logic a)
 
-deriving instance (Show (Term a)) => Show (ValueOrVar a)
-deriving instance (Eq (Term a)) => Eq (ValueOrVar a)
+deriving instance (Show (Logic a)) => Show (ValueOrVar a)
+deriving instance (Eq (Logic a)) => Eq (ValueOrVar a)
 
-instance (IsList (Term a)) => IsList (ValueOrVar a) where
-  type Item (ValueOrVar a) = Item (Term a)
+instance (IsList (Logic a)) => IsList (ValueOrVar a) where
+  type Item (ValueOrVar a) = Item (Logic a)
   fromList = Value . fromList
 
-instance (Num (Term a)) => Num (ValueOrVar a) where
+instance (Num (Logic a)) => Num (ValueOrVar a) where
   fromInteger = Value . fromInteger
 
 subst' :: (Logical a) => (forall x. VarId x -> Maybe (ValueOrVar x)) -> ValueOrVar a -> ValueOrVar a
@@ -102,23 +102,23 @@ makeVariable :: State -> (State, ValueOrVar a)
 makeVariable State{maxVarId, ..} = (State{maxVarId = maxVarId + 1, ..}, Var (VarId maxVarId))
 
 class Logical a where
-  type Term (a :: Type) = r | r -> a
-  type Term a = a
+  type Logic (a :: Type) = r | r -> a
+  type Logic a = a
 
-  subst :: (forall x. VarId x -> Maybe (ValueOrVar x)) -> Term a -> Term a
-  default subst :: (a ~ Term a) => (forall x. VarId x -> Maybe (ValueOrVar x)) -> Term a -> Term a
+  subst :: (forall x. VarId x -> Maybe (ValueOrVar x)) -> Logic a -> Logic a
+  default subst :: (a ~ Logic a) => (forall x. VarId x -> Maybe (ValueOrVar x)) -> Logic a -> Logic a
   subst _ = id
 
-  unify :: Term a -> Term a -> State -> Maybe State
-  default unify :: (Eq (Term a)) => Term a -> Term a -> State -> Maybe State
+  unify :: Logic a -> Logic a -> State -> Maybe State
+  default unify :: (Eq (Logic a)) => Logic a -> Logic a -> State -> Maybe State
   unify x y state
     | x == y = Just state
     | otherwise = Nothing
 
-  inject :: a -> Term a
-  default inject :: (a ~ Term a) => a -> Term a
+  inject :: a -> Logic a
+  default inject :: (a ~ Logic a) => a -> Logic a
   inject = id
 
-  extract :: Term a -> Maybe a
-  default extract :: (a ~ Term a) => Term a -> Maybe a
+  extract :: Logic a -> Maybe a
+  default extract :: (a ~ Logic a) => Logic a -> Maybe a
   extract = Just

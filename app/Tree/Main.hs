@@ -15,8 +15,8 @@ import GHC.Generics (Generic)
 import Core
 import DeriveLogic
 import Goal
-import Match
 import LogicalBase ()
+import Match
 
 data Tree a = Empty | Node a (Tree a) (Tree a)
   deriving (Show, Generic)
