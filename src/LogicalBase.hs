@@ -17,10 +17,10 @@ import Control.Lens (Prism, Prism', prism)
 import Control.Lens.TH (makePrisms)
 import Core
 import Data.Void (Void)
-import DeriveLogic
 import GenericLogical
+import TH (makeLogic)
 
-deriveLogic ''Either
+makeLogic ''Either
 makePrisms ''LogicEither
 
 data LogicList a

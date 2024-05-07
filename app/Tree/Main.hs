@@ -13,14 +13,14 @@ import Data.Function ((&))
 import GHC.Generics (Generic)
 
 import Core
-import DeriveLogic
 import Goal
 import LogicalBase ()
 import Match
+import TH (makeLogic)
 
 data Tree a = Empty | Node a (Tree a) (Tree a)
   deriving (Show, Generic)
-deriveLogic ''Tree
+makeLogic ''Tree
 makePrisms ''LogicTree
 
 treeo :: Term (Tree Int) -> Goal ()

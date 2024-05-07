@@ -26,12 +26,12 @@ source-repository head
 library
   exposed-modules:
       Core
-      DeriveLogic
       GenericLogical
       Goal
       LogicalBase
       Match
       Stream
+      TH
   other-modules:
       Paths_static_minikanren
   autogen-modules:
