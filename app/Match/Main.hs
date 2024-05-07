@@ -16,13 +16,13 @@ import Goal
 import LogicalBase
 import Match
 
-listo :: (Logical a) => ValueOrVar [a] -> Goal ()
+listo :: (Logical a) => Term [a] -> Goal ()
 listo =
   matche
     & on _LogicNil return
     & on _LogicCons (\(_, xs) -> listo xs)
 
-appendo :: (Logical a) => ValueOrVar [a] -> ValueOrVar [a] -> ValueOrVar [a] -> Goal ()
+appendo :: (Logical a) => Term [a] -> Term [a] -> Term [a] -> Goal ()
 appendo xs ys zs =
   xs
     & ( matche
@@ -36,7 +36,7 @@ appendo xs ys zs =
             )
       )
 
-showLogicList :: (Show (Logic a)) => ValueOrVar [a] -> String
+showLogicList :: (Show (Logic a)) => Term [a] -> String
 showLogicList list = prefix ++ go list ++ suffix
  where
   (prefix, suffix) = case list of
@@ -51,7 +51,7 @@ showLogicList list = prefix ++ go list ++ suffix
       Value LogicNil -> ""
       _ -> ", "
 
-lists :: [ValueOrVar [Int]]
+lists :: [Term [Int]]
 lists = run listo
 
 partitions :: [Int] -> [([Int], [Int])]
@@ -64,15 +64,15 @@ partitions xs = fmap (fromJust . extract') $
 -- Exhaustive pattern-matching
 
 data LogicEither' l r a b
-  = LogicLeft' l (ValueOrVar a)
-  | LogicRight' r (ValueOrVar b)
+  = LogicLeft' l (Term a)
+  | LogicRight' r (Term b)
 
-_LogicLeft' :: Biprism (LogicEither' l r a b) (LogicEither' l' r a' b) (l, ValueOrVar a) (l', ValueOrVar a')
+_LogicLeft' :: Biprism (LogicEither' l r a b) (LogicEither' l' r a' b) (l, Term a) (l', Term a')
 _LogicLeft' = biprism (uncurry LogicLeft') (uncurry LogicLeft') $ \case
   LogicLeft' l a -> Right (l, a)
   LogicRight' r b -> Left (LogicRight' r b)
 
-_LogicRight' :: Biprism (LogicEither' l r a b) (LogicEither' l r' a b') (r, ValueOrVar b) (r', ValueOrVar b')
+_LogicRight' :: Biprism (LogicEither' l r a b) (LogicEither' l r' a b') (r, Term b) (r', Term b')
 _LogicRight' = biprism (uncurry LogicRight') (uncurry LogicRight') $ \case
   LogicRight' r b -> Right (r, b)
   LogicLeft' l a -> Left (LogicLeft' l a)
@@ -91,7 +91,7 @@ instance (Exhausted l, Exhausted r) => Exhausted (LogicEither' l r a b) where
   exhausted (LogicLeft' l _) = exhausted l
   exhausted (LogicRight' r _) = exhausted r
 
-eithero :: ValueOrVar (Either Bool Int) -> Goal ()
+eithero :: Term (Either Bool Int) -> Goal ()
 eithero =
   matche'
     & on' _LogicLeft' (\x -> x === Value True)
@@ -100,14 +100,14 @@ eithero =
 
 data LogicList' n c a
   = LogicNil' n
-  | LogicCons' c (ValueOrVar a) (ValueOrVar [a])
+  | LogicCons' c (Term a) (Term [a])
 
 _LogicNil' :: Biprism (LogicList' n c a) (LogicList' n' c a) (n, ()) (n', ())
 _LogicNil' = biprism (\(n, ()) -> LogicNil' n) (\(n, ()) -> LogicNil' n) $ \case
   LogicNil' n -> Right (n, ())
   LogicCons' c a as -> Left (LogicCons' c a as)
 
-_LogicCons' :: Biprism (LogicList' n c a) (LogicList' n c' a') (c, (ValueOrVar a, ValueOrVar [a])) (c', (ValueOrVar a', ValueOrVar [a']))
+_LogicCons' :: Biprism (LogicList' n c a) (LogicList' n c' a') (c, (Term a, Term [a])) (c', (Term a', Term [a']))
 _LogicCons' = biprism (\(c, (a, as)) -> LogicCons' c a as) (\(c, (a, as)) -> LogicCons' c a as) $ \case
   LogicCons' c a s -> Right (c, (a, s))
   LogicNil' n -> Left (LogicNil' n)
@@ -126,17 +126,17 @@ instance (Exhausted n, Exhausted c) => Exhausted (LogicList' n c a) where
   exhausted (LogicNil' n) = exhausted n
   exhausted (LogicCons' c _ _) = exhausted c
 
-listo' :: (Logical a) => ValueOrVar [a] -> Goal ()
+listo' :: (Logical a) => Term [a] -> Goal ()
 listo' =
   matche'
     & on' _LogicNil' return
     & on' _LogicCons' (\(_, as) -> listo' as)
     & enter'
 
-eithers :: [ValueOrVar (Either Bool Int)]
+eithers :: [Term (Either Bool Int)]
 eithers = run eithero
 
-lists' :: [ValueOrVar [Int]]
+lists' :: [Term [Int]]
 lists' = run listo'
 
 main :: IO ()

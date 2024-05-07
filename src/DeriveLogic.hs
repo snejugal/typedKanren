@@ -95,7 +95,7 @@ logifyBangType :: BangType -> BangType
 logifyBangType = fmap logifyType
 
 logifyType :: Type -> Type
-logifyType = AppT (ConT ''ValueOrVar)
+logifyType = AppT (ConT ''Term)
 
 logifyGadt :: Type -> Q Type
 logifyGadt (AppT left right) = do

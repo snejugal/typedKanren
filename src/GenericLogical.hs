@@ -22,7 +22,7 @@ import GHC.Generics
 import Core
 
 class GLogical f f' where
-  gsubst :: Proxy f -> (forall x. VarId x -> Maybe (ValueOrVar x)) -> f' p -> f' p
+  gsubst :: Proxy f -> (forall x. VarId x -> Maybe (Term x)) -> f' p -> f' p
   gunify :: Proxy f -> f' p -> f' p -> State -> Maybe State
   ginject :: f p -> f' p
   gextract :: f' p -> Maybe (f p)
@@ -63,7 +63,7 @@ instance (GLogical f f', GLogical g g') => GLogical (f :*: g) (f' :*: g') where
     y' <- gextract y
     return (x' :*: y')
 
-instance (Logical c) => GLogical (K1 i c) (K1 i' (ValueOrVar c)) where
+instance (Logical c) => GLogical (K1 i c) (K1 i' (Term c)) where
   gsubst _ k (K1 c) = K1 (subst' k c)
   gunify _ (K1 x) (K1 y) = unify' x y
   ginject (K1 x) = K1 (inject' x)
@@ -78,7 +78,7 @@ instance (GLogical f f') => GLogical (M1 i t f) (M1 i' t' f') where
 genericSubst
   :: forall a
    . (Generic (Logic a), GLogical (Rep a) (Rep (Logic a)))
-  => (forall x. VarId x -> Maybe (ValueOrVar x))
+  => (forall x. VarId x -> Maybe (Term x))
   -> Logic a
   -> Logic a
 genericSubst k term = to (gsubst (Proxy @(Rep a)) k (from term))

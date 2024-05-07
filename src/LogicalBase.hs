@@ -25,7 +25,7 @@ makePrisms ''LogicEither
 
 data LogicList a
   = LogicNil
-  | LogicCons (ValueOrVar a) (ValueOrVar [a])
+  | LogicCons (Term a) (Term [a])
   deriving (Generic)
 
 _LogicNil :: Prism' (LogicList a) ()
@@ -33,7 +33,7 @@ _LogicNil = prism (const LogicNil) $ \case
   LogicNil -> Right ()
   LogicCons x xs -> Left (LogicCons x xs)
 
-_LogicCons :: Prism (LogicList a) (LogicList b) (ValueOrVar a, ValueOrVar [a]) (ValueOrVar b, ValueOrVar [b])
+_LogicCons :: Prism (LogicList a) (LogicList b) (Term a, Term [a]) (Term b, Term [b])
 _LogicCons = prism (uncurry LogicCons) $ \case
   LogicCons x xs -> Right (x, xs)
   LogicNil -> Left LogicNil
@@ -48,12 +48,12 @@ instance (Logical a) => Logical [a] where
   extract = genericExtract
 
 instance IsList (LogicList a) where
-  type Item (LogicList a) = ValueOrVar a
+  type Item (LogicList a) = Term a
   fromList [] = LogicNil
   fromList (x : xs) = LogicCons x (Value (fromList xs))
 
 instance (Logical a, Logical b) => Logical (a, b) where
-  type Logic (a, b) = (ValueOrVar a, ValueOrVar b)
+  type Logic (a, b) = (Term a, Term b)
   subst = genericSubst
   unify = genericUnify
   inject = genericInject

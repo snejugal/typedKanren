@@ -23,8 +23,8 @@ on
   :: (Logical s, Fresh a)
   => Prism' (Logic s) a
   -> (a -> Goal x)
-  -> (ValueOrVar s -> Goal x)
-  -> ValueOrVar s
+  -> (Term s -> Goal x)
+  -> Term s
   -> Goal x
 on p f g x = disj (g x) thisArm
  where
@@ -36,7 +36,7 @@ on p f g x = disj (g x) thisArm
       Left a -> f a
       Right _ -> failo
 
-matche :: ValueOrVar a -> Goal x
+matche :: Term a -> Goal x
 matche = const failo
 
 type Biprism s t a b =
@@ -86,8 +86,8 @@ on'
   :: (Matchable a m, Fresh v)
   => Biprism (Matched a m) (Matched a m') ((), v) (Void, v)
   -> (v -> Goal x)
-  -> (MatchedValueOrVar a m' -> Goal x)
-  -> MatchedValueOrVar a m
+  -> (MatchedTerm a m' -> Goal x)
+  -> MatchedTerm a m
   -> Goal x
 on' p f g x = case x of
   Var' varId -> disj otherArms thisArm
@@ -101,11 +101,11 @@ on' p f g x = case x of
     Right (_, a) -> f a
     Left other -> g (Value' other)
 
-matche' :: (Exhausted (Matched a m)) => MatchedValueOrVar a m -> Goal x
+matche' :: (Exhausted (Matched a m)) => MatchedTerm a m -> Goal x
 matche' (Value' value) = exhausted value
 matche' (Var' _) = failo
 
-data MatchedValueOrVar a m
+data MatchedTerm a m
   = Var' (VarId a)
   | Value' (Matched a m)
 
@@ -119,8 +119,8 @@ class (Logical a) => Matchable a m where
 enter'
   :: forall a x
    . (Matchable a (Initial a))
-  => (MatchedValueOrVar a (Initial a) -> x)
-  -> ValueOrVar a
+  => (MatchedTerm a (Initial a) -> x)
+  -> Term a
   -> x
 enter' f x = f x'
  where

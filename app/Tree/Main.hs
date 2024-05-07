@@ -23,7 +23,7 @@ data Tree a = Empty | Node a (Tree a) (Tree a)
 deriveLogic ''Tree
 makePrisms ''LogicTree
 
-treeo :: ValueOrVar (Tree Int) -> Goal ()
+treeo :: Term (Tree Int) -> Goal ()
 treeo =
   matche
     & on _LogicEmpty return
@@ -35,7 +35,7 @@ treeo =
           treeo right
       )
 
-inverto :: (Logical a) => ValueOrVar (Tree a) -> ValueOrVar (Tree a) -> Goal ()
+inverto :: (Logical a) => Term (Tree a) -> Term (Tree a) -> Goal ()
 inverto tree inverted =
   tree
     & ( matche
@@ -50,7 +50,7 @@ inverto tree inverted =
             )
       )
 
-trees :: [ValueOrVar (Tree Int)]
+trees :: [Term (Tree Int)]
 trees = run treeo
 
 --    4

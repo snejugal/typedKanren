@@ -50,7 +50,7 @@ instance Alternative Goal where
 failo :: Goal x
 failo = Goal (const Done)
 
-(===) :: (Logical a) => ValueOrVar a -> ValueOrVar a -> Goal ()
+(===) :: (Logical a) => Term a -> Term a -> Goal ()
 a === b = Goal (maybeToStream . fmap (,()) . unify' a b)
 
 conj :: Goal () -> Goal () -> Goal ()
@@ -72,7 +72,7 @@ conde = disjMany . map conjMany
 
 -- >>> extract' <$> run @[Int] (\ xs -> [1, 2] === Value (LCons 1 xs))
 -- [Just [2]]
-run :: (Logical a) => (ValueOrVar a -> Goal ()) -> [ValueOrVar a]
+run :: (Logical a) => (Term a -> Goal ()) -> [Term a]
 run f = Foldable.toList (fmap (resolveQueryVar . fst) (runGoal (f queryVar) initialState))
  where
   initialState =
@@ -89,18 +89,18 @@ class Fresh a where
 instance Fresh () where
   fresh f = f ()
 
-instance Fresh (ValueOrVar a) where
+instance Fresh (Term a) where
   fresh f = Goal $ \state ->
     let (state', variable) = makeVariable state
      in runGoal (f variable) state'
 
-instance Fresh (ValueOrVar a, ValueOrVar b) where
+instance Fresh (Term a, Term b) where
   fresh f =
     fresh $ \a ->
       fresh $ \b ->
         f (a, b)
 
-instance Fresh (ValueOrVar a, ValueOrVar b, ValueOrVar c) where
+instance Fresh (Term a, Term b, Term c) where
   fresh f =
     fresh $ \(a, b) ->
       fresh $ \c ->

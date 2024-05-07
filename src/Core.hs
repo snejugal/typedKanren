@@ -12,7 +12,7 @@
 
 module Core (
   VarId (..), -- TODO: constructor shouldn't be public
-  ValueOrVar (..),
+  Term (..),
   subst',
   unify',
   inject',
@@ -34,28 +34,28 @@ import Unsafe.Coerce (unsafeCoerce)
 newtype VarId a = VarId Int
   deriving (Show, Eq)
 
-data ValueOrVar a
+data Term a
   = Var (VarId a)
   | Value (Logic a)
 
-deriving instance (Show (Logic a)) => Show (ValueOrVar a)
-deriving instance (Eq (Logic a)) => Eq (ValueOrVar a)
+deriving instance (Show (Logic a)) => Show (Term a)
+deriving instance (Eq (Logic a)) => Eq (Term a)
 
-instance (IsList (Logic a)) => IsList (ValueOrVar a) where
-  type Item (ValueOrVar a) = Item (Logic a)
+instance (IsList (Logic a)) => IsList (Term a) where
+  type Item (Term a) = Item (Logic a)
   fromList = Value . fromList
 
-instance (Num (Logic a)) => Num (ValueOrVar a) where
+instance (Num (Logic a)) => Num (Term a) where
   fromInteger = Value . fromInteger
 
-subst' :: (Logical a) => (forall x. VarId x -> Maybe (ValueOrVar x)) -> ValueOrVar a -> ValueOrVar a
+subst' :: (Logical a) => (forall x. VarId x -> Maybe (Term x)) -> Term a -> Term a
 subst' k (Value x) = Value (subst k x)
 subst' k x@(Var i) = fromMaybe x (k i)
 
-apply :: (Logical a) => Subst -> ValueOrVar a -> ValueOrVar a
+apply :: (Logical a) => Subst -> Term a -> Term a
 apply (Subst m) = subst' (\(VarId i) -> unsafeExtractSomeValue <$> IntMap.lookup i m)
 
-addSubst :: (Logical a) => (VarId a, ValueOrVar a) -> State -> State
+addSubst :: (Logical a) => (VarId a, Term a) -> State -> State
 addSubst (VarId i, value) State{knownSubst = Subst m, ..} =
   State
     { knownSubst =
@@ -69,7 +69,7 @@ addSubst (VarId i, value) State{knownSubst = Subst m, ..} =
     SomeValue (apply (Subst (IntMap.singleton i (SomeValue value))) x)
 
 -- >>> unify' (Value (Pair (Var 0, )))
-unify' :: (Logical a) => ValueOrVar a -> ValueOrVar a -> State -> Maybe State
+unify' :: (Logical a) => Term a -> Term a -> State -> Maybe State
 unify' l r state@State{..} =
   case (apply knownSubst l, apply knownSubst r) of
     (Var x, Var y)
@@ -78,17 +78,17 @@ unify' l r state@State{..} =
     (l', Var y) -> Just (addSubst (y, l') state)
     (Value l', Value r') -> unify l' r' state
 
-inject' :: (Logical a) => a -> ValueOrVar a
+inject' :: (Logical a) => a -> Term a
 inject' = Value . inject
 
-extract' :: (Logical a) => ValueOrVar a -> Maybe a
+extract' :: (Logical a) => Term a -> Maybe a
 extract' Var{} = Nothing
 extract' (Value x) = extract x
 
 data SomeValue where
-  SomeValue :: (Logical a) => ValueOrVar a -> SomeValue
+  SomeValue :: (Logical a) => Term a -> SomeValue
 
-unsafeExtractSomeValue :: SomeValue -> ValueOrVar a
+unsafeExtractSomeValue :: SomeValue -> Term a
 unsafeExtractSomeValue (SomeValue x) = unsafeCoerce x
 
 newtype Subst = Subst (IntMap SomeValue)
@@ -98,15 +98,15 @@ data State = State
   , maxVarId :: !Int
   }
 
-makeVariable :: State -> (State, ValueOrVar a)
+makeVariable :: State -> (State, Term a)
 makeVariable State{maxVarId, ..} = (State{maxVarId = maxVarId + 1, ..}, Var (VarId maxVarId))
 
 class Logical a where
   type Logic (a :: Type) = r | r -> a
   type Logic a = a
 
-  subst :: (forall x. VarId x -> Maybe (ValueOrVar x)) -> Logic a -> Logic a
-  default subst :: (a ~ Logic a) => (forall x. VarId x -> Maybe (ValueOrVar x)) -> Logic a -> Logic a
+  subst :: (forall x. VarId x -> Maybe (Term x)) -> Logic a -> Logic a
+  default subst :: (a ~ Logic a) => (forall x. VarId x -> Maybe (Term x)) -> Logic a -> Logic a
   subst _ = id
 
   unify :: Logic a -> Logic a -> State -> Maybe State
