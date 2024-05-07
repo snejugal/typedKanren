@@ -14,7 +14,7 @@
             stack
             ghcid
             (haskell-language-server.override {
-              supportedGhcVersions = [ "92" ];
+              supportedGhcVersions = [ "96" ];
             })
           ];
         };
