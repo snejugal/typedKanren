@@ -53,20 +53,20 @@ subst' k (Value x) = Value (subst k x)
 subst' k x@(Var i) = fromMaybe x (k i)
 
 apply :: (Logical a) => Subst -> Term a -> Term a
-apply (Subst m) = subst' (\(VarId i) -> unsafeExtractSomeValue <$> IntMap.lookup i m)
+apply (Subst m) = subst' (\(VarId i) -> unsafeReconstructTerm <$> IntMap.lookup i m)
 
 addSubst :: (Logical a) => (VarId a, Term a) -> State -> State
 addSubst (VarId i, value) State{knownSubst = Subst m, ..} =
   State
     { knownSubst =
         Subst $
-          IntMap.insert i (SomeValue value) $
+          IntMap.insert i (ErasedTerm value) $
             updateSomeValue <$> m
     , ..
     }
  where
-  updateSomeValue (SomeValue x) =
-    SomeValue (apply (Subst (IntMap.singleton i (SomeValue value))) x)
+  updateSomeValue (ErasedTerm x) =
+    ErasedTerm (apply (Subst (IntMap.singleton i (ErasedTerm value))) x)
 
 -- >>> unify' (Value (Pair (Var 0, )))
 unify' :: (Logical a) => Term a -> Term a -> State -> Maybe State
@@ -85,13 +85,13 @@ extract' :: (Logical a) => Term a -> Maybe a
 extract' Var{} = Nothing
 extract' (Value x) = extract x
 
-data SomeValue where
-  SomeValue :: (Logical a) => Term a -> SomeValue
+data ErasedTerm where
+  ErasedTerm :: (Logical a) => Term a -> ErasedTerm
 
-unsafeExtractSomeValue :: SomeValue -> Term a
-unsafeExtractSomeValue (SomeValue x) = unsafeCoerce x
+unsafeReconstructTerm :: ErasedTerm -> Term a
+unsafeReconstructTerm (ErasedTerm x) = unsafeCoerce x
 
-newtype Subst = Subst (IntMap SomeValue)
+newtype Subst = Subst (IntMap ErasedTerm)
 
 data State = State
   { knownSubst :: !Subst
