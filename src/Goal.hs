@@ -21,12 +21,11 @@ import Control.Applicative (Alternative (..))
 import Control.Monad (ap)
 import qualified Data.Foldable as Foldable
 import qualified Data.IntMap as IntMap
-import Data.Kind (Type)
 
 import Core
 import Stream
 
-newtype Goal (a :: Type) = Goal {runGoal :: State -> Stream (State, a)}
+newtype Goal x = Goal {runGoal :: State -> Stream (State, x)}
 
 instance Functor Goal where
   fmap f (Goal g) = Goal (fmap (fmap (fmap f)) g)
@@ -43,7 +42,7 @@ instance Monad Goal where
     runGoal (f x) s'
 
 instance Alternative Goal where
-  empty = Goal (const Done)
+  empty = failo
   Goal g1 <|> Goal g2 =
     Goal (\state -> g1 state `interleave` g2 state)
 
@@ -53,19 +52,17 @@ failo = Goal (const Done)
 (===) :: (Logical a) => Term a -> Term a -> Goal ()
 a === b = Goal (maybeToStream . fmap (,()) . unify' a b)
 
-conj :: Goal () -> Goal () -> Goal ()
-conj g1 g2 = do
-  g1
-  g2
+conj :: Goal x -> Goal y -> Goal y
+conj = (>>)
 
 conjMany :: [Goal ()] -> Goal ()
 conjMany = foldr conj (pure ())
 
-disj :: Goal a -> Goal a -> Goal a
+disj :: Goal x -> Goal x -> Goal x
 disj = (<|>)
 
-disjMany :: [Goal a] -> Goal a
-disjMany = foldr disj empty
+disjMany :: [Goal x] -> Goal x
+disjMany = foldr disj failo
 
 conde :: [[Goal ()]] -> Goal ()
 conde = disjMany . map conjMany
@@ -83,8 +80,8 @@ run f = Foldable.toList (fmap (resolveQueryVar . fst) (runGoal (f queryVar) init
   queryVar = Var (VarId 0)
   resolveQueryVar State{..} = apply knownSubst queryVar
 
-class Fresh a where
-  fresh :: (a -> Goal x) -> Goal x
+class Fresh v where
+  fresh :: (v -> Goal x) -> Goal x
 
 instance Fresh () where
   fresh f = f ()

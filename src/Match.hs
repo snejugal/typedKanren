@@ -20,11 +20,11 @@ import Data.Void (Void, absurd)
 import Goal
 
 on
-  :: (Logical s, Fresh a)
-  => Prism' (Logic s) a
-  -> (a -> Goal x)
-  -> (Term s -> Goal x)
-  -> Term s
+  :: (Logical a, Fresh v)
+  => Prism' (Logic a) v
+  -> (v -> Goal x)
+  -> (Term a -> Goal x)
+  -> Term a
   -> Goal x
 on p f g x = disj (g x) thisArm
  where
