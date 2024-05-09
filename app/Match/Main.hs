@@ -11,6 +11,7 @@ import Data.Function ((&))
 import Data.Maybe (fromJust)
 import Data.Void (Void)
 
+import Biprism
 import Core
 import Goal
 import LogicalBase

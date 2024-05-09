@@ -4,18 +4,15 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilyDependencies #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module Match (on, matche, on', matche', Exhausted (..), Matchable (..), enter', Biprism, biprism) where
+module Match (on, matche, on', matche', Exhausted (..), Matchable (..), enter') where
 
-import Control.Lens (Choice (right'), Prism', Profunctor (dimap), review)
+import Biprism (Biprism, matching, reviewl)
+import Control.Lens (Prism', review)
 import Core
-import Data.Biapplicative (Biapplicative (bipure, (<<*>>)), Bifunctor (bimap, first))
-import Data.Functor.Const (Const (Const, getConst))
-import Data.Tagged (Tagged (Tagged, unTagged))
 import Data.Void (Void, absurd)
 import Goal
 
@@ -38,43 +35,6 @@ on p f g x = disj (g x) thisArm
 
 matche :: Term a -> Goal x
 matche = const failo
-
-type Biprism s t a b =
-  forall p f
-   . (Choice p, Biapplicative f)
-  => p a (f a b)
-  -> p s (f s t)
-
-biprism :: (a -> s) -> (b -> t) -> (s -> Either t a) -> Biprism s t a b
-biprism setl setr get = dimap get' set' . right'
- where
-  get' x = first (x,) (get x)
-  set' (Right fab) = bimap setl setr fab
-  set' (Left (s, t)) = bipure s t
-
-reviewl :: Biprism s t a b -> a -> s
-reviewl p = getConst . unTagged . p . Tagged . Const
-
-newtype Either' a b c = Either' (Either a (b, c))
-
-instance Functor (Either' a b) where
-  fmap = bimap id
-
-instance Bifunctor (Either' a) where
-  bimap _ _ (Either' (Left a)) = Either' (Left a)
-  bimap f g (Either' (Right bc)) = Either' (Right (bimap f g bc))
-
-instance Biapplicative (Either' a) where
-  bipure b c = Either' (Right (bipure b c))
-
-  Either' (Left a) <<*>> _ = Either' (Left a)
-  _ <<*>> Either' (Left a) = Either' (Left a)
-  Either' (Right fg) <<*>> Either' (Right bc) = Either' (Right (fg <<*>> bc))
-
-matching :: Biprism s t a b -> s -> Either t a
-matching p x = case p (Either' . Left) x of
-  Either' (Left a) -> Right a
-  Either' (Right (_, t)) -> Left t
 
 class Exhausted a where
   exhausted :: a -> x
