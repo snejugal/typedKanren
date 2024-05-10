@@ -11,26 +11,46 @@
 {-# LANGUAGE UndecidableInstances #-}
 
 module Core (
+  Logical (..),
   VarId,
   Term (..),
-  subst',
   unify',
+  subst',
   inject',
   extract',
-  apply,
-  apply',
+  resolve,
   State,
   empty,
   makeVariable,
-  Logical (..),
 ) where
 
 import Data.IntMap (IntMap)
 import qualified Data.IntMap as IntMap
-import Data.Kind (Type)
 import Data.Maybe (fromMaybe)
 import GHC.Exts (IsList (..))
 import Unsafe.Coerce (unsafeCoerce)
+
+class Logical a where
+  type Logic a = r | r -> a
+  type Logic a = a
+
+  unify :: Logic a -> Logic a -> State -> Maybe State
+  default unify :: (Eq (Logic a)) => Logic a -> Logic a -> State -> Maybe State
+  unify x y state
+    | x == y = Just state
+    | otherwise = Nothing
+
+  subst :: (forall x. VarId x -> Maybe (Term x)) -> Logic a -> Logic a
+  default subst :: (a ~ Logic a) => (forall x. VarId x -> Maybe (Term x)) -> Logic a -> Logic a
+  subst _ = id
+
+  inject :: a -> Logic a
+  default inject :: (a ~ Logic a) => a -> Logic a
+  inject = id
+
+  extract :: Logic a -> Maybe a
+  default extract :: (a ~ Logic a) => Logic a -> Maybe a
+  extract = Just
 
 newtype VarId a = VarId Int
   deriving (Show, Eq)
@@ -49,38 +69,18 @@ instance (IsList (Logic a)) => IsList (Term a) where
 instance (Num (Logic a)) => Num (Term a) where
   fromInteger = Value . fromInteger
 
+unify' :: (Logical a) => Term a -> Term a -> State -> Maybe State
+unify' l r state =
+  case (resolve l state, resolve r state) of
+    (Var x, Var y)
+      | x == y -> Just state
+    (Var x, r') -> Just (addSubst x r' state)
+    (l', Var y) -> Just (addSubst y l' state)
+    (Value l', Value r') -> unify l' r' state
+
 subst' :: (Logical a) => (forall x. VarId x -> Maybe (Term x)) -> Term a -> Term a
 subst' k (Value x) = Value (subst k x)
 subst' k x@(Var i) = fromMaybe x (k i)
-
-apply :: (Logical a) => Subst -> Term a -> Term a
-apply (Subst m) = subst' (\(VarId i) -> unsafeReconstructTerm <$> IntMap.lookup i m)
-
-apply' :: (Logical a) => Term a -> State -> Term a
-apply' var State{knownSubst} = apply knownSubst var
-
-addSubst :: (Logical a) => (VarId a, Term a) -> State -> State
-addSubst (VarId i, value) State{knownSubst = Subst m, ..} =
-  State
-    { knownSubst =
-        Subst $
-          IntMap.insert i (ErasedTerm value) $
-            updateSomeValue <$> m
-    , ..
-    }
- where
-  updateSomeValue (ErasedTerm x) =
-    ErasedTerm (apply (Subst (IntMap.singleton i (ErasedTerm value))) x)
-
--- >>> unify' (Value (Pair (Var 0, )))
-unify' :: (Logical a) => Term a -> Term a -> State -> Maybe State
-unify' l r state@State{..} =
-  case (apply knownSubst l, apply knownSubst r) of
-    (Var x, Var y)
-      | x == y -> Just state
-    (Var x, r') -> Just (addSubst (x, r') state)
-    (l', Var y) -> Just (addSubst (y, l') state)
-    (Value l', Value r') -> unify l' r' state
 
 inject' :: (Logical a) => a -> Term a
 inject' = Value . inject
@@ -106,26 +106,26 @@ empty :: State
 empty = State{knownSubst = Subst IntMap.empty, maxVarId = 0}
 
 makeVariable :: State -> (State, Term a)
-makeVariable State{maxVarId, ..} = (State{maxVarId = maxVarId + 1, ..}, Var (VarId maxVarId))
+makeVariable State{maxVarId, ..} = (state', var)
+ where
+  var = Var (VarId maxVarId)
+  state' = State{maxVarId = maxVarId + 1, ..}
 
-class Logical a where
-  type Logic (a :: Type) = r | r -> a
-  type Logic a = a
+resolve :: (Logical a) => Term a -> State -> Term a
+resolve var State{knownSubst} = apply knownSubst var
 
-  subst :: (forall x. VarId x -> Maybe (Term x)) -> Logic a -> Logic a
-  default subst :: (a ~ Logic a) => (forall x. VarId x -> Maybe (Term x)) -> Logic a -> Logic a
-  subst _ = id
+apply :: (Logical a) => Subst -> Term a -> Term a
+apply (Subst m) = subst' (\(VarId i) -> unsafeReconstructTerm <$> IntMap.lookup i m)
 
-  unify :: Logic a -> Logic a -> State -> Maybe State
-  default unify :: (Eq (Logic a)) => Logic a -> Logic a -> State -> Maybe State
-  unify x y state
-    | x == y = Just state
-    | otherwise = Nothing
-
-  inject :: a -> Logic a
-  default inject :: (a ~ Logic a) => a -> Logic a
-  inject = id
-
-  extract :: Logic a -> Maybe a
-  default extract :: (a ~ Logic a) => Logic a -> Maybe a
-  extract = Just
+addSubst :: (Logical a) => VarId a -> Term a -> State -> State
+addSubst (VarId i) value State{knownSubst = Subst m, ..} =
+  State
+    { knownSubst =
+        Subst $
+          IntMap.insert i (ErasedTerm value) $
+            updateErasedTerm <$> m
+    , ..
+    }
+ where
+  updateErasedTerm (ErasedTerm x) =
+    ErasedTerm (apply (Subst (IntMap.singleton i (ErasedTerm value))) x)

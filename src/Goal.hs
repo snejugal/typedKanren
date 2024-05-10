@@ -74,7 +74,7 @@ run f = Foldable.toList solutions
  where
   (initialState, queryVar) = makeVariable Core.empty
   states = fst <$> runGoal (f queryVar) initialState
-  solutions = fmap (apply' queryVar) states
+  solutions = fmap (resolve queryVar) states
 
 class Fresh v where
   fresh :: (v -> Goal x) -> Goal x
