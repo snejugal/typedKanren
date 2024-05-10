@@ -66,30 +66,44 @@ conde = disjMany . map conjMany
 
 -- >>> extract' <$> run @[Int] (\ xs -> [1, 2] === Value (LCons 1 xs))
 -- [Just [2]]
-run :: (Logical a) => (Term a -> Goal ()) -> [Term a]
+run :: (Fresh v) => (v -> Goal ()) -> [v]
 run f = Foldable.toList solutions
  where
-  (initialState, queryVar) = makeVariable Core.empty
-  states = fst <$> runGoal (f queryVar) initialState
-  solutions = fmap (resolve queryVar) states
+  states = flip runGoal Core.empty $ do
+    vars <- fresh
+    f vars
+    pure vars
+  solutions = fmap (uncurry resolve) states
 
 class Fresh v where
   fresh :: Goal v
+  resolve :: State -> v -> v
 
 instance Fresh () where
   fresh = pure ()
+  resolve _ () = ()
 
-instance Fresh (Term a) where
+instance (Logical a) => Fresh (Term a) where
   fresh = Goal (pure . makeVariable)
+  resolve = walk
 
-instance Fresh (Term a, Term b) where
+instance (Logical a, Logical b) => Fresh (Term a, Term b) where
   fresh = do
     a <- fresh
     b <- fresh
     pure (a, b)
+  resolve state (a, b) = (a', b')
+   where
+    a' = walk state a
+    b' = walk state b
 
-instance Fresh (Term a, Term b, Term c) where
+instance (Logical a, Logical b, Logical c) => Fresh (Term a, Term b, Term c) where
   fresh = do
     (a, b) <- fresh
     c <- fresh
     pure (a, b, c)
+  resolve state (a, b, c) = (a', b', c')
+   where
+    a' = walk state a
+    b' = walk state b
+    c' = walk state c

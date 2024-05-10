@@ -18,7 +18,7 @@ module Core (
   subst',
   inject',
   extract',
-  resolve,
+  walk,
   State,
   empty,
   makeVariable,
@@ -71,7 +71,7 @@ instance (Num (Logic a)) => Num (Term a) where
 
 unify' :: (Logical a) => Term a -> Term a -> State -> Maybe State
 unify' l r state =
-  case (resolve l state, resolve r state) of
+  case (walk state l, walk state r) of
     (Var x, Var y)
       | x == y -> Just state
     (Var x, r') -> Just (addSubst x r' state)
@@ -111,8 +111,8 @@ makeVariable State{maxVarId, ..} = (state', var)
   var = Var (VarId maxVarId)
   state' = State{maxVarId = maxVarId + 1, ..}
 
-resolve :: (Logical a) => Term a -> State -> Term a
-resolve var State{knownSubst} = apply knownSubst var
+walk :: (Logical a) => State -> Term a -> Term a
+walk State{knownSubst} = apply knownSubst
 
 apply :: (Logical a) => Subst -> Term a -> Term a
 apply (Subst m) = subst' (\(VarId i) -> unsafeReconstructTerm <$> IntMap.lookup i m)

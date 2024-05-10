@@ -56,12 +56,11 @@ lists :: [Term [Int]]
 lists = run listo
 
 partitions :: [Int] -> [([Int], [Int])]
-partitions xs = fmap (fromJust . extract') $
-  run $
-    \result -> do
-      (left, right) <- fresh
-      result === Value (left, right)
-      appendo left right (inject' xs)
+partitions xs = reifyBoth <$> run $ \(left, right) -> do
+  appendo left right (inject' xs)
+ where
+  reifyBoth = fmap (\(a, b) -> (reify a, reify b))
+  reify = fromJust . extract'
 
 -- Exhaustive pattern-matching
 
