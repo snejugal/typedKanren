@@ -1,11 +1,13 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TupleSections #-}
 
-module Biprism (Biprism, biprism, reviewl, reviewr, matching) where
+module Biprism (Biprism, biprism, toPrism, fromPrisms, reviewl, reviewr, matching) where
 
-import Control.Lens (Choice (right'), dimap)
+import Control.Lens (Choice (right'), Prism, Prism', Profunctor (rmap), dimap)
+import Control.Lens.Review (review, reviewing)
 import Data.Biapplicative (Biapplicative (bipure, (<<*>>)))
 import Data.Bifunctor (Bifunctor (bimap, first))
+import Data.Bifunctor.Joker (Joker (Joker, runJoker))
 import Data.Functor.Const (Const (Const, getConst))
 import Data.Tagged (Tagged (Tagged, unTagged))
 
@@ -21,6 +23,15 @@ biprism setl setr get = dimap get' set' . right'
   get' x = first (x,) (get x)
   set' (Right fab) = bimap setl setr fab
   set' (Left (s, t)) = bipure s t
+
+toPrism :: Biprism s t a b -> Prism s t a b
+toPrism b = rmap runJoker . b . rmap Joker
+
+fromPrisms :: Prism' s a -> Prism s t a b -> Biprism s t a b
+fromPrisms l r = biprism (set l) (set r) get
+ where
+  set p = review (reviewing p)
+  get = either Right Left . r Left
 
 reviewl :: Biprism s t a b -> a -> s
 reviewl p = getConst . unTagged . p . Tagged . Const
