@@ -1,7 +1,18 @@
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TupleSections #-}
+{-# LANGUAGE TypeApplications #-}
 
-module Biprism (Biprism, biprism, toPrism, fromPrisms, reviewl, reviewr, matching) where
+module Biprism (
+  Biprism,
+  biprism,
+  toPrism,
+  fromPrisms,
+  unsafeToPrism,
+  reviewl,
+  reviewr,
+  matching,
+) where
 
 import Control.Lens (Choice (right'), Prism, Prism', Profunctor (rmap), dimap)
 import Control.Lens.Review (review, reviewing)
@@ -10,6 +21,7 @@ import Data.Bifunctor (Bifunctor (bimap, first))
 import Data.Bifunctor.Joker (Joker (Joker, runJoker))
 import Data.Functor.Const (Const (Const, getConst))
 import Data.Tagged (Tagged (Tagged, unTagged))
+import Unsafe.Coerce (unsafeCoerce)
 
 type Biprism s t a b =
   forall p f
@@ -32,6 +44,14 @@ fromPrisms l r = biprism (set l) (set r) get
  where
   set p = review (reviewing p)
   get = either Right Left . r Left
+
+unsafeToPrism
+  :: forall p f s t a b
+   . (Choice p, Applicative f)
+  => Biprism s t a b
+  -> p a (f b)
+  -> p s (f t)
+unsafeToPrism b = unsafeCoerce (b @p @(Joker f))
 
 reviewl :: Biprism s t a b -> a -> s
 reviewl p = getConst . unTagged . p . Tagged . Const
