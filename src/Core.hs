@@ -11,16 +11,17 @@
 {-# LANGUAGE UndecidableInstances #-}
 
 module Core (
-  VarId (..), -- TODO: constructor shouldn't be public
+  VarId,
   Term (..),
   subst',
   unify',
   inject',
   extract',
   apply,
+  apply',
+  State,
+  empty,
   makeVariable,
-  State (..),
-  Subst (..),
   Logical (..),
 ) where
 
@@ -54,6 +55,9 @@ subst' k x@(Var i) = fromMaybe x (k i)
 
 apply :: (Logical a) => Subst -> Term a -> Term a
 apply (Subst m) = subst' (\(VarId i) -> unsafeReconstructTerm <$> IntMap.lookup i m)
+
+apply' :: (Logical a) => Term a -> State -> Term a
+apply' var State{knownSubst} = apply knownSubst var
 
 addSubst :: (Logical a) => (VarId a, Term a) -> State -> State
 addSubst (VarId i, value) State{knownSubst = Subst m, ..} =
@@ -97,6 +101,9 @@ data State = State
   { knownSubst :: !Subst
   , maxVarId :: !Int
   }
+
+empty :: State
+empty = State{knownSubst = Subst IntMap.empty, maxVarId = 0}
 
 makeVariable :: State -> (State, Term a)
 makeVariable State{maxVarId, ..} = (State{maxVarId = maxVarId + 1, ..}, Var (VarId maxVarId))

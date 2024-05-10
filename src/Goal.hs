@@ -70,15 +70,11 @@ conde = disjMany . map conjMany
 -- >>> extract' <$> run @[Int] (\ xs -> [1, 2] === Value (LCons 1 xs))
 -- [Just [2]]
 run :: (Logical a) => (Term a -> Goal ()) -> [Term a]
-run f = Foldable.toList (fmap (resolveQueryVar . fst) (runGoal (f queryVar) initialState))
+run f = Foldable.toList solutions
  where
-  initialState =
-    State
-      { knownSubst = Subst IntMap.empty
-      , maxVarId = 1
-      }
-  queryVar = Var (VarId 0)
-  resolveQueryVar State{..} = apply knownSubst queryVar
+  (initialState, queryVar) = makeVariable Core.empty
+  states = fst <$> runGoal (f queryVar) initialState
+  solutions = fmap (apply' queryVar) states
 
 class Fresh v where
   fresh :: (v -> Goal x) -> Goal x
