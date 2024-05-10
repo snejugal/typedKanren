@@ -1,7 +1,5 @@
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE ImpredicativeTypes #-}
 {-# LANGUAGE KindSignatures #-}
-{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TupleSections #-}
 
 module Goal (
@@ -20,7 +18,6 @@ module Goal (
 import Control.Applicative (Alternative (..))
 import Control.Monad (ap)
 import qualified Data.Foldable as Foldable
-import qualified Data.IntMap as IntMap
 
 import Core
 import Stream
@@ -77,24 +74,22 @@ run f = Foldable.toList solutions
   solutions = fmap (resolve queryVar) states
 
 class Fresh v where
-  fresh :: (v -> Goal x) -> Goal x
+  fresh :: Goal v
 
 instance Fresh () where
-  fresh f = f ()
+  fresh = pure ()
 
 instance Fresh (Term a) where
-  fresh f = Goal $ \state ->
-    let (state', variable) = makeVariable state
-     in runGoal (f variable) state'
+  fresh = Goal (pure . makeVariable)
 
 instance Fresh (Term a, Term b) where
-  fresh f =
-    fresh $ \a ->
-      fresh $ \b ->
-        f (a, b)
+  fresh = do
+    a <- fresh
+    b <- fresh
+    pure (a, b)
 
 instance Fresh (Term a, Term b, Term c) where
-  fresh f =
-    fresh $ \(a, b) ->
-      fresh $ \c ->
-        f (a, b, c)
+  fresh = do
+    (a, b) <- fresh
+    c <- fresh
+    pure (a, b, c)

@@ -42,11 +42,11 @@ inverto tree inverted =
           & on _LogicEmpty (\() -> inverted === Value LogicEmpty)
           & on
             _LogicNode
-            ( \(value, left, right) ->
-                fresh $ \(invertedLeft, invertedRight) -> do
-                  inverted === Value (LogicNode value invertedLeft invertedRight)
-                  inverto left invertedRight
-                  inverto right invertedLeft
+            ( \(value, left, right) -> do
+                (invertedLeft, invertedRight) <- fresh
+                inverted === Value (LogicNode value invertedLeft invertedRight)
+                inverto left invertedRight
+                inverto right invertedLeft
             )
       )
 

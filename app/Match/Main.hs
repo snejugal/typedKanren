@@ -30,10 +30,10 @@ appendo xs ys zs =
           & on _LogicNil (\() -> ys === zs)
           & on
             _LogicCons
-            ( \(x, xs') ->
-                fresh $ \zs' -> do
-                  zs === Value (LogicCons x zs')
-                  appendo xs' ys zs'
+            ( \(x, xs') -> do
+                zs' <- fresh
+                zs === Value (LogicCons x zs')
+                appendo xs' ys zs'
             )
       )
 
@@ -58,7 +58,8 @@ lists = run listo
 partitions :: [Int] -> [([Int], [Int])]
 partitions xs = fmap (fromJust . extract') $
   run $
-    \result -> fresh $ \(left, right) -> do
+    \result -> do
+      (left, right) <- fresh
       result === Value (left, right)
       appendo left right (inject' xs)
 

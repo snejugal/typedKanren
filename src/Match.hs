@@ -26,7 +26,8 @@ on
 on p f g x = disj (g x) thisArm
  where
   thisArm = case x of
-    Var _ -> fresh $ \vars -> do
+    Var _ -> do
+      vars <- fresh
       x === Value (review p vars)
       f vars
     Value value -> case p Left value of
@@ -53,7 +54,8 @@ on' p f g x = case x of
   Var' varId -> disj otherArms thisArm
    where
     otherArms = g (Var' varId)
-    thisArm = fresh $ \vars -> do
+    thisArm = do
+      vars <- fresh
       let value = back (reviewl p ((), vars))
       Var varId === Value value
       f vars
