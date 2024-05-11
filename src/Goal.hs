@@ -85,7 +85,7 @@ instance Fresh () where
 
 instance (Logical a) => Fresh (Term a) where
   fresh = Goal (pure . makeVariable)
-  resolve = walk
+  resolve = walk'
 
 instance (Logical a, Logical b) => Fresh (Term a, Term b) where
   fresh = do
@@ -94,8 +94,8 @@ instance (Logical a, Logical b) => Fresh (Term a, Term b) where
     pure (a, b)
   resolve state (a, b) = (a', b')
    where
-    a' = walk state a
-    b' = walk state b
+    a' = walk' state a
+    b' = walk' state b
 
 instance (Logical a, Logical b, Logical c) => Fresh (Term a, Term b, Term c) where
   fresh = do
@@ -104,6 +104,5 @@ instance (Logical a, Logical b, Logical c) => Fresh (Term a, Term b, Term c) whe
     pure (a, b, c)
   resolve state (a, b, c) = (a', b', c')
    where
-    a' = walk state a
-    b' = walk state b
-    c' = walk state c
+    (a', b') = resolve state (a, b)
+    c' = walk' state c

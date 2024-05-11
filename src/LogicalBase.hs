@@ -42,8 +42,8 @@ deriving instance (Show (Logic a)) => Show (LogicList a)
 
 instance (Logical a) => Logical [a] where
   type Logic [a] = LogicList a
-  subst = genericSubst
   unify = genericUnify
+  walk = genericWalk
   inject = genericInject
   extract = genericExtract
 
@@ -54,8 +54,8 @@ instance IsList (LogicList a) where
 
 instance (Logical a, Logical b) => Logical (a, b) where
   type Logic (a, b) = (Term a, Term b)
-  subst = genericSubst
   unify = genericUnify
+  walk = genericWalk
   inject = genericInject
   extract = genericExtract
 

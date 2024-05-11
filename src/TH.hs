@@ -118,8 +118,8 @@ makeLogical name vars name' = do
   [d|
     instance ($ctx) => Logical $name_ where
       type Logic $name_ = $name'_
-      subst = genericSubst
       unify = genericUnify
+      walk = genericWalk
       inject = genericInject
       extract = genericExtract
     |]

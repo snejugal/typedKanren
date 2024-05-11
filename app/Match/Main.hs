@@ -147,6 +147,15 @@ eithers = run eithero
 lists' :: [Term [Int]]
 lists' = run listo'
 
+chaino = run $ \(a, b, c) -> do
+  (d, e, f) <- fresh
+  e === f
+  d === e
+  c === d
+  b === c
+  a === b
+  f === Value (42 :: Int)
+
 main :: IO ()
 main = do
   putStrLn "lists:"
@@ -166,3 +175,6 @@ main = do
 
   putStrLn "\nlists':"
   mapM_ print (take 5 (showLogicList <$> lists'))
+
+  putStrLn "\nchaino:"
+  mapM_ print (chaino)

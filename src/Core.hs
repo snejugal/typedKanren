@@ -15,10 +15,9 @@ module Core (
   VarId,
   Term (..),
   unify',
-  subst',
+  walk',
   inject',
   extract',
-  walk,
   State,
   empty,
   makeVariable,
@@ -39,9 +38,9 @@ class Logical a where
     | x == y = Just state
     | otherwise = Nothing
 
-  subst :: State -> Logic a -> Logic a
-  default subst :: (a ~ Logic a) => State -> Logic a -> Logic a
-  subst _ = id
+  walk :: State -> Logic a -> Logic a
+  default walk :: (a ~ Logic a) => State -> Logic a -> Logic a
+  walk _ = id
 
   inject :: a -> Logic a
   default inject :: (a ~ Logic a) => a -> Logic a
@@ -77,10 +76,10 @@ unify' l r state =
     (l', Var y) -> Just (addSubst y l' state)
     (Value l', Value r') -> unify l' r' state
 
-subst' :: (Logical a) => State -> Term a -> Term a
-subst' state x = case shallowWalk state x of
+walk' :: (Logical a) => State -> Term a -> Term a
+walk' state x = case shallowWalk state x of
   Var i -> Var i
-  Value v -> Value (subst state v)
+  Value v -> Value (walk state v)
 
 inject' :: (Logical a) => a -> Term a
 inject' = Value . inject
@@ -110,9 +109,6 @@ makeVariable State{maxVarId, ..} = (state', var)
  where
   var = Var (VarId maxVarId)
   state' = State{maxVarId = maxVarId + 1, ..}
-
-walk :: (Logical a) => State -> Term a -> Term a
-walk = subst'
 
 shallowWalk :: (Logical a) => State -> Term a -> Term a
 shallowWalk _ (Value v) = Value v
