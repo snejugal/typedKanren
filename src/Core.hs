@@ -26,7 +26,6 @@ module Core (
 
 import Data.IntMap (IntMap)
 import qualified Data.IntMap as IntMap
-import Data.Maybe (fromMaybe)
 import GHC.Exts (IsList (..))
 import Unsafe.Coerce (unsafeCoerce)
 
@@ -40,8 +39,8 @@ class Logical a where
     | x == y = Just state
     | otherwise = Nothing
 
-  subst :: (forall x. VarId x -> Maybe (Term x)) -> Logic a -> Logic a
-  default subst :: (a ~ Logic a) => (forall x. VarId x -> Maybe (Term x)) -> Logic a -> Logic a
+  subst :: State -> Logic a -> Logic a
+  default subst :: (a ~ Logic a) => State -> Logic a -> Logic a
   subst _ = id
 
   inject :: a -> Logic a
@@ -71,22 +70,17 @@ instance (Num (Logic a)) => Num (Term a) where
 
 unify' :: (Logical a) => Term a -> Term a -> State -> Maybe State
 unify' l r state =
-  case (walk state l, walk state r) of
+  case (shallowWalk state l, shallowWalk state r) of
     (Var x, Var y)
       | x == y -> Just state
     (Var x, r') -> Just (addSubst x r' state)
     (l', Var y) -> Just (addSubst y l' state)
     (Value l', Value r') -> unify l' r' state
 
-subst' :: (Logical a) => (forall x. VarId x -> Maybe (Term x)) -> Term a -> Term a
-subst' f x = recursive
- where
-  shallow = case x of
-    Var i -> fromMaybe x (f i)
-    Value v -> Value v
-  recursive = case shallow of
-    Var i -> Var i
-    Value v -> Value (subst f v)
+subst' :: (Logical a) => State -> Term a -> Term a
+subst' state x = case shallowWalk state x of
+  Var i -> Var i
+  Value v -> Value (subst state v)
 
 inject' :: (Logical a) => a -> Term a
 inject' = Value . inject
@@ -118,8 +112,14 @@ makeVariable State{maxVarId, ..} = (state', var)
   state' = State{maxVarId = maxVarId + 1, ..}
 
 walk :: (Logical a) => State -> Term a -> Term a
-walk State{knownSubst = Subst m} =
-  subst' (\(VarId i) -> unsafeReconstructTerm <$> IntMap.lookup i m)
+walk = subst'
+
+shallowWalk :: (Logical a) => State -> Term a -> Term a
+shallowWalk _ (Value v) = Value v
+shallowWalk state@State{knownSubst = Subst m} (Var (VarId i)) =
+  case IntMap.lookup i m of
+    Nothing -> Var (VarId i)
+    Just v -> shallowWalk state (unsafeReconstructTerm v)
 
 addSubst :: (Logical a) => VarId a -> Term a -> State -> State
 addSubst (VarId i) value State{knownSubst = Subst m, ..} =
