@@ -1,6 +1,7 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -8,10 +9,10 @@
 {-# LANGUAGE TypeFamilyDependencies #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module Match (on, matche, on', matche', Exhausted (..), Matchable (..), enter') where
+module Match (on, matche, _Value, on', matche', Exhausted (..), Matchable (..), enter') where
 
 import Biprism (Biprism, matching, reviewl)
-import Control.Lens (Prism', review)
+import Control.Lens (Prism', prism', review)
 import Core
 import Data.Void (Void, absurd)
 import Goal
@@ -23,19 +24,18 @@ on
   -> (Term a -> Goal x)
   -> Term a
   -> Goal x
-on p f g x = disj (g x) thisArm
- where
-  thisArm = case x of
-    Var _ -> do
-      vars <- fresh
-      x === Value (review p vars)
-      f vars
-    Value value -> case p Left value of
-      Left a -> f a
-      Right _ -> failo
+on p f g x = disj (g x) $ do
+  vars <- fresh
+  x === Value (review p vars)
+  f vars
 
 matche :: Term a -> Goal x
 matche = const failo
+
+_Value :: Prism' (Term a) (Logic a)
+_Value = prism' Value $ \case
+  Value x -> Just x
+  Var _ -> Nothing
 
 class Exhausted a where
   exhausted :: a -> x

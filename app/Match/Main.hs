@@ -62,6 +62,13 @@ partitions xs = reifyBoth <$> run $ \(left, right) -> do
   reifyBoth = fmap (\(a, b) -> (reify a, reify b))
   reify = fromJust . extract'
 
+nestedo :: Term (Either (Either Int Bool) Int) -> Goal ()
+nestedo =
+  matche
+    & on (_LogicLeft . _Value . _LogicLeft) (=== 42)
+    & on (_LogicLeft . _Value . _LogicRight) (=== Value True)
+    & on _LogicRight (=== 1729)
+
 -- Exhaustive pattern-matching
 
 data LogicEither' l r a b
@@ -147,6 +154,12 @@ main = do
 
   putStrLn "\npartitions [1, 2, 3]:"
   mapM_ print (partitions [1, 2, 3])
+
+  putStrLn "\nnestedo:"
+  mapM_ print (extract' <$> run nestedo)
+
+  putStrLn "\nnestedo on Left:"
+  mapM_ print (extract' <$> (run $ \x -> nestedo (Value (LogicLeft x))))
 
   putStrLn "\neithers:"
   mapM_ print (extract' <$> eithers)
