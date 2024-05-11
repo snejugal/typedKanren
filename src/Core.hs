@@ -79,8 +79,14 @@ unify' l r state =
     (Value l', Value r') -> unify l' r' state
 
 subst' :: (Logical a) => (forall x. VarId x -> Maybe (Term x)) -> Term a -> Term a
-subst' k (Value x) = Value (subst k x)
-subst' k x@(Var i) = fromMaybe x (k i)
+subst' f x = recursive
+ where
+  shallow = case x of
+    Var i -> fromMaybe x (f i)
+    Value v -> Value v
+  recursive = case shallow of
+    Var i -> Var i
+    Value v -> Value (subst f v)
 
 inject' :: (Logical a) => a -> Term a
 inject' = Value . inject
@@ -112,20 +118,12 @@ makeVariable State{maxVarId, ..} = (state', var)
   state' = State{maxVarId = maxVarId + 1, ..}
 
 walk :: (Logical a) => State -> Term a -> Term a
-walk State{knownSubst} = apply knownSubst
-
-apply :: (Logical a) => Subst -> Term a -> Term a
-apply (Subst m) = subst' (\(VarId i) -> unsafeReconstructTerm <$> IntMap.lookup i m)
+walk State{knownSubst = Subst m} =
+  subst' (\(VarId i) -> unsafeReconstructTerm <$> IntMap.lookup i m)
 
 addSubst :: (Logical a) => VarId a -> Term a -> State -> State
 addSubst (VarId i) value State{knownSubst = Subst m, ..} =
   State
-    { knownSubst =
-        Subst $
-          IntMap.insert i (ErasedTerm value) $
-            updateErasedTerm <$> m
+    { knownSubst = Subst $ IntMap.insert i (ErasedTerm value) m
     , ..
     }
- where
-  updateErasedTerm (ErasedTerm x) =
-    ErasedTerm (apply (Subst (IntMap.singleton i (ErasedTerm value))) x)
