@@ -31,6 +31,7 @@ library
       Goal
       LogicalBase
       Match
+      PrismA
       Stream
       TH
   other-modules:

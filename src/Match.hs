@@ -3,19 +3,21 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE QuantifiedConstraints #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilyDependencies #-}
+{-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 module Match (on, matche, _Value, on', matche', Exhausted (..), Matchable (..), enter') where
 
-import Biprism (Biprism, matching, reviewl)
 import Control.Lens (Prism', prism', review)
 import Core
 import Data.Void (Void, absurd)
 import Goal
+import PrismA (PrismA (Source), matchingA, reviewA)
 
 on
   :: (Logical a, Fresh v)
@@ -44,8 +46,14 @@ instance Exhausted Void where
   exhausted = absurd
 
 on'
-  :: (Matchable a m, Fresh v)
-  => Biprism (Matched a m) (Matched a m') ((), v) (Void, v)
+  :: forall a m m' v p x
+   . ( Matchable a m
+     , Fresh v
+     , forall i. PrismA p ((), v) (i, v)
+     , Source p ((), v) ~ Matched a m
+     , Source p (Void, v) ~ Matched a m'
+     )
+  => p
   -> (v -> Goal x)
   -> (MatchedTerm a m' -> Goal x)
   -> MatchedTerm a m
@@ -56,10 +64,10 @@ on' p f g x = case x of
     otherArms = g (Var' varId)
     thisArm = do
       vars <- fresh
-      let value = back (reviewl p ((), vars))
+      let value = back (reviewA p ((), vars))
       Var varId === Value value
       f vars
-  Value' value -> case matching p value of
+  Value' value -> case matchingA @((), v) @(Void, v) p value of
     Right (_, a) -> f a
     Left other -> g (Value' other)
 

@@ -1,4 +1,5 @@
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeApplications #-}
@@ -6,16 +7,16 @@
 
 module Main where
 
-import Control.Lens (Iso, iso)
+import Control.Lens (Prism, prism)
 import Data.Function ((&))
 import Data.Maybe (fromJust)
 import Data.Void (Void)
 
-import Biprism
 import Core
 import Goal
 import LogicalBase
 import Match
+import PrismA
 
 listo :: (Logical a) => Term [a] -> Goal ()
 listo =
@@ -75,15 +76,26 @@ data LogicEither' l r a b
   = LogicLeft' l (Term a)
   | LogicRight' r (Term b)
 
-_LogicLeft' :: Biprism (LogicEither' l r a b) (LogicEither' l' r a' b) (l, Term a) (l', Term a')
-_LogicLeft' = biprism (uncurry LogicLeft') (uncurry LogicLeft') $ \case
+_LogicLeft' :: Prism (LogicEither' l r a b) (LogicEither' l' r a' b) (l, Term a) (l', Term a')
+_LogicLeft' = prism (uncurry LogicLeft') $ \case
   LogicLeft' l a -> Right (l, a)
   LogicRight' r b -> Left (LogicRight' r b)
 
-_LogicRight' :: Biprism (LogicEither' l r a b) (LogicEither' l r' a b') (r, Term b) (r', Term b')
-_LogicRight' = biprism (uncurry LogicRight') (uncurry LogicRight') $ \case
+_LogicRight' :: Prism (LogicEither' l r a b) (LogicEither' l r' a b') (r, Term b) (r', Term b')
+_LogicRight' = prism (uncurry LogicRight') $ \case
   LogicRight' r b -> Right (r, b)
   LogicLeft' l a -> Left (LogicLeft' l a)
+
+data LogicLeft'' r b = LogicLeft''
+data LogicRight'' l a = LogicRight''
+
+instance PrismA (LogicLeft'' r b) (l, Term a) (l', Term a') where
+  type Source (LogicLeft'' r b) (l, Term a) = LogicEither' l r a b
+  make LogicLeft'' = _LogicLeft'
+
+instance PrismA (LogicRight'' l a) (r, Term b) (l', Term b') where
+  type Source (LogicRight'' l a) (r, Term b) = LogicEither' l r a b
+  make LogicRight'' = _LogicRight'
 
 instance (Logical a, Logical b) => Matchable (Either a b) (l, r) where
   type Matched (Either a b) (l, r) = LogicEither' l r a b
@@ -102,50 +114,50 @@ instance (Exhausted l, Exhausted r) => Exhausted (LogicEither' l r a b) where
 eithero :: Term (Either Bool Int) -> Goal ()
 eithero =
   matche'
-    & on' _LogicLeft' (\x -> x === Value True)
-    & on' _LogicRight' (\x -> x === Value 42)
+    & on' LogicLeft'' (\x -> x === Value True)
+    & on' LogicRight'' (\x -> x === Value 42)
     & enter'
 
-data LogicList' n c a
-  = LogicNil' n
-  | LogicCons' c (Term a) (Term [a])
-
-_LogicNil' :: Biprism (LogicList' n c a) (LogicList' n' c a) (n, ()) (n', ())
-_LogicNil' = biprism (\(n, ()) -> LogicNil' n) (\(n, ()) -> LogicNil' n) $ \case
-  LogicNil' n -> Right (n, ())
-  LogicCons' c a as -> Left (LogicCons' c a as)
-
-_LogicCons' :: Biprism (LogicList' n c a) (LogicList' n c' a') (c, (Term a, Term [a])) (c', (Term a', Term [a']))
-_LogicCons' = biprism (\(c, (a, as)) -> LogicCons' c a as) (\(c, (a, as)) -> LogicCons' c a as) $ \case
-  LogicCons' c a s -> Right (c, (a, s))
-  LogicNil' n -> Left (LogicNil' n)
-
-instance (Logical a) => Matchable [a] (n, c) where
-  type Matched [a] (n, c) = LogicList' n c a
-  type Initial [a] = ((), ())
-
-  enter LogicNil = LogicNil' ()
-  enter (LogicCons a as) = LogicCons' () a as
-
-  back (LogicNil' _) = LogicNil
-  back (LogicCons' _ a as) = LogicCons a as
-
-instance (Exhausted n, Exhausted c) => Exhausted (LogicList' n c a) where
-  exhausted (LogicNil' n) = exhausted n
-  exhausted (LogicCons' c _ _) = exhausted c
-
-listo' :: (Logical a) => Term [a] -> Goal ()
-listo' =
-  matche'
-    & on' _LogicNil' return
-    & on' _LogicCons' (\(_, as) -> listo' as)
-    & enter'
+-- data LogicList' n c a
+--   = LogicNil' n
+--   | LogicCons' c (Term a) (Term [a])
+--
+-- _LogicNil' :: Biprism (LogicList' n c a) (LogicList' n' c a) (n, ()) (n', ())
+-- _LogicNil' = biprism (\(n, ()) -> LogicNil' n) (\(n, ()) -> LogicNil' n) $ \case
+--   LogicNil' n -> Right (n, ())
+--   LogicCons' c a as -> Left (LogicCons' c a as)
+--
+-- _LogicCons' :: Biprism (LogicList' n c a) (LogicList' n c' a') (c, (Term a, Term [a])) (c', (Term a', Term [a']))
+-- _LogicCons' = biprism (\(c, (a, as)) -> LogicCons' c a as) (\(c, (a, as)) -> LogicCons' c a as) $ \case
+--   LogicCons' c a s -> Right (c, (a, s))
+--   LogicNil' n -> Left (LogicNil' n)
+--
+-- instance (Logical a) => Matchable [a] (n, c) where
+--   type Matched [a] (n, c) = LogicList' n c a
+--   type Initial [a] = ((), ())
+--
+--   enter LogicNil = LogicNil' ()
+--   enter (LogicCons a as) = LogicCons' () a as
+--
+--   back (LogicNil' _) = LogicNil
+--   back (LogicCons' _ a as) = LogicCons a as
+--
+-- instance (Exhausted n, Exhausted c) => Exhausted (LogicList' n c a) where
+--   exhausted (LogicNil' n) = exhausted n
+--   exhausted (LogicCons' c _ _) = exhausted c
+--
+-- listo' :: (Logical a) => Term [a] -> Goal ()
+-- listo' =
+--   matche'
+--     & on' _LogicNil' return
+--     & on' _LogicCons' (\(_, as) -> listo' as)
+--     & enter'
 
 eithers :: [Term (Either Bool Int)]
 eithers = run eithero
 
-lists' :: [Term [Int]]
-lists' = run listo'
+-- lists' :: [Term [Int]]
+-- lists' = run listo'
 
 main :: IO ()
 main = do
@@ -164,5 +176,5 @@ main = do
   putStrLn "\neithers:"
   mapM_ print (extract' <$> eithers)
 
-  putStrLn "\nlists':"
-  mapM_ print (take 5 (showLogicList <$> lists'))
+-- putStrLn "\nlists':"
+-- mapM_ print (take 5 (showLogicList <$> lists'))
