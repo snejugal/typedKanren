@@ -46,7 +46,7 @@ instance Exhausted Void where
   exhausted = absurd
 
 on'
-  :: forall a m m' v p x
+  :: forall v a m m' x p
    . ( Matchable a m
      , Fresh v
      , forall i. PrismA p ((), v) (i, v)
