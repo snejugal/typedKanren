@@ -3,8 +3,8 @@ cradle:
     - path: "./src"
       component: "static-minikanren:lib"
 
-    - path: "./app/Main.hs"
-      component: "static-minikanren:exe:static-minikanren-exe"
+    - path: "./example"
+      component: "static-minikanren:exe:example"
 
     - path: "./test"
       component: "static-minikanren:test:static-minikanren-test"

@@ -6,7 +6,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module Main (main) where
+module Trees (example) where
 
 import Control.Lens.TH (makePrisms)
 import Data.Function ((&))
@@ -50,14 +50,11 @@ inverto tree inverted =
             )
       )
 
-trees :: [Term (Tree Int)]
-trees = run treeo
-
 --    4
 --  2   6
 -- 1 3 5 7
-example :: Tree Int
-example =
+exampleTree :: Tree Int
+exampleTree =
   Node
     4
     (Node 2 (leaf 1) (leaf 3))
@@ -65,10 +62,10 @@ example =
  where
   leaf x = Node x Empty Empty
 
-main :: IO ()
-main = do
+example :: IO ()
+example = do
   putStrLn "trees:"
   mapM_ print $ extract' <$> take 10 (run treeo)
 
-  putStrLn "inverto example:"
-  mapM_ print $ extract' <$> run (inverto (inject' example))
+  putStrLn "\ninverto example:"
+  mapM_ print $ extract' <$> run (inverto (inject' exampleTree))

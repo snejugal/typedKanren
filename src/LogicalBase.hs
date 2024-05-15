@@ -22,6 +22,7 @@ import TH (makeLogic)
 
 makeLogic ''Either
 makePrisms ''LogicEither
+deriving instance (Show (Logic a), Show (Logic b)) => Show (LogicEither a b)
 
 data LogicList a
   = LogicNil
