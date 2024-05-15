@@ -1,5 +1,3 @@
-{-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -7,19 +5,29 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE TypeFamilyDependencies #-}
+{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -Wno-redundant-constraints #-}
 
-module Match (on, matche, _Value, on', matche', Exhausted, InitMatch, enter') where
+module Match (
+  on,
+  matche,
+  _Value,
+  on',
+  matche',
+  Exhausted,
+  Initial,
+  _Tagged,
+  Value' (..),
+  enter',
+) where
 
-import Control.Lens (Prism', prism', review)
+import Control.Lens (Iso, Prism', from, iso, prism', review)
 import Core
-import Data.Tagged (Tagged (Tagged))
+import Data.Tagged (Tagged (Tagged, unTagged))
 import Data.Void (Void)
 import Goal
-import PrismA (PrismA (Source), matchingA, reviewA)
+import PrismA (PrismA (Source, make), reviewA)
 
 on
   :: (Logical a, Fresh v)
@@ -41,41 +49,46 @@ _Value = prism' Value $ \case
   Value x -> Just x
   Var _ -> Nothing
 
-type family InitMatch a
 newtype Matched a m = Matched (Term a)
 
 class Exhausted a
 instance Exhausted Void
 instance (Exhausted a, Exhausted b) => Exhausted (a, b)
 
-enter' :: (Matched a (InitMatch a) -> Goal x) -> Term a -> Goal x
+class Initial a
+instance Initial ()
+instance (Initial a, Initial b) => Initial (a, b)
+
+_Tagged :: Iso b b' (Tagged a b) (Tagged a' b')
+_Tagged = iso Tagged unTagged
+
+data Value' a = Value'
+
+instance (l ~ Logic a) => PrismA (Value' a) (Tagged m l) (Tagged m' l) where
+  type Source (Value' a) (Tagged m l) = Tagged m (Term a)
+  make Value' = from _Tagged . _Value . _Tagged
+
+enter' :: (Initial m) => (Matched a m -> Goal x) -> Term a -> Goal x
 enter' f = f . Matched
 
 on'
   :: forall v a m m' x p
    . ( Logical a
      , Fresh v
-     , forall i. PrismA p ((), v) (i, v)
-     , Source p ((), v) ~ Tagged m (Logic a)
-     , Source p (Void, v) ~ Tagged m' (Logic a)
+     , forall i. PrismA p (Tagged () v) (Tagged i v)
+     , Source p (Tagged () v) ~ Tagged m (Logic a)
+     , Source p (Tagged Void v) ~ Tagged m' (Logic a)
      )
   => p
   -> (v -> Goal x)
   -> (Matched a m' -> Goal x)
   -> Matched a m
   -> Goal x
-on' p f g (Matched x@(Var varId)) = disj otherArms thisArm
-   where
-    otherArms = g (Matched x)
-    thisArm = do
-      vars <- fresh
-      let Tagged value = reviewA p ((), vars)
-      Var varId === Value value
-      f vars
-on' p f g (Matched x@(Value value)) =
-  case matchingA @((), v) @(Void, v) p (Tagged value) of
-    Right (_, a) -> f a
-    Left _ -> g (Matched x)
+on' p f g (Matched x) = disj (g (Matched x)) $ do
+  vars <- fresh
+  let Tagged value = reviewA p (Tagged @() vars)
+  x === Value value
+  f vars
 
 matche' :: (Exhausted m) => Matched a m -> Goal x
 matche' = const failo

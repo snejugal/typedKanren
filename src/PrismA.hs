@@ -11,6 +11,7 @@
 
 module PrismA (
   PrismA (..),
+  (:.) (..),
   Just',
   Nothing',
   Left',

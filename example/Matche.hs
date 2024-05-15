@@ -1,19 +1,16 @@
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE TypeOperators #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
-module Matche (example) where
+module Matche (example, eithero') where
 
-import Control.Lens.Prism (prism)
 import Data.Function ((&))
-import Data.Tagged (Tagged (Tagged))
+import Data.Tagged (Tagged (Tagged, unTagged))
 
+import Control.Lens (Iso, from, iso)
 import Core
 import Goal
 import LogicalBase
@@ -35,28 +32,33 @@ nestedo =
 
 -- Exhaustive pattern-matching
 
-type instance InitMatch (Either a b) = ((), ())
-
 data LogicLeft' r b = LogicLeft'
 data LogicRight' l a = LogicRight'
 
-instance (l ~ ()) => PrismA (LogicLeft' r b) (l, Term a) (l', Term a') where
-  type Source (LogicLeft' r b) (l, Term a) = Tagged (l, r) (LogicEither a b)
-  make LogicLeft' = prism (\(_, a) -> Tagged (LogicLeft a)) $ \case
-    (Tagged (LogicLeft a)) -> Right ((), a)
-    (Tagged (LogicRight b)) -> Left (Tagged (LogicRight b))
+_Tagged :: Iso b b' (Tagged a b) (Tagged a' b')
+_Tagged = iso Tagged unTagged
 
-instance (r ~ ()) => PrismA (LogicRight' l a) (r, Term b) (r', Term b') where
-  type Source (LogicRight' l a) (r, Term b) = Tagged (l, r) (LogicEither a b)
-  make LogicRight' = prism (\(_, b) -> Tagged (LogicRight b)) $ \case
-    (Tagged (LogicRight b)) -> Right ((), b)
-    (Tagged (LogicLeft a)) -> Left (Tagged (LogicLeft a))
+instance PrismA (LogicLeft' r b) (Tagged l (Term a)) (Tagged l' (Term a')) where
+  type Source (LogicLeft' r b) (Tagged l (Term a)) = Tagged (l, r) (LogicEither a b)
+  make LogicLeft' = from _Tagged . _LogicLeft . _Tagged
+
+instance PrismA (LogicRight' l a) (Tagged r (Term b)) (Tagged r' (Term b')) where
+  type Source (LogicRight' l a) (Tagged r (Term b)) = Tagged (l, r) (LogicEither a b)
+  make LogicRight' = from _Tagged . _LogicRight . _Tagged
 
 eithero' :: forall a b. (Logical a, Logical b) => Term (Either a b) -> Goal ()
 eithero' =
   matche'
-    & on' LogicLeft' (\(_ :: Term a) -> return ())
+    & on' LogicLeft' (\(_ :: Term a) -> failo)
     & on' LogicRight' (\(_ :: Term b) -> return ())
+    & enter'
+
+nestedo' :: Term (Either (Either Int Bool) Int) -> Goal ()
+nestedo' =
+  matche'
+    & on' (LogicLeft' :. Value' :. LogicLeft') (=== 42)
+    & on' (LogicLeft' :. Value' :. LogicRight') (=== Value True)
+    & on' LogicRight' (=== 1729)
     & enter'
 
 example :: IO ()
@@ -69,3 +71,6 @@ example = do
 
   putStrLn "\nnestedo:"
   mapM_ print $ extract' <$> run nestedo
+
+  putStrLn "\nnestedo':"
+  mapM_ print $ extract' <$> run nestedo'
