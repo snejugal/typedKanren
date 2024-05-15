@@ -3,15 +3,16 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeOperators #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 module Matche (example) where
 
-import Control.Lens.TH (makePrisms)
+import Control.Lens.Prism (prism)
 import Data.Function ((&))
+import Data.Tagged (Tagged (Tagged))
 
 import Core
 import Goal
@@ -34,41 +35,28 @@ nestedo =
 
 -- Exhaustive pattern-matching
 
-data LogicEither' l r a b
-  = LogicLeft' l (Term a)
-  | LogicRight' r (Term b)
-makePrisms ''LogicEither'
+type instance InitMatch (Either a b) = ((), ())
 
-data LogicLeft'' r b = LogicLeft''
-data LogicRight'' l a = LogicRight''
+data LogicLeft' r b = LogicLeft'
+data LogicRight' l a = LogicRight'
 
-instance PrismA (LogicLeft'' r b) (l, Term a) (l', Term a') where
-  type Source (LogicLeft'' r b) (l, Term a) = LogicEither' l r a b
-  make LogicLeft'' = _LogicLeft'
+instance (l ~ ()) => PrismA (LogicLeft' r b) (l, Term a) (l', Term a') where
+  type Source (LogicLeft' r b) (l, Term a) = Tagged (l, r) (LogicEither a b)
+  make LogicLeft' = prism (\(_, a) -> Tagged (LogicLeft a)) $ \case
+    (Tagged (LogicLeft a)) -> Right ((), a)
+    (Tagged (LogicRight b)) -> Left (Tagged (LogicRight b))
 
-instance PrismA (LogicRight'' l a) (r, Term b) (l', Term b') where
-  type Source (LogicRight'' l a) (r, Term b) = LogicEither' l r a b
-  make LogicRight'' = _LogicRight'
-
-instance (Logical a, Logical b) => Matchable (Either a b) (l, r) where
-  type Matched (Either a b) (l, r) = LogicEither' l r a b
-  type Initial (Either a b) = ((), ())
-
-  enter (LogicLeft a) = LogicLeft' () a
-  enter (LogicRight b) = LogicRight' () b
-
-  back (LogicLeft' _ a) = LogicLeft a
-  back (LogicRight' _ b) = LogicRight b
-
-instance (Exhausted l, Exhausted r) => Exhausted (LogicEither' l r a b) where
-  exhausted (LogicLeft' l _) = exhausted l
-  exhausted (LogicRight' r _) = exhausted r
+instance (r ~ ()) => PrismA (LogicRight' l a) (r, Term b) (r', Term b') where
+  type Source (LogicRight' l a) (r, Term b) = Tagged (l, r) (LogicEither a b)
+  make LogicRight' = prism (\(_, b) -> Tagged (LogicRight b)) $ \case
+    (Tagged (LogicRight b)) -> Right ((), b)
+    (Tagged (LogicLeft a)) -> Left (Tagged (LogicLeft a))
 
 eithero' :: forall a b. (Logical a, Logical b) => Term (Either a b) -> Goal ()
 eithero' =
   matche'
-    & on' LogicLeft'' (\(_ :: Term a) -> return ())
-    & on' LogicRight'' (\(_ :: Term b) -> return ())
+    & on' LogicLeft' (\(_ :: Term a) -> return ())
+    & on' LogicRight' (\(_ :: Term b) -> return ())
     & enter'
 
 example :: IO ()
