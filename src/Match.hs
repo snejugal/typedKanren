@@ -9,7 +9,6 @@ module Match (
   on',
   matche',
   Exhausted,
-  Initial,
   _Tagged,
   _Value',
   enter',
@@ -41,15 +40,11 @@ _Value = prism' Value $ \case
   Value x -> Just x
   Var _ -> Nothing
 
-newtype Matched a m = Matched (Term a)
+type Matched m a = Tagged m (Term a)
 
 class Exhausted a
 instance Exhausted Void
 instance (Exhausted a, Exhausted b) => Exhausted (a, b)
-
-class Initial a
-instance Initial ()
-instance (Initial a, Initial b) => Initial (a, b)
 
 _Tagged :: Iso b b' (Tagged a b) (Tagged a' b')
 _Tagged = iso Tagged unTagged
@@ -62,21 +57,21 @@ _Value'
       (Tagged m' (Logic a))
 _Value' = from _Tagged . _Value . _Tagged
 
-enter' :: (Initial m) => (Matched a m -> Goal x) -> Term a -> Goal x
-enter' f = f . Matched
+enter' :: (Matched m a -> Goal x) -> Term a -> Goal x
+enter' f = f . Tagged
 
 on'
   :: (Logical a, Fresh v)
   => Prism (Tagged m (Logic a)) (Tagged m' (Logic a)) (Tagged () v) (Tagged Void v)
   -> (v -> Goal x)
-  -> (Matched a m' -> Goal x)
-  -> Matched a m
+  -> (Matched m' a -> Goal x)
+  -> Matched m a
   -> Goal x
-on' p f g (Matched x) = disj (g (Matched x)) $ do
+on' p f g (Tagged x) = disj (g (Tagged x)) $ do
   vars <- fresh
   let Tagged value = review (reviewing p) (Tagged vars)
   x === Value value
   f vars
 
-matche' :: (Exhausted m) => Matched a m -> Goal x
+matche' :: (Exhausted m) => Matched m a -> Goal x
 matche' = const failo
