@@ -1,15 +1,24 @@
+{-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeFamilies #-}
 
 module Matche (example, eithero') where
 
+import Control.Lens (Prism, from)
+import Control.Lens.TH
+import Data.Bifunctor (bimap)
 import Data.Function ((&))
 import Data.Tagged (Tagged)
+import GHC.Generics (Generic)
 
-import Control.Lens (Prism, from)
 import Core
 import Goal
 import LogicalBase
 import Match
+import TH
 
 eithero :: (Logical a, Logical b) => Term (Either a b) -> Goal ()
 eithero =
@@ -57,6 +66,31 @@ nestedo' =
     & on' _LogicRight' (=== 1729)
     & enter'
 
+data Nat
+  = Z
+  | S Nat
+  deriving (Show, Generic)
+
+makeLogic ''Nat
+makePrisms ''LogicNat
+
+_Z' :: Prism (Tagged (z, s) LogicNat) (Tagged (z', s) LogicNat) (Tagged z ()) (Tagged z' ())
+_Z' = from _Tagged . _LogicZ . _Tagged
+
+_S' :: Prism (Tagged (z, s) LogicNat) (Tagged (z, s') LogicNat) (Tagged s (Term Nat)) (Tagged s' (Term Nat))
+_S' = from _Tagged . _LogicS . _Tagged
+
+natToInto :: Term Nat -> Term Int -> Goal ()
+natToInto nat int =
+  nat
+    & ( matche'
+          & on' _Z' (\() -> int === 0)
+          & on' (_S' . _Value' . _Z') (\() -> int === 1)
+          & on' (_S' . _Value' . _S' . _Value' . _Z') (\() -> int === 2)
+          & on' (_S' . _Value' . _S' . _Value' . _S') (const failo) -- give up
+          & enter'
+      )
+
 example :: IO ()
 example = do
   putStrLn "eithero:"
@@ -70,3 +104,6 @@ example = do
 
   putStrLn "\nnestedo':"
   mapM_ print $ extract' <$> run nestedo'
+
+  putStrLn "\nnatToInto:"
+  mapM_ print $ bimap extract' extract' <$> run (uncurry natToInto)
