@@ -29,6 +29,8 @@ data LogicList a
   | LogicCons (Term a) (Term [a])
   deriving (Generic)
 
+deriving instance (Eq (Term a)) => Eq (LogicList a)
+
 _LogicNil :: Prism' (LogicList a) ()
 _LogicNil = prism (const LogicNil) $ \case
   LogicNil -> Right ()
@@ -62,4 +64,5 @@ instance (Logical a, Logical b) => Logical (a, b) where
 
 instance Logical Int
 instance Logical Bool
+instance Logical Char
 instance Logical Void

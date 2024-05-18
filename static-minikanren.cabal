@@ -79,6 +79,7 @@ test-suite static-minikanren-test
   main-is: Main.hs
   other-modules:
       CoreTests
+      THTests
       Paths_static_minikanren
   autogen-modules:
       Paths_static_minikanren

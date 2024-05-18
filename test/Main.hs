@@ -1,11 +1,12 @@
 module Main (main) where
 
 import qualified CoreTests
-import System.Exit (exitSuccess, exitFailure)
+import System.Exit (exitFailure, exitSuccess)
+import qualified THTests
 
 main :: IO ()
 main = do
-  good <- and <$> sequence [CoreTests.runTests]
+  good <- and <$> sequence [CoreTests.runTests, THTests.runTests]
   if good
-     then exitSuccess
-     else exitFailure
+    then exitSuccess
+    else exitFailure
