@@ -76,8 +76,9 @@ executable example
 
 test-suite static-minikanren-test
   type: exitcode-stdio-1.0
-  main-is: Main.hs
+  main-is: Spec.hs
   other-modules:
+      CoreSpec
       CoreTests
       GoalTests
       THTests
@@ -92,6 +93,7 @@ test-suite static-minikanren-test
     , base >=4.7 && <5
     , bifunctors
     , containers
+    , hspec
     , lens
     , lens-family-core
     , static-minikanren

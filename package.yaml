@@ -55,7 +55,7 @@ executables:
 
 tests:
   static-minikanren-test:
-    main:                Main.hs
+    main:                Spec.hs
     source-dirs:         test
     ghc-options:
     - -threaded
@@ -63,4 +63,5 @@ tests:
     - -with-rtsopts=-N
     dependencies:
     - static-minikanren
+    - hspec
     - QuickCheck
