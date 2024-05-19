@@ -79,7 +79,7 @@ test-suite static-minikanren-test
   main-is: Spec.hs
   other-modules:
       CoreSpec
-      CoreTests
+      GoalSpec
       GoalTests
       THTests
       Paths_static_minikanren
