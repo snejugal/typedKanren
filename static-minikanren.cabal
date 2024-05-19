@@ -80,7 +80,7 @@ test-suite static-minikanren-test
   other-modules:
       CoreSpec
       GoalSpec
-      GoalTests
+      THSpec
       THTests
       Paths_static_minikanren
   autogen-modules:
