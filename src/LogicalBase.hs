@@ -20,8 +20,14 @@ import Data.Void (Void)
 import GenericLogical
 import TH (makeLogic)
 
+makeLogic ''Maybe
+makePrisms ''LogicMaybe
+deriving instance (Eq (Logic a)) => Eq (LogicMaybe a)
+deriving instance (Show (Logic a)) => Show (LogicMaybe a)
+
 makeLogic ''Either
 makePrisms ''LogicEither
+deriving instance (Eq (Logic a), Eq (Logic b)) => Eq (LogicEither a b)
 deriving instance (Show (Logic a), Show (Logic b)) => Show (LogicEither a b)
 
 data LogicList a
@@ -63,6 +69,8 @@ instance (Logical a, Logical b) => Logical (a, b) where
   extract = genericExtract
 
 instance Logical Int
-instance Logical Bool
 instance Logical Char
 instance Logical Void
+
+instance Logical Bool
+makePrisms ''Bool
