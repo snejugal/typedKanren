@@ -35,22 +35,6 @@ nestedo =
 
 -- Exhaustive pattern-matching
 
-_LogicLeft'
-  :: Prism
-      (Tagged (l, r) (LogicEither a b))
-      (Tagged (l', r) (LogicEither a' b))
-      (Tagged l (Term a))
-      (Tagged l' (Term a'))
-_LogicLeft' = from _Tagged . _LogicLeft . _Tagged
-
-_LogicRight'
-  :: Prism
-      (Tagged (l, r) (LogicEither a b))
-      (Tagged (l, r') (LogicEither a b'))
-      (Tagged r (Term b))
-      (Tagged r' (Term b'))
-_LogicRight' = from _Tagged . _LogicRight . _Tagged
-
 eithero' :: (Logical a, Logical b) => Term (Either a b) -> Goal ()
 eithero' =
   matche'

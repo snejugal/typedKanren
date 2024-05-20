@@ -80,3 +80,56 @@ spec = do
             n <- fresh
             intToMaybeBoolo n (Value (LogicJust b))
       insideJust `shouldSatisfy` isPermutationOf [Value False, Value True]
+
+  describe "exhaustive pattern matching" $ do
+    let intToBoolo' (n :: Term Int) =
+          matche'
+            & on' _False' (\() -> n === Value 0)
+            & on' _True' (\() -> n === Value 1)
+            & enter'
+
+    it "picks the correct arm when the value is known" $ do
+      run (`intToBoolo'` Value False) `shouldBe` [Value 0]
+      run (`intToBoolo'` Value True) `shouldBe` [Value 1]
+
+    it "can generate values" $ do
+      let solutions = run $ \b -> do
+            n <- fresh
+            intToBoolo' n b
+      solutions `shouldSatisfy` isPermutationOf [Value False, Value True]
+
+    it "provides access to the fields" $ do
+      let fooo =
+            matche'
+              & on' _LogicLeft' (\n -> n === Value (42 :: Int))
+              & on' _LogicRight' (\b -> b === Value True)
+              & enter'
+
+      run fooo
+        `shouldSatisfy` isPermutationOf
+          [ inject' (Left 42)
+          , inject' (Right True)
+          ]
+
+    it "supports nested patterns" $ do
+      let intToMaybeBoolo (n :: Term Int) =
+            matche'
+              & on' (_LogicJust' . _Value' . _False') (\() -> n === Value 0)
+              & on' (_LogicJust' . _Value' . _True') (\() -> n === Value 1)
+              & on' _LogicNothing' (\() -> n === Value 2)
+              & enter'
+
+      let allValues = run $ \b -> do
+            n <- fresh
+            intToMaybeBoolo n b
+      allValues
+        `shouldSatisfy` isPermutationOf
+          [ inject' (Just False)
+          , inject' (Just True)
+          , inject' Nothing
+          ]
+
+      let insideJust = run $ \b -> do
+            n <- fresh
+            intToMaybeBoolo n (Value (LogicJust b))
+      insideJust `shouldSatisfy` isPermutationOf [Value False, Value True]
