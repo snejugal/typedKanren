@@ -1,23 +1,24 @@
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
-{-# OPTIONS_GHC -Wno-orphans #-}
 
-module Matche (example) where
+module Matche (example, eithero') where
 
-import Control.Lens.TH (makePrisms)
+import Control.Lens (Prism, from)
+import Control.Lens.TH
+import Data.Bifunctor (bimap)
 import Data.Function ((&))
+import Data.Tagged (Tagged)
+import GHC.Generics (Generic)
 
 import Core
 import Goal
 import LogicalBase
 import Match
-import PrismA
+import TH
 
 eithero :: (Logical a, Logical b) => Term (Either a b) -> Goal ()
 eithero =
@@ -34,42 +35,61 @@ nestedo =
 
 -- Exhaustive pattern-matching
 
-data LogicEither' l r a b
-  = LogicLeft' l (Term a)
-  | LogicRight' r (Term b)
-makePrisms ''LogicEither'
+_LogicLeft'
+  :: Prism
+      (Tagged (l, r) (LogicEither a b))
+      (Tagged (l', r) (LogicEither a' b))
+      (Tagged l (Term a))
+      (Tagged l' (Term a'))
+_LogicLeft' = from _Tagged . _LogicLeft . _Tagged
 
-data LogicLeft'' r b = LogicLeft''
-data LogicRight'' l a = LogicRight''
+_LogicRight'
+  :: Prism
+      (Tagged (l, r) (LogicEither a b))
+      (Tagged (l, r') (LogicEither a b'))
+      (Tagged r (Term b))
+      (Tagged r' (Term b'))
+_LogicRight' = from _Tagged . _LogicRight . _Tagged
 
-instance PrismA (LogicLeft'' r b) (l, Term a) (l', Term a') where
-  type Source (LogicLeft'' r b) (l, Term a) = LogicEither' l r a b
-  make LogicLeft'' = _LogicLeft'
-
-instance PrismA (LogicRight'' l a) (r, Term b) (l', Term b') where
-  type Source (LogicRight'' l a) (r, Term b) = LogicEither' l r a b
-  make LogicRight'' = _LogicRight'
-
-instance (Logical a, Logical b) => Matchable (Either a b) (l, r) where
-  type Matched (Either a b) (l, r) = LogicEither' l r a b
-  type Initial (Either a b) = ((), ())
-
-  enter (LogicLeft a) = LogicLeft' () a
-  enter (LogicRight b) = LogicRight' () b
-
-  back (LogicLeft' _ a) = LogicLeft a
-  back (LogicRight' _ b) = LogicRight b
-
-instance (Exhausted l, Exhausted r) => Exhausted (LogicEither' l r a b) where
-  exhausted (LogicLeft' l _) = exhausted l
-  exhausted (LogicRight' r _) = exhausted r
-
-eithero' :: forall a b. (Logical a, Logical b) => Term (Either a b) -> Goal ()
+eithero' :: (Logical a, Logical b) => Term (Either a b) -> Goal ()
 eithero' =
   matche'
-    & on' LogicLeft'' (\(_ :: Term a) -> return ())
-    & on' LogicRight'' (\(_ :: Term b) -> return ())
+    & on' _LogicLeft' (\_ -> return ())
+    & on' _LogicRight' (\_ -> return ())
     & enter'
+
+nestedo' :: Term (Either (Either Int Bool) Int) -> Goal ()
+nestedo' =
+  matche'
+    & on' (_LogicLeft' . _Value' . _LogicLeft') (=== 42)
+    & on' (_LogicLeft' . _Value' . _LogicRight') (=== Value True)
+    & on' _LogicRight' (=== 1729)
+    & enter'
+
+data Nat
+  = Z
+  | S Nat
+  deriving (Show, Generic)
+
+makeLogic ''Nat
+makePrisms ''LogicNat
+
+_Z' :: Prism (Tagged (z, s) LogicNat) (Tagged (z', s) LogicNat) (Tagged z ()) (Tagged z' ())
+_Z' = from _Tagged . _LogicZ . _Tagged
+
+_S' :: Prism (Tagged (z, s) LogicNat) (Tagged (z, s') LogicNat) (Tagged s (Term Nat)) (Tagged s' (Term Nat))
+_S' = from _Tagged . _LogicS . _Tagged
+
+natToInto :: Term Nat -> Term Int -> Goal ()
+natToInto nat int =
+  nat
+    & ( matche'
+          & on' _Z' (\() -> int === 0)
+          & on' (_S' . _Value' . _Z') (\() -> int === 1)
+          & on' (_S' . _Value' . _S' . _Value' . _Z') (\() -> int === 2)
+          & on' (_S' . _Value' . _S' . _Value' . _S') (const failo) -- give up
+          & enter'
+      )
 
 example :: IO ()
 example = do
@@ -81,3 +101,9 @@ example = do
 
   putStrLn "\nnestedo:"
   mapM_ print $ extract' <$> run nestedo
+
+  putStrLn "\nnestedo':"
+  mapM_ print $ extract' <$> run nestedo'
+
+  putStrLn "\nnatToInto:"
+  mapM_ print $ bimap extract' extract' <$> run (uncurry natToInto)

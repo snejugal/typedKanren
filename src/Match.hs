@@ -1,23 +1,24 @@
-{-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE ConstraintKinds #-}
-{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE QuantifiedConstraints #-}
 {-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE TypeFamilyDependencies #-}
-{-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE UndecidableInstances #-}
+{-# OPTIONS_GHC -Wno-redundant-constraints #-}
 
-module Match (on, matche, _Value, on', matche', Exhausted (..), Matchable (..), enter') where
+module Match (
+  on,
+  matche,
+  _Value,
+  on',
+  matche',
+  Exhausted,
+  _Tagged,
+  _Value',
+  enter',
+) where
 
-import Control.Lens (Prism', prism', review)
+import Control.Lens (Iso, Prism, Prism', from, iso, prism', review, reviewing)
 import Core
-import Data.Void (Void, absurd)
+import Data.Tagged (Tagged (Tagged, unTagged))
+import Data.Void (Void)
 import Goal
-import PrismA (PrismA (Source), matchingA, reviewA)
 
 on
   :: (Logical a, Fresh v)
@@ -39,61 +40,38 @@ _Value = prism' Value $ \case
   Value x -> Just x
   Var _ -> Nothing
 
-class Exhausted a where
-  exhausted :: a -> x
+type Matched m a = Tagged m (Term a)
 
-instance Exhausted Void where
-  exhausted = absurd
+class Exhausted a
+instance Exhausted Void
+instance (Exhausted a, Exhausted b) => Exhausted (a, b)
+
+_Tagged :: Iso b b' (Tagged a b) (Tagged a' b')
+_Tagged = iso Tagged unTagged
+
+_Value'
+  :: Prism
+      (Tagged m (Term a))
+      (Tagged m' (Term a))
+      (Tagged m (Logic a))
+      (Tagged m' (Logic a))
+_Value' = from _Tagged . _Value . _Tagged
+
+enter' :: (Matched m a -> Goal x) -> Term a -> Goal x
+enter' f = f . Tagged
 
 on'
-  :: forall v a m m' x p
-   . ( Matchable a m
-     , Fresh v
-     , forall i. PrismA p ((), v) (i, v)
-     , Source p ((), v) ~ Matched a m
-     , Source p (Void, v) ~ Matched a m'
-     )
-  => p
+  :: (Logical a, Fresh v)
+  => Prism (Tagged m (Logic a)) (Tagged m' (Logic a)) (Tagged () v) (Tagged Void v)
   -> (v -> Goal x)
-  -> (MatchedTerm a m' -> Goal x)
-  -> MatchedTerm a m
+  -> (Matched m' a -> Goal x)
+  -> Matched m a
   -> Goal x
-on' p f g x = case x of
-  Var' varId -> disj otherArms thisArm
-   where
-    otherArms = g (Var' varId)
-    thisArm = do
-      vars <- fresh
-      let value = back (reviewA p ((), vars))
-      Var varId === Value value
-      f vars
-  Value' value -> case matchingA @((), v) @(Void, v) p value of
-    Right (_, a) -> f a
-    Left other -> g (Value' other)
+on' p f g (Tagged x) = disj (g (Tagged x)) $ do
+  vars <- fresh
+  let Tagged value = review (reviewing p) (Tagged vars)
+  x === Value value
+  f vars
 
-matche' :: (Exhausted (Matched a m)) => MatchedTerm a m -> Goal x
-matche' (Value' value) = exhausted value
-matche' (Var' _) = failo
-
-data MatchedTerm a m
-  = Var' (VarId a)
-  | Value' (Matched a m)
-
-class (Logical a) => Matchable a m where
-  type Matched a m = r | r -> a m
-  type Initial a
-
-  enter :: Logic a -> Matched a (Initial a)
-  back :: Matched a m -> Logic a
-
-enter'
-  :: forall a x
-   . (Matchable a (Initial a))
-  => (MatchedTerm a (Initial a) -> x)
-  -> Term a
-  -> x
-enter' f x = f x'
- where
-  x' = case x of
-    Var varId -> Var' varId
-    Value value -> Value' (enter @a @(Initial a) value)
+matche' :: (Exhausted m) => Matched m a -> Goal x
+matche' = const failo
