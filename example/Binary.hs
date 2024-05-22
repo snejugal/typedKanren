@@ -7,11 +7,10 @@
 
 module Binary (
   Bit (..),
-  LogicBit (..),
-  _LogicO,
-  _LogicI,
-  _LogicO',
-  _LogicI',
+  _O,
+  _I,
+  _O',
+  _I',
   Binary,
   zeroo,
   poso,
@@ -38,30 +37,26 @@ import Core
 import Goal
 import LogicalBase
 import Match
-import TH
 
 data Bit = O | I deriving (Eq, Show, Generic)
+instance Logical Bit
+makePrisms ''Bit
 
-makeLogic ''Bit
-deriving instance Show LogicBit
-
-makePrisms ''LogicBit
-
-_LogicO'
+_O'
   :: Prism
-      (Tagged (o, i) LogicBit)
-      (Tagged (o', i) LogicBit)
+      (Tagged (o, i) Bit)
+      (Tagged (o', i) Bit)
       (Tagged o ())
       (Tagged o' ())
-_LogicO' = from _Tagged . _LogicO . _Tagged
+_O' = from _Tagged . _O . _Tagged
 
-_LogicI'
+_I'
   :: Prism
-      (Tagged (o, i) LogicBit)
-      (Tagged (o, i') LogicBit)
+      (Tagged (o, i) Bit)
+      (Tagged (o, i') Bit)
       (Tagged i ())
       (Tagged i' ())
-_LogicI' = from _Tagged . _LogicI . _Tagged
+_I' = from _Tagged . _I . _Tagged
 
 type Binary = [Bit]
 
@@ -104,8 +99,8 @@ binaryo = matche'
   & on' _LogicNil' return
   & on' _LogicCons' (\(b, bs) -> do
       b & (matche'
-        & on' _LogicI' return
-        & on' _LogicO' (\() -> poso bs)
+        & on' _I' return
+        & on' _O' (\() -> poso bs)
         & enter')
       binaryo bs)
   & enter'
@@ -159,8 +154,8 @@ appendo xs ys zs = xs & (matche'
 toBit :: Term Bit -> Goal Bit
 toBit =
   matche'
-    & on' _LogicO' (\() -> return O)
-    & on' _LogicI' (\() -> return I)
+    & on' _O' (\() -> return O)
+    & on' _I' (\() -> return I)
     & enter'
 
 full1Addero :: Term Bit -> Term Bit -> Term Bit -> Term Bit -> Term Bit -> Goal ()
@@ -180,8 +175,8 @@ fullNAddero carryIn a b r =
         zeroo b
         carryIn
           & ( matche'
-                & on' _LogicO' (\() -> a === r)
-                & on' _LogicI' (\() -> fullNAddero (inject' O) a (inject' [I]) r)
+                & on' _O' (\() -> a === r)
+                & on' _I' (\() -> fullNAddero (inject' O) a (inject' [I]) r)
                 & enter'
             )
     , do
@@ -362,13 +357,13 @@ exp2o :: Term Binary -> Term Binary -> Term Binary -> Goal ()
 exp2o n b = matche'
   & on' _LogicNil' (\() -> n === inject' [I])
   & on' _LogicCons' (\(q, q1) -> q & (matche'
-      & on' _LogicO' (\() -> do
+      & on' _O' (\() -> do
           poso q1
           lesslo b n
           b2 <- fresh
           appendo b (Value (LogicCons (inject' I) b)) b2
           exp2o n b2 q1)
-      & on' _LogicI' (\() -> q1 & (matche'
+      & on' _I' (\() -> q1 & (matche'
         & on' _LogicNil' (\() -> do
             gtlo n
             _n2 <- fresh
