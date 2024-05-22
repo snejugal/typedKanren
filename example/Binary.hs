@@ -85,7 +85,7 @@ instance Num Binary where
 
 -- | Check that the number is zero.
 zeroo :: Term Binary -> Goal ()
-zeroo n = n === Value LogicNil
+zeroo n = n === inject' 0
 
 cons :: (Logical a) => Term [a] -> Goal (Term a, Term [a])
 cons list = do
@@ -199,7 +199,7 @@ fullNAddero carryIn a b r =
         carryIn
           & ( matche'
                 & on' _O' (\() -> a === r)
-                & on' _I' (\() -> fullNAddero (inject' O) a (inject' [I]) r)
+                & on' _I' (\() -> fullNAddero (inject' O) a (inject' 1) r)
                 & enter'
             )
     , do
@@ -207,13 +207,13 @@ fullNAddero carryIn a b r =
         poso b
         fullNAddero carryIn b a r
     , do
-        a === inject' [I]
-        b === inject' [I]
+        a === inject' 1
+        b === inject' 1
         (r1, r2) <- fresh
         r === Value (LogicCons r1 (Value (LogicCons r2 (Value LogicNil))))
         full1Addero carryIn (inject' I) (inject' I) r1 r2
     , do
-        a === inject' [I]
+        a === inject' 1
         (bb, br) <- cons b
         poso br
         (rb, rr) <- cons r
@@ -221,9 +221,9 @@ fullNAddero carryIn a b r =
 
         carryOut <- fresh
         full1Addero carryIn (inject' I) bb rb carryOut
-        fullNAddero carryOut (inject' []) br rr
+        fullNAddero carryOut (inject' 0) br rr
     , do
-        b === inject' [I]
+        b === inject' 1
         gtlo a
         gtlo r
         fullNAddero carryIn b a r
@@ -338,14 +338,14 @@ mulo
 mulo a b c =
   disjMany
     [ do
-        a === inject' []
+        zeroo a
         c === a
     , do
-        b === inject' []
+        zeroo b
         c === b
         poso a
     , do
-        a === inject' [I]
+        a === inject' 1
         b === c
     , do
         (ar, cr) <- fresh
@@ -394,11 +394,11 @@ divo
 divo n m q r =
   disjMany
     [ do
-        q === inject' []
+        zeroo q
         n === r
         lesso n m
     , do
-        q === inject' [I]
+        q === inject' 1
         samelo n m
         binaryo n
         addo r m n
@@ -415,7 +415,7 @@ divo n m q r =
         q2m <- fresh
         n1 & (matche'
           & on' _LogicNil' (\() -> do
-              q1 === inject' []
+              zeroo q1
               subo n2 r q2m
               mulo q2 m q2m)
           & on' _LogicCons' (\_ -> do
@@ -423,7 +423,7 @@ divo n m q r =
               mulo q2 m q2m
               addo q2m r q2mr
               subo q2mr n2 rr
-              splito rr r r1 (inject' [])
+              splito rr r r1 (inject' 0)
               divo n1 m q1 r1)
           & enter')
     ]
@@ -434,39 +434,39 @@ splito :: Term Binary -> Term Binary -> Term Binary -> Term Binary -> Goal ()
 splito n r n1 n2 =
   disjMany
     [ do
-        n === inject' []
-        n1 === inject' []
-        n2 === inject' []
+        zeroo n
+        zeroo n1
+        zeroo n2
     , do
         (b, n') <- cons n
         b === inject' O
         poso n'
 
-        r === inject' []
+        zeroo r
         n1 === n'
-        n2 === inject' []
+        zeroo n2
     , do
         (b, n') <- cons n
         b === inject' I
 
-        r === inject' []
+        zeroo r
         n1 === n'
-        n2 === inject' [I]
+        n2 === inject' 1
     , do
         (b, n') <- cons n
         b === inject' O
         poso n'
 
         (_, r') <- cons r
-        n2 === inject' []
+        zeroo n2
         splito n' r' n1 n2
     , do
         (b, n') <- cons n
         b === inject' I
 
         (_, r') <- cons r
-        n2 === inject' [I]
-        splito n' r' n1 (inject' [])
+        n2 === inject' 1
+        splito n' r' n1 (inject' 0)
     , do
         (b, n') <- cons n
         (_, r') <- cons r
@@ -493,7 +493,7 @@ exp2o n b = matche'
         & on' _LogicNil' (\() -> do
             gtlo n
             _n2 <- fresh
-            splito n b (inject' [I]) _n2)
+            splito n b (inject' 1) _n2)
         & on' _LogicCons' (\_ -> do
             (n1, _n2) <- fresh
             poso n1
@@ -513,14 +513,14 @@ repeatedMulo n q nq =
     [ do
         poso n
         zeroo q
-        nq === inject' [I]
+        nq === inject' 1
     , do
-        q === inject' [I]
+        q === inject' 1
         n === nq
     , do
         gtlo q
         (q1, nq1) <- fresh
-        addo q1 (inject' [I]) q1
+        addo q1 (inject' 1) q1
         repeatedMulo n q1 nq1
         mulo nq1 n nq
     ]
@@ -564,7 +564,7 @@ logo n b q r =
   disjMany
     [ do
         -- n = b^0 + 0, b > 0
-        n === inject' [I]
+        n === inject' 1
         poso b
         zeroo q
         zeroo r
@@ -573,18 +573,18 @@ logo n b q r =
         zeroo q
         lesso n b
         poso r
-        addo r (inject' [I]) n
+        addo r (inject' 1) n
     , do
         -- n = b^1 + r, b >= 2
-        q === inject' [I]
+        q === inject' 1
         gtlo b
         samelo n b
         addo r b n
     , do
         -- n = 1^q + r, q > 0
-        b === inject' [I]
+        b === inject' 1
         poso q
-        addo r (inject' [I]) n
+        addo r (inject' 1) n
     , do
         -- n = 0^q + r, q > 0
         zeroo b
@@ -592,31 +592,31 @@ logo n b q r =
         n === r
     , do
         -- n = 2^q + r, n >= 4
-        b === inject' [O, I]
+        b === inject' 2
         (_b1, _b2, n1) <- fresh
         poso n1
         n === Value (LogicCons _b1 (Value (LogicCons _b2 n1)))
-        exp2o n (inject' []) q
+        exp2o n (inject' 0) q
         _r1 <- fresh
         splito n n1 _r1 r
     , do
         -- n = b^q + r, b >= 3
-        b === inject' [I, I] `disj` do
+        b === inject' 3 `disj` do
           (b1, b2, b3, br) <- fresh
           b === Value (LogicCons b1 (Value (LogicCons b2 (Value (LogicCons b3 br)))))
         lesslo b n
 
         (bw1, bw) <- fresh
-        exp2o b (inject' []) bw1
-        addo bw1 (inject' [I]) bw
+        exp2o b (inject' 0) bw1
+        addo bw1 (inject' 1) bw
 
         (q1, bwq1, nw1, nw) <- fresh
         lesslo q n
-        addo q (inject' [I]) q1
+        addo q (inject' 1) q1
         mulo bw q1 bwq1
         lesso nw1 bwq1
-        exp2o n (inject' []) nw1
-        addo nw1 (inject' [I]) nw
+        exp2o n (inject' 0) nw1
+        addo nw1 (inject' 1) nw
 
         (ql, ql1, _r, bql) <- fresh
         divo nw bw ql1 _r
