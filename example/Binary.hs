@@ -5,6 +5,13 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
 
+-- | This module implements binary numbers as described in the declarative pearl
+-- “Pure, Declarative, and Constructive Arithmetic Relations” by O. Kiselyov _et
+-- al_.
+--
+-- The paper is available at <https://okmij.org/ftp/Prolog/Arithm/arithm.pdf>
+-- and the original implementation in Prolog is available at
+-- <https://okmij.org/ftp/Prolog/Arithm/pure-bin-arithm.prl>.
 module Binary (
   Bit (..),
   _O,
@@ -76,6 +83,7 @@ instance Num Binary where
   signum = undefined
   negate = undefined
 
+-- | Check that the number is zero.
 zeroo :: Term Binary -> Goal ()
 zeroo n = n === Value LogicNil
 
@@ -85,15 +93,20 @@ cons list = do
   list === Value (LogicCons x xs)
   return (x, xs)
 
+-- | Check that the number is positive, i.e. greater than zero.
 poso :: Term Binary -> Goal ()
 poso = void . cons
 
+-- | Check that the number is greater than one (i.e. at least two).
+--
+-- The naming comes from the paper.
 gtlo :: Term Binary -> Goal ()
 gtlo n = do
   (_, ns) <- cons n
   poso ns
 
 {- FOURMOLU_DISABLE -}
+-- | Generate valid binary numbers.
 binaryo :: Term Binary -> Goal ()
 binaryo = matche'
   & on' _LogicNil' return
@@ -105,6 +118,7 @@ binaryo = matche'
       binaryo bs)
   & enter'
 
+-- | Check that the first list is shorter than the second one.
 lesslo :: (Logical a, Logical b) => Term [a] -> Term [b] -> Goal ()
 lesslo xs ys = do
   (y, ys') <- fresh
@@ -114,6 +128,7 @@ lesslo xs ys = do
     & on' _LogicCons' (\(_, xs') -> lesslo xs' ys')
     & enter')
 
+-- | Check that the lists have the same length.
 samelo :: (Logical a, Logical b) => Term [a] -> Term [b] -> Goal ()
 samelo xs = matche'
   & on' _LogicNil' (\() -> xs === inject' [])
@@ -122,6 +137,12 @@ samelo xs = matche'
       samelo xs' ys')
   & enter'
 
+-- | Check that the first list is shorter than the second one and at least of
+-- the same length as the third list combined with the forth one.
+--
+-- Meaningfully, the part `[a]` must be shorter than the whole `[b]` and must
+-- fit the result of multiplying `[c]` with `[d]`, but here we're just concerned
+-- with the lengths of the lists.
 lessl3o
   :: (Logical a, Logical b, Logical c, Logical d)
   => Term [a]
@@ -158,6 +179,7 @@ toBit =
     & on' _I' (\() -> return I)
     & enter'
 
+-- | A one-bit full adder.
 full1Addero :: Term Bit -> Term Bit -> Term Bit -> Term Bit -> Term Bit -> Goal ()
 full1Addero carryIn a b s carryOut = do
   sumOfBits <- (fmap (length . filter (== I)) . mapM toBit) [carryIn, a, b]
@@ -168,6 +190,7 @@ full1Addero carryIn a b s carryOut = do
     3 -> (carryOut === inject' I) `conj` (s === inject' I)
     _ -> failo
 
+-- | A full adder for numbers of arbitrary lengths.
 fullNAddero :: Term Bit -> Term Binary -> Term Binary -> Term Binary -> Goal ()
 fullNAddero carryIn a b r =
   disjMany
@@ -217,19 +240,101 @@ fullNAddero carryIn a b r =
         fullNAddero carryOut ar br rr
     ]
 
-addo :: Term Binary -> Term Binary -> Term Binary -> Goal ()
+-- | Calculate the sum `c` of two numbers `a` and `b`.
+--
+-- >>> extract' <$> run (addo (inject' 3) (inject' 5))
+-- [Just [O,O,O,I]]
+--
+-- One can turn it around to subtract from a number:
+--
+-- >>> extract' <$> run (\b -> addo (inject' 2) b (inject' 8))
+-- [Just [O,I,I]]
+--
+-- When both summands are unknown, every possible pair will be enumerated.
+--
+-- >>> bimap extract' extract' <$> run (\(a, b) -> addo a b (inject' 2))
+-- [(Just [O,I],Just []),(Just [],Just [O,I]),(Just [I],Just [I])]
+--
+-- If one of the summands is greater than the sum, the relation will produce no
+-- results.
+--
+-- >>> run (\a -> addo a (inject' 10) (inject' 3))
+-- []
+--
+-- The implementation of @add@ is discussed in section 4 of the paper.
+addo
+  :: Term Binary
+  -- ^ `a`, the first summand
+  -> Term Binary
+  -- ^ `b`, the second summand
+  -> Term Binary
+  -- ^ `c`, the sum
+  -> Goal ()
 addo = fullNAddero (inject' O)
 
-subo :: Term Binary -> Term Binary -> Term Binary -> Goal ()
+-- | Calculate the difference `c` of two numbers `a` and `b`. This is just
+-- `addo`, but with parameters in different order.
+subo
+  :: Term Binary
+  -- ^ `a`, the minuend
+  -> Term Binary
+  -- ^ `b`, the subtrahend
+  -> Term Binary
+  -- ^ `c`, the difference
+  -> Goal ()
 subo a b c = addo b c a
 
-lesso :: Term Binary -> Term Binary -> Goal ()
+-- | Check that `a` is strictly less than `b`. Otherwise, the goal fails.
+--
+-- >>> run (\() -> lesso (inject' 3) (inject' 4))
+-- [()]
+-- >>> run (\() -> lesso (inject' 3) (inject' 2))
+-- []
+--
+-- One can turn this relation around to generate numbers less or greater than a
+-- given one.
+--
+-- >>> extract' <$> run (\x -> lesso x (inject' 4))
+-- [Just [],Just [I],Just [I,I],Just [O,I]]
+-- >>> take 5 $ extract' <$> run (\x -> lesso (inject' 4) x)
+-- [Just [I,O,I],Just [O,I,I],Just [I,I,I],Just [O,O,O,I],Just [I,O,O,I]]
+lesso
+  :: Term Binary
+  -- ^ `a`, the lesser number
+  -> Term Binary
+  -- ^ `b`, the greater number
+  -> Goal ()
 lesso a b = do
   x <- fresh
   poso x
   addo a x b
 
-mulo :: Term Binary -> Term Binary -> Term Binary -> Goal ()
+-- | Calculate the product `c` of two numbers `a` and `b`.
+--
+-- >>> extract' <$> run (mulo (inject' 3) (inject' 4))
+-- [Just [O,O,I,I]]
+--
+-- One can turn this around to factor a given number.
+--
+-- >>> extract' <$> run (\a -> mulo a (inject' 2) (inject' 12))
+-- [Just [O,I,I]]
+-- >>> bimap extract' extract' <$> run (\(a, b) -> mulo a b (inject' 4))
+-- [(Just [I],Just [O,O,I]),(Just [O,I],Just [O,I]),(Just [O,O,I],Just [I])]
+--
+-- The goal will fail if any multiplier is not a factor of the product.
+--
+-- >>> run (\a -> mulo a (inject' 5) (inject' 7))
+-- []
+--
+-- The implementation of @mul@ is discussed in section 5 of the paper.
+mulo
+  :: Term Binary
+  -- ^ `a`, the first multiplier
+  -> Term Binary
+  -- ^ `b`, the second multiplier
+  -> Term Binary
+  -- ^ `c`, the product
+  -> Goal ()
 mulo a b c =
   disjMany
     [ do
@@ -265,7 +370,27 @@ mulo a b c =
     ]
 
 {- FOURMOLU_DISABLE -}
-divo :: Term Binary -> Term Binary -> Term Binary -> Term Binary -> Goal ()
+-- | Calculate the quotient `q` and remainder `r` of dividing `n` by `m`.
+--
+-- >>> bimap extract' extract' <$> run (\(q, r) -> divo (inject' 17) (inject' 5) q r)
+-- [(Just [I,I],Just [O,I])]
+--
+-- One can turn this around to find divisors of a number.
+--
+-- >>> extract' <$> run (\m -> fresh >>= \q -> divo (inject' 12) m q (inject' 0))
+-- [Just [O,O,I,I],Just [I],Just [I,I],Just [O,I,I],Just [O,I],Just [O,O,I]]
+--
+-- The implementation of @div@ is discussed in section 6 of the paper.
+divo
+  :: Term Binary
+  -- ^ `n`, the dividend
+  -> Term Binary
+  -- ^ `m`, the divisor
+  -> Term Binary
+  -- ^ `q`, the quotient
+  -> Term Binary
+  -- ^ `r`, the remainder
+  -> Goal ()
 divo n m q r =
   disjMany
     [ do
@@ -304,6 +429,7 @@ divo n m q r =
     ]
 {- FOURMOLU_ENABLE -}
 
+-- | Split `n` into `n1` and `n2` such that `n = 2^(length r + 1) * n1 + n2`.
 splito :: Term Binary -> Term Binary -> Term Binary -> Term Binary -> Goal ()
 splito n r n1 n2 =
   disjMany
@@ -511,44 +637,16 @@ logo n b q r =
         lesso n bq1
     ]
 
-trimap :: (a -> b) -> (a, a, a) -> (b, b, b)
-trimap f (x, y, z) = (f x, f y, f z)
-
-quadmap :: (a -> b) -> (a, a, a, a) -> (b, b, b, b)
-quadmap f (x, y, z, w) = (f x, f y, f z, f w)
-
-tryExtract' :: (Logical a) => Term a -> Either (Term a) a
-tryExtract' x = maybe (Left x) Right (extract' x)
-
 example :: IO ()
 example = do
   putStrLn "addo 3 5 x:"
   mapM_ print $ extract' <$> run (addo (inject' 3) (inject' 5))
-  putStrLn "\naddo 2 x 8:"
-  mapM_ print $ extract' <$> run (\x -> addo (inject' 2) x (inject' 8))
-  putStrLn "\naddo 8 x 2:"
-  print $ extract' <$> run (\x -> addo (inject' 8) x (inject' 2))
-  putStrLn "\naddo x y 8:"
-  mapM_ print $ bimap extract' extract' <$> run (\(x, y) -> addo x y (inject' 8))
-  putStrLn "\naddo x y z:"
-  mapM_ print $ take 10 $ trimap tryExtract' <$> run (\(x, y, z) -> addo x y z)
 
   putStrLn "\nmulo 3 4 x:"
   mapM_ print $ extract' <$> run (mulo (inject' 3) (inject' 4))
-  putStrLn "\nmulo 2 x 12:"
-  mapM_ print $ extract' <$> run (\x -> mulo (inject' 2) x (inject' 12))
-  putStrLn "\nmulo 12 x 2:"
-  print $ extract' <$> run (\x -> mulo (inject' 12) x (inject' 2))
-  putStrLn "\nmulo x y 12:"
-  mapM_ print $ bimap extract' extract' <$> run (\(x, y) -> mulo x y (inject' 12))
-  putStrLn "\nmulo x y z:"
-  mapM_ print $ take 10 $ trimap tryExtract' <$> run (\(x, y, z) -> mulo x y z)
 
   putStrLn "\ndivo 15 4 q r:"
   mapM_ print $ bimap extract' extract' <$> run (uncurry (divo (inject' 15) (inject' 4)))
-  putStrLn "\ndivo n 3 2 1:"
-  mapM_ print $ extract' <$> run (\n -> divo n (inject' 3) (inject' 2) (inject' 1))
-  putStrLn "\ndivo 13 m 2 1:"
-  mapM_ print $ extract' <$> run (\m -> divo (inject' 13) m (inject' 2) (inject' 1))
-  putStrLn "\ndivo n m q r:"
-  mapM_ print $ take 10 $ quadmap tryExtract' <$> run (\(n, m, q, r) -> divo n m q r)
+
+  putStrLn "\nlogo n 3 2 0:"
+  mapM_ print $ extract' <$> run (\n -> logo n (inject' 3) (inject' 2) (inject' 0))
