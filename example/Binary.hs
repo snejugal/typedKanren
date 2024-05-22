@@ -21,6 +21,7 @@ module Binary (
   subo,
   lesso,
   mulo,
+  divo,
   example,
 ) where
 
@@ -108,7 +109,7 @@ binaryo = matche'
       binaryo bs)
   & enter'
 
-lesslo :: Logical a => Term [a] -> Term [a] -> Goal ()
+lesslo :: (Logical a, Logical b) => Term [a] -> Term [b] -> Goal ()
 lesslo xs ys = do
   (y, ys') <- fresh
   ys === Value (LogicCons y ys')
@@ -117,7 +118,21 @@ lesslo xs ys = do
     & on' _LogicCons' (\(_, xs') -> lesslo xs' ys')
     & enter')
 
-lessl3o :: Term Binary -> Term Binary -> Term Binary -> Term Binary -> Goal ()
+samelo :: (Logical a, Logical b) => Term [a] -> Term [b] -> Goal ()
+samelo xs = matche'
+  & on' _LogicNil' (\() -> xs === inject' [])
+  & on' _LogicCons' (\(_, ys') -> do
+      (_, xs') <- cons xs
+      samelo xs' ys')
+  & enter'
+
+lessl3o
+  :: (Logical a, Logical b, Logical c, Logical d)
+  => Term [a]
+  -> Term [b]
+  -> Term [c]
+  -> Term [d]
+  -> Goal ()
 lessl3o a x y z = a & (matche'
   & on' _LogicNil' (\() -> void (cons x))
   & on' _LogicCons' (\(_, ar) -> do
@@ -244,8 +259,98 @@ mulo a b c =
         addo (Value (LogicCons (inject' O) c1)) b c
     ]
 
+{- FOURMOLU_DISABLE -}
+divo :: Term Binary -> Term Binary -> Term Binary -> Term Binary -> Goal ()
+divo n m q r =
+  disjMany
+    [ do
+        q === inject' []
+        n === r
+        lesso n m
+    , do
+        q === inject' [I]
+        samelo n m
+        binaryo n
+        addo r m n
+        lesso r m
+    , do
+        lesslo m n
+        lesso r m
+        poso q
+
+        (n1, n2) <- fresh
+        splito n r n1 n2
+        (q1, q2) <- fresh
+        splito q r q1 q2
+        q2m <- fresh
+        n1 & (matche'
+          & on' _LogicNil' (\() -> do
+              q1 === inject' []
+              subo n2 r q2m
+              mulo q2 m q2m)
+          & on' _LogicCons' (\_ -> do
+              (q2mr, rr, r1) <- fresh
+              mulo q2 m q2m
+              addo q2m r q2mr
+              subo q2mr n2 rr
+              splito rr r r1 (inject' [])
+              divo n1 m q1 r1)
+          & enter')
+    ]
+{- FOURMOLU_ENABLE -}
+
+splito :: Term Binary -> Term Binary -> Term Binary -> Term Binary -> Goal ()
+splito n r n1 n2 =
+  disjMany
+    [ do
+        n === inject' []
+        n1 === inject' []
+        n2 === inject' []
+    , do
+        (b, n') <- cons n
+        b === inject' O
+        poso n'
+
+        r === inject' []
+        n1 === n'
+        n2 === inject' []
+    , do
+        (b, n') <- cons n
+        b === inject' I
+
+        r === inject' []
+        n1 === n'
+        n2 === inject' [I]
+    , do
+        (b, n') <- cons n
+        b === inject' O
+        poso n'
+
+        (_, r') <- cons r
+        n2 === inject' []
+        splito n' r' n1 n2
+    , do
+        (b, n') <- cons n
+        b === inject' I
+
+        (_, r') <- cons r
+        n2 === inject' [I]
+        splito n' r' n1 (inject' [])
+    , do
+        (b, n') <- cons n
+        (_, r') <- cons r
+
+        n2' <- fresh
+        poso n2'
+        n2 === Value (LogicCons b n2')
+        splito n' r' n1 n2'
+    ]
+
 trimap :: (a -> b) -> (a, a, a) -> (b, b, b)
 trimap f (x, y, z) = (f x, f y, f z)
+
+quadmap :: (a -> b) -> (a, a, a, a) -> (b, b, b, b)
+quadmap f (x, y, z, w) = (f x, f y, f z, f w)
 
 tryExtract' :: (Logical a) => Term a -> Either (Term a) a
 tryExtract' x = maybe (Left x) Right (extract' x)
@@ -273,3 +378,12 @@ example = do
   mapM_ print $ bimap extract' extract' <$> run (\(x, y) -> mulo x y (inject' 12))
   putStrLn "\nmulo x y z:"
   mapM_ print $ take 10 $ trimap tryExtract' <$> run (\(x, y, z) -> mulo x y z)
+
+  putStrLn "\ndivo 15 4 q r:"
+  mapM_ print $ bimap extract' extract' <$> run (uncurry (divo (inject' 15) (inject' 4)))
+  putStrLn "\ndivo n 3 2 1:"
+  mapM_ print $ extract' <$> run (\n -> divo n (inject' 3) (inject' 2) (inject' 1))
+  putStrLn "\ndivo 13 m 2 1:"
+  mapM_ print $ extract' <$> run (\m -> divo (inject' 13) m (inject' 2) (inject' 1))
+  putStrLn "\ndivo n m q r:"
+  mapM_ print $ take 10 $ quadmap tryExtract' <$> run (\(n, m, q, r) -> divo n m q r)
