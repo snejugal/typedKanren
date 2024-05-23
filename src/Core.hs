@@ -92,15 +92,20 @@ extract' (Value x) = extract x
 data ErasedTerm where
   ErasedTerm :: (Logical a) => Term a -> ErasedTerm
 
+instance Show ErasedTerm where
+  show (ErasedTerm (Var varId)) = "Var " ++ show varId
+  show (ErasedTerm (Value _)) = "Value _"
+
 unsafeReconstructTerm :: ErasedTerm -> Term a
 unsafeReconstructTerm (ErasedTerm x) = unsafeCoerce x
 
-newtype Subst = Subst (IntMap ErasedTerm)
+newtype Subst = Subst (IntMap ErasedTerm) deriving (Show)
 
 data State = State
   { knownSubst :: !Subst
   , maxVarId :: !Int
   }
+  deriving (Show)
 
 empty :: State
 empty = State{knownSubst = Subst IntMap.empty, maxVarId = 0}

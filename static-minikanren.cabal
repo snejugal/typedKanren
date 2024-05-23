@@ -78,6 +78,11 @@ test-suite static-minikanren-test
   type: exitcode-stdio-1.0
   main-is: Spec.hs
   other-modules:
+      CoreSpec
+      GoalSpec
+      MatchSpec
+      THSpec
+      Util
       Paths_static_minikanren
   autogen-modules:
       Paths_static_minikanren
@@ -85,9 +90,11 @@ test-suite static-minikanren-test
       test
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
   build-depends:
-      base >=4.7 && <5
+      QuickCheck
+    , base >=4.7 && <5
     , bifunctors
     , containers
+    , hspec
     , lens
     , lens-family-core
     , static-minikanren

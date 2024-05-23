@@ -63,3 +63,5 @@ tests:
     - -with-rtsopts=-N
     dependencies:
     - static-minikanren
+    - hspec
+    - QuickCheck
