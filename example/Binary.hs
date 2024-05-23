@@ -400,7 +400,6 @@ divo n m q r =
     , do
         q === inject' 1
         samelo n m
-        binaryo n
         addo r m n
         lesso r m
     , do
@@ -520,7 +519,7 @@ repeatedMulo n q nq =
     , do
         gtlo q
         (q1, nq1) <- fresh
-        addo q1 (inject' 1) q1
+        addo q1 (inject' 1) q
         repeatedMulo n q1 nq1
         mulo nq1 n nq
     ]
@@ -620,6 +619,7 @@ logo n b q r =
 
         (ql, ql1, _r, bql) <- fresh
         divo nw bw ql1 _r
+        addo ql (inject' 1) ql1
         samelo q ql `disj` lesslo ql q
         repeatedMulo b ql bql
 
