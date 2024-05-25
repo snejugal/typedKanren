@@ -8,9 +8,55 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
-module LogicalBase where
+-- | Logical representations for some @base@ types along with their (orphan)
+-- 'Logical' instances.
+module LogicalBase (
+  -- * Primitive types
 
-import Control.Lens (Prism, Prism', from, prism)
+  -- | There are 'Logical' instances for 'Bool', 'Char', 'Int', and 'Void'. They
+  -- don't require a separate logic representation.
+
+  -- ** Prisms for 'Bool'
+  _False,
+  _True,
+  _False',
+  _True',
+
+  -- * Tuples
+
+  -- | For tuples, the logical representation is a tuple too, so they don't need a
+  -- separate logic type. Currently, there's a 'Logical' instance for 2-tuples
+  -- only.
+
+  -- * Lists
+  LogicList (..),
+
+  -- ** Prisms for lists
+  _LogicNil,
+  _LogicCons,
+  _LogicNil',
+  _LogicCons',
+
+  -- * 'Maybe'
+  LogicMaybe (..),
+
+  -- ** Prisms for 'Maybe'
+  _LogicNothing,
+  _LogicJust,
+  _LogicNothing',
+  _LogicJust',
+
+  -- * 'Either'
+  LogicEither (..),
+
+  -- ** Prisms for 'Either'
+  _LogicLeft,
+  _LogicRight,
+  _LogicLeft',
+  _LogicRight',
+) where
+
+import Control.Lens (Prism, from)
 import Control.Lens.TH (makePrisms)
 import Data.Tagged (Tagged)
 import Data.Void (Void)
@@ -21,86 +67,6 @@ import Core
 import GenericLogical
 import Match (_Tagged)
 import TH (makeLogic)
-
-makeLogic ''Maybe
-makePrisms ''LogicMaybe
-deriving instance (Eq (Logic a)) => Eq (LogicMaybe a)
-deriving instance (Show (Logic a)) => Show (LogicMaybe a)
-
-_LogicNothing'
-  :: Prism
-      (Tagged (nothing, just) (LogicMaybe a))
-      (Tagged (nothing', just) (LogicMaybe a))
-      (Tagged nothing ())
-      (Tagged nothing' ())
-_LogicNothing' = from _Tagged . _LogicNothing . _Tagged
-
-_LogicJust'
-  :: Prism
-      (Tagged (nothing, just) (LogicMaybe a))
-      (Tagged (nothing, just') (LogicMaybe a))
-      (Tagged just (Term a))
-      (Tagged just' (Term a))
-_LogicJust' = from _Tagged . _LogicJust . _Tagged
-
-makeLogic ''Either
-makePrisms ''LogicEither
-deriving instance (Eq (Logic a), Eq (Logic b)) => Eq (LogicEither a b)
-deriving instance (Show (Logic a), Show (Logic b)) => Show (LogicEither a b)
-
-_LogicLeft'
-  :: Prism
-      (Tagged (left, right) (LogicEither a b))
-      (Tagged (left', right) (LogicEither a b))
-      (Tagged left (Term a))
-      (Tagged left' (Term a))
-_LogicLeft' = from _Tagged . _LogicLeft . _Tagged
-
-_LogicRight'
-  :: Prism
-      (Tagged (left, right) (LogicEither a b))
-      (Tagged (left, right') (LogicEither a b))
-      (Tagged right (Term b))
-      (Tagged right' (Term b))
-_LogicRight' = from _Tagged . _LogicRight . _Tagged
-
-data LogicList a
-  = LogicNil
-  | LogicCons (Term a) (Term [a])
-  deriving (Generic)
-
-deriving instance (Eq (Term a)) => Eq (LogicList a)
-
-_LogicNil :: Prism' (LogicList a) ()
-_LogicNil = prism (const LogicNil) $ \case
-  LogicNil -> Right ()
-  LogicCons x xs -> Left (LogicCons x xs)
-
-_LogicCons :: Prism (LogicList a) (LogicList b) (Term a, Term [a]) (Term b, Term [b])
-_LogicCons = prism (uncurry LogicCons) $ \case
-  LogicCons x xs -> Right (x, xs)
-  LogicNil -> Left LogicNil
-
-deriving instance (Show (Logic a)) => Show (LogicList a)
-
-instance (Logical a) => Logical [a] where
-  type Logic [a] = LogicList a
-  subst = genericSubst
-  unify = genericUnify
-  inject = genericInject
-  extract = genericExtract
-
-instance IsList (LogicList a) where
-  type Item (LogicList a) = Term a
-  fromList [] = LogicNil
-  fromList (x : xs) = LogicCons x (Value (fromList xs))
-
-instance (Logical a, Logical b) => Logical (a, b) where
-  type Logic (a, b) = (Term a, Term b)
-  subst = genericSubst
-  unify = genericUnify
-  inject = genericInject
-  extract = genericExtract
 
 instance Logical Int
 instance Logical Char
@@ -124,3 +90,89 @@ _True'
       (Tagged true ())
       (Tagged true' ())
 _True' = from _Tagged . _True . _Tagged
+
+instance (Logical a, Logical b) => Logical (a, b) where
+  type Logic (a, b) = (Term a, Term b)
+  subst = genericSubst
+  unify = genericUnify
+  inject = genericInject
+  extract = genericExtract
+
+data LogicList a
+  = LogicNil
+  | LogicCons (Term a) (Term [a])
+  deriving (Generic)
+deriving instance (Eq (Logic a)) => Eq (LogicList a)
+deriving instance (Show (Logic a)) => Show (LogicList a)
+
+instance (Logical a) => Logical [a] where
+  type Logic [a] = LogicList a
+  subst = genericSubst
+  unify = genericUnify
+  inject = genericInject
+  extract = genericExtract
+
+instance IsList (LogicList a) where
+  type Item (LogicList a) = Term a
+  fromList [] = LogicNil
+  fromList (x : xs) = LogicCons x (Value (fromList xs))
+
+makePrisms ''LogicList
+
+_LogicNil'
+  :: Prism
+      (Tagged (nil, cons) (LogicList a))
+      (Tagged (nil', cons) (LogicList a))
+      (Tagged nil ())
+      (Tagged nil' ())
+_LogicNil' = from _Tagged . _LogicNil . _Tagged
+
+_LogicCons'
+  :: Prism
+      (Tagged (nil, cons) (LogicList a))
+      (Tagged (nil, cons') (LogicList a'))
+      (Tagged cons (Term a, Term [a]))
+      (Tagged cons' (Term a', Term [a']))
+_LogicCons' = from _Tagged . _LogicCons . _Tagged
+
+makeLogic ''Maybe
+makePrisms ''LogicMaybe
+deriving instance (Eq (Logic a)) => Eq (LogicMaybe a)
+deriving instance (Show (Logic a)) => Show (LogicMaybe a)
+
+_LogicNothing'
+  :: Prism
+      (Tagged (nothing, just) (LogicMaybe a))
+      (Tagged (nothing', just) (LogicMaybe a))
+      (Tagged nothing ())
+      (Tagged nothing' ())
+_LogicNothing' = from _Tagged . _LogicNothing . _Tagged
+
+_LogicJust'
+  :: Prism
+      (Tagged (nothing, just) (LogicMaybe a))
+      (Tagged (nothing, just') (LogicMaybe a'))
+      (Tagged just (Term a))
+      (Tagged just' (Term a'))
+_LogicJust' = from _Tagged . _LogicJust . _Tagged
+
+makeLogic ''Either
+makePrisms ''LogicEither
+deriving instance (Eq (Logic a), Eq (Logic b)) => Eq (LogicEither a b)
+deriving instance (Show (Logic a), Show (Logic b)) => Show (LogicEither a b)
+
+_LogicLeft'
+  :: Prism
+      (Tagged (left, right) (LogicEither a b))
+      (Tagged (left', right) (LogicEither a' b))
+      (Tagged left (Term a))
+      (Tagged left' (Term a'))
+_LogicLeft' = from _Tagged . _LogicLeft . _Tagged
+
+_LogicRight'
+  :: Prism
+      (Tagged (left, right) (LogicEither a b))
+      (Tagged (left, right') (LogicEither a b'))
+      (Tagged right (Term b))
+      (Tagged right' (Term b'))
+_LogicRight' = from _Tagged . _LogicRight . _Tagged

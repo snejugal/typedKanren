@@ -117,6 +117,9 @@ import Unsafe.Coerce (unsafeCoerce)
 -- @"GenericLogical"@ module provides generic versions of `Logical`'s methods.
 -- The @"TH"@ module goes further and provides 'TH.makeLogic' to generate
 -- logical representations for your types.
+--
+-- Although you'll see instances for @base@ types below, keep in mind that
+-- they're only available from the @"LogicalBase"@ module.
 class Logical a where
   -- | The logical representation of this type. This defaults to the type
   -- itself, but complex types will usually have a separate logic type.
