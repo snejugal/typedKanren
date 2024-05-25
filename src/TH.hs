@@ -1,15 +1,57 @@
 {-# LANGUAGE TemplateHaskell #-}
 
+-- | Automatic generation of logic types.
 module TH (makeLogic) where
 
 import Data.Char (toUpper)
+import Data.Foldable (foldl')
 import GHC.Generics (Generic)
 import Language.Haskell.TH hiding (bang, cxt)
 
 import Core
-import Data.Foldable (foldl')
 import GenericLogical
 
+-- | Generate a logic representation and a 'Logical' instance
+-- for the given type.
+--
+-- This function can be used with data- and newtypes. In the generated logic
+-- type,
+--
+-- - the type name and all constructors will be prefixed with “Logic”;
+-- - each field will be wrapped in a 'Term';
+-- - each field accessor @foo@ will be prefixed with “logic": @logicFoo@.
+--
+-- The generated 'Logical' instance relies on the @"GenericLogical"@ module.
+-- As such, the given type should have a 'Generic' instance, and it will be
+-- derived for the logic type. For each type variable @a@ in the type definition,
+-- there will be a @Logical a@ constraint in the instance.
+--
+-- Take this type definition as an example:
+--
+-- > data Tree a
+-- >   = Leaf a
+-- >   | Node (Tree a) (Tree a)
+-- >   deriving (Eq, Show, Generic)
+--
+-- @makeLogic ''Tree@ will produce:
+--
+-- > data LogicTree a
+-- >   = LogicLeaf (Term a)
+-- >   | LogicNode (Term (Tree a)) (Term (Tree a))
+-- >   deriving (Generic)
+-- >
+-- > instance Logical a => Logical (Tree a) where
+-- >   type Logic (Tree a) = LogicTree a
+-- >   unify = genericUnify
+-- >   subst = genericSubst
+-- >   inject = genericInject
+-- >   extract = genericExtract
+--
+-- 'makeLogic' requires the following extensions (besides @TemplateHaskell@):
+--
+-- - @ConstraintKinds@;
+-- - @DeriveGeneric@;
+-- - @TypeFamilies@.
 makeLogic :: Name -> Q [Dec]
 makeLogic ty = do
   TyConI dec <- reify ty
@@ -56,34 +98,41 @@ makeDecLogic PatSynSigD{} = fail "Cannot derive logic instances for a pattern sy
 makeDecLogic ImplicitParamBindD{} = fail "Cannot derive logic instances for an implicit param binding!"
 
 makeLogicCon :: Con -> Q Con
+-- Foo a b ==> LogicFoo (Term a) (Term b)
 makeLogicCon (NormalC name types) = return (NormalC name' types')
  where
   name' = makeLogicName name
   types' = map makeLogicBangType types
+-- Foo { bar :: a, baz :: b } ==> LogicFoo { logicBar :: Term a, logicBaz :: Term b }
 makeLogicCon (RecC name fields) = return (RecC name' fields')
  where
   name' = makeLogicName name
   fields' = map makeLogicField fields
+-- a :* b ==> Term a :* Term b
 makeLogicCon (InfixC left name right) = return (InfixC left' name' right')
  where
   left' = makeLogicBangType left
   right' = makeLogicBangType right
   name' = mkName (":?" ++ tail (nameBase name))
 makeLogicCon (ForallC vars cxt inner) = ForallC vars cxt <$> makeLogicCon inner
+-- Foo :: a -> b -> T ==> LogicFoo :: Term a -> Term b -> LogicT
 makeLogicCon (GadtC names types ty) = do
   let names' = map makeLogicName names
   let types' = map makeLogicBangType types
   ty' <- makeLogicGadtReturnType ty
   return (GadtC names' types' ty')
+-- Foo :: { bar :: a } -> T ==> LogicFoo :: { logicBar :: Term a } -> LogicT
 makeLogicCon (RecGadtC names fields ty) = do
   let names' = map makeLogicName names
   let fields' = map makeLogicField fields
   ty' <- makeLogicGadtReturnType ty
   return (RecGadtC names' fields' ty')
 
+-- | > Foo ==> LogicFoo
 makeLogicName :: Name -> Name
 makeLogicName name = mkName ("Logic" ++ nameBase name)
 
+-- | > ham ==> logicHam
 makeLogicField :: VarBangType -> VarBangType
 makeLogicField (name, bang, ty) = (name', bang, ty')
  where
@@ -91,25 +140,24 @@ makeLogicField (name, bang, ty) = (name', bang, ty')
   name' = mkName ("logic" ++ toUpper firstLetter : nameRest)
   ty' = makeLogicType ty
 
+-- | > !T ==> !(Term T)
 makeLogicBangType :: BangType -> BangType
 makeLogicBangType = fmap makeLogicType
 
+-- | > T ==> Term T
 makeLogicType :: Type -> Type
 makeLogicType = AppT (ConT ''Term)
 
 makeLogicGadtReturnType :: Type -> Q Type
+-- T ==> LogicT
+makeLogicGadtReturnType (ConT name) = return (ConT (makeLogicName name))
+-- T a ==> LogicT a
 makeLogicGadtReturnType (AppT left right) = do
   left' <- makeLogicGadtReturnType left
   return (AppT left' right)
-makeLogicGadtReturnType (AppKindT inner kind) = do
-  inner' <- makeLogicGadtReturnType inner
-  return (AppKindT inner' kind)
-makeLogicGadtReturnType (SigT inner kind) = do
-  inner' <- makeLogicGadtReturnType inner
-  return (SigT inner' kind)
-makeLogicGadtReturnType (ConT name) = return (ConT (makeLogicName name))
 makeLogicGadtReturnType ty = fail ("Found something complicated in GADT constructor's return type: " ++ show ty)
 
+-- | Generate the 'Logical' instance
 makeLogical :: Name -> [TyVarBndr ()] -> Name -> Q [Dec]
 makeLogical name vars name' = do
   let ctx = return (makeLogicalConstraints vars)
@@ -124,6 +172,7 @@ makeLogical name vars name' = do
       extract = genericExtract
     |]
 
+-- a b ==> (Logical a, Logical b)
 makeLogicalConstraints :: [TyVarBndr ()] -> Type
 makeLogicalConstraints vars = foldl' AppT tuple constraints
  where
