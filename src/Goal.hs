@@ -300,9 +300,9 @@ instance (Logical a, Logical b, Logical c) => Fresh (Term a, Term b, Term c) whe
     pure (a, b, c)
   resolve state (a, b, c) = (a', b', c')
    where
-    a' = walk state a
-    b' = walk state b
-    c' = walk state c
+    a' = walk' state a
+    b' = walk' state b
+    c' = walk' state c
 
 instance
   (Logical a, Logical b, Logical c, Logical d)
@@ -314,7 +314,7 @@ instance
     pure (a, b, c, d)
   resolve state (a, b, c, d) = (a', b', c', d')
    where
-    a' = walk state a
-    b' = walk state b
-    c' = walk state c
-    d' = walk state d
+    a' = walk' state a
+    b' = walk' state b
+    c' = walk' state c
+    d' = walk' state d

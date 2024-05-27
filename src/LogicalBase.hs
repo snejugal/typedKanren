@@ -93,8 +93,8 @@ _True' = from _Tagged . _True . _Tagged
 
 instance (Logical a, Logical b) => Logical (a, b) where
   type Logic (a, b) = (Term a, Term b)
-  subst = genericSubst
   unify = genericUnify
+  walk = genericWalk
   inject = genericInject
   extract = genericExtract
 
