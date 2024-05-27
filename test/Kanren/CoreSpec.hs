@@ -11,7 +11,7 @@ import Kanren.LogicalBase ()
 
 is :: (Logical a, Eq (Logic a)) => Term a -> Term a -> Maybe State -> Bool
 is _ _ Nothing = False
-is var expected (Just state) = walk state var == expected
+is var expected (Just state) = walk' state var == expected
 
 spec :: Spec
 spec = do
