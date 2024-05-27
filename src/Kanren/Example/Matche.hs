@@ -5,7 +5,7 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 
-module Matche (example, eithero') where
+module Kanren.Example.Matche (example, eithero') where
 
 import Control.Lens (Prism, from)
 import Control.Lens.TH
@@ -14,11 +14,11 @@ import Data.Function ((&))
 import Data.Tagged (Tagged)
 import GHC.Generics (Generic)
 
-import Core
-import Goal
-import LogicalBase
-import Match
-import TH
+import Kanren.Core
+import Kanren.Goal
+import Kanren.LogicalBase
+import Kanren.Match
+import Kanren.TH
 
 eithero :: (Logical a, Logical b) => Term (Either a b) -> Goal ()
 eithero =

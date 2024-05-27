@@ -39,7 +39,7 @@
 -- >   subst = genericSubst
 -- >   inject = genericInject
 -- >   extract = genericExtract
-module GenericLogical (
+module Kanren.GenericLogical (
   genericUnify,
   genericWalk,
   genericInject,
@@ -51,7 +51,7 @@ import Control.Monad ((>=>))
 import Data.Proxy (Proxy (..))
 import GHC.Generics
 
-import Core
+import Kanren.Core
 
 class GLogical f f' where
   gunify :: Proxy f -> f' p -> f' p -> State -> Maybe State

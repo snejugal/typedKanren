@@ -1,15 +1,15 @@
 {-# LANGUAGE TemplateHaskell #-}
 
 -- | Automatic generation of logic types.
-module TH (makeLogic) where
+module Kanren.TH (makeLogic) where
 
 import Data.Char (toUpper)
 import Data.Foldable (foldl')
 import GHC.Generics (Generic)
 import Language.Haskell.TH hiding (bang, cxt)
 
-import Core
-import GenericLogical
+import Kanren.Core
+import Kanren.GenericLogical
 
 -- | Generate a logic representation and a 'Logical' instance
 -- for the given type.

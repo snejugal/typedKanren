@@ -3,7 +3,7 @@
 {-# LANGUAGE TupleSections #-}
 
 -- | Implement and execute relational programs.
-module Goal (
+module Kanren.Goal (
   -- * The Goal monad
   Goal,
   run,
@@ -26,8 +26,9 @@ import Control.Applicative (Alternative (..))
 import Control.Monad (ap)
 import qualified Data.Foldable as Foldable
 
-import Core
-import Stream
+import qualified Kanren.Core as Core
+import Kanren.Core
+import Kanren.Stream
 
 -- $setup
 -- >>> :set -package static-minikanren

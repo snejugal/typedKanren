@@ -12,7 +12,7 @@
 -- The paper is available at <https://okmij.org/ftp/Prolog/Arithm/arithm.pdf>
 -- and the original implementation in Prolog is available at
 -- <https://okmij.org/ftp/Prolog/Arithm/pure-bin-arithm.prl>.
-module Binary (
+module Kanren.Data.Binary (
   Bit (..),
   _O,
   _I,
@@ -40,10 +40,10 @@ import Data.Function ((&))
 import Data.Tagged (Tagged)
 import GHC.Generics (Generic)
 
-import Core
-import Goal
-import LogicalBase
-import Match
+import Kanren.Core
+import Kanren.Goal
+import Kanren.LogicalBase
+import Kanren.Match
 
 data Bit = O | I deriving (Eq, Show, Generic)
 instance Logical Bit

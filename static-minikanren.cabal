@@ -25,15 +25,19 @@ source-repository head
 
 library
   exposed-modules:
-      Biprism
-      Core
-      GenericLogical
-      Goal
-      LogicalBase
-      Match
-      PrismA
-      Stream
-      TH
+      Kanren.Biprism
+      Kanren.Core
+      Kanren.Data.Binary
+      Kanren.Example.List
+      Kanren.Example.Matche
+      Kanren.Example.Tree
+      Kanren.GenericLogical
+      Kanren.Goal
+      Kanren.LogicalBase
+      Kanren.Match
+      Kanren.PrismA
+      Kanren.Stream
+      Kanren.TH
   other-modules:
       Paths_static_minikanren
   autogen-modules:
@@ -54,10 +58,6 @@ library
 executable example
   main-is: Main.hs
   other-modules:
-      Binary
-      Lists
-      Matche
-      Trees
       Paths_static_minikanren
   autogen-modules:
       Paths_static_minikanren

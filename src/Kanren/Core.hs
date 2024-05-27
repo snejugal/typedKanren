@@ -13,7 +13,7 @@
 -- | The very core of miniKanren. So core that it basically deals with
 -- unification only. For writing relational programs, you will need @"Goal"@ as
 -- well.
-module Core (
+module Kanren.Core (
   -- * Values and terms
   Logical (..),
   VarId,

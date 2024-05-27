@@ -1,7 +1,7 @@
 {-# LANGUAGE DeriveFoldable #-}
 {-# LANGUAGE DeriveFunctor #-}
 
-module Stream (Stream (..), maybeToStream, interleave) where
+module Kanren.Stream (Stream (..), maybeToStream, interleave) where
 
 import Prelude hiding (take)
 

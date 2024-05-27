@@ -1,15 +1,15 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TypeApplications #-}
 
-module Lists (example) where
+module Kanren.Example.List (example) where
 
 import Data.Function ((&))
 import Data.Maybe (fromJust)
 
-import Core
-import Goal
-import LogicalBase
-import Match
+import Kanren.Core
+import Kanren.Goal
+import Kanren.LogicalBase
+import Kanren.Match
 
 listo :: (Logical a) => Term [a] -> Goal ()
 listo =

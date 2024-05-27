@@ -3,7 +3,7 @@
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeApplications #-}
 
-module Biprism (
+module Kanren.Biprism (
   Biprism,
   biprism,
   toPrism,

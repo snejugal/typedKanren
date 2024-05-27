@@ -6,17 +6,17 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module Trees (example) where
+module Kanren.Example.Tree (example) where
 
 import Control.Lens.TH (makePrisms)
 import Data.Function ((&))
 import GHC.Generics (Generic)
 
-import Core
-import Goal
-import LogicalBase ()
-import Match
-import TH (makeLogic)
+import Kanren.Core
+import Kanren.Goal
+import Kanren.LogicalBase ()
+import Kanren.Match
+import Kanren.TH (makeLogic)
 
 data Tree a = Empty | Node a (Tree a) (Tree a)
   deriving (Show, Generic)
