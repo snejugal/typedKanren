@@ -1,3 +1,4 @@
+{-# LANGUAGE BangPatterns #-}
 module Main (main) where
 
 import Kanren.Core
@@ -10,13 +11,15 @@ exp3o :: Binary -> Term Binary -> Goal ()
 exp3o n e3n = Binary.logo e3n (inject' 3) (inject' n) (inject' 0)
 
 log3o :: Binary -> Term Binary -> Goal ()
-log3o n log3n = Binary.logo (inject' n) (inject' 3) log3n (inject' 0)
+log3o n log3n = do
+  r <- fresh
+  Binary.logo (inject' n) (inject' 3) log3n r
 
 whnfGoalOnce :: Fresh v => (a -> v -> Goal ()) -> a -> Benchmarkable
 whnfGoalOnce f = whnf $ \x ->
   case run (f x) of
     []  -> Nothing
-    r:_ -> Just r
+    !r:_ -> Just r
 
 main :: IO ()
 main = defaultMain
