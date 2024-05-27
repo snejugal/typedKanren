@@ -79,10 +79,10 @@ test-suite static-minikanren-test
   type: exitcode-stdio-1.0
   main-is: Spec.hs
   other-modules:
-      CoreSpec
-      GoalSpec
-      MatchSpec
-      THSpec
+      Kanren.CoreSpec
+      Kanren.GoalSpec
+      Kanren.MatchSpec
+      Kanren.THSpec
       Util
       Paths_static_minikanren
   autogen-modules:

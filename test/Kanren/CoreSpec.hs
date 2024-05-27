@@ -1,13 +1,13 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
-module CoreSpec (spec) where
+module Kanren.CoreSpec (spec) where
 
 import Data.Maybe (isNothing)
 import Test.Hspec
 
-import Core
-import LogicalBase ()
+import Kanren.Core
+import Kanren.LogicalBase ()
 
 is :: (Logical a, Eq (Logic a)) => Term a -> Term a -> Maybe State -> Bool
 is _ _ Nothing = False

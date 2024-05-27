@@ -1,12 +1,12 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
-module GoalSpec (spec) where
+module Kanren.GoalSpec (spec) where
 
 import Test.Hspec
 
-import Core
-import Goal
-import LogicalBase ()
+import Kanren.Core
+import Kanren.Goal
+import Kanren.LogicalBase ()
 
 import Util
 
