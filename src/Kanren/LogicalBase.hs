@@ -116,6 +116,8 @@ instance IsList (LogicList a) where
   type Item (LogicList a) = Term a
   fromList [] = LogicNil
   fromList (x : xs) = LogicCons x (Value (fromList xs))
+  toList LogicNil = []
+  toList (LogicCons x xs) = x : toList xs   -- NOTE: toList for (Term [a]) is partial
 
 makePrisms ''LogicList
 

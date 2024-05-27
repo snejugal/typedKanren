@@ -191,9 +191,26 @@ deriving instance (Eq (Logic a)) => Eq (Term a)
 instance (IsList (Logic a)) => IsList (Term a) where
   type Item (Term a) = Item (Logic a)
   fromList = Value . fromList
+  toList (Value xs) = toList xs
+  toList (Var x) = error ("cannot convert unification variable " <> show x <> " to list")
 
 instance (Num (Logic a)) => Num (Term a) where
   fromInteger = Value . fromInteger
+  (+) = unsafePromoteBinOp "(+)" (+)
+  (-) = unsafePromoteBinOp "(-)" (-)
+  (*) = unsafePromoteBinOp "(*)" (*)
+  abs = unsafePromoteUnaryOp "abs" abs
+  signum = unsafePromoteUnaryOp "signum" signum
+  negate = unsafePromoteUnaryOp "negate" negate
+
+unsafePromoteUnaryOp :: String -> (Logic a -> Logic b) -> Term a -> Term b
+unsafePromoteUnaryOp _name f (Value x) = Value (f x)
+unsafePromoteUnaryOp name _f (Var x) = error ("cannot apply " <> name <> " to the unification variable " <> show x)
+
+unsafePromoteBinOp :: String -> (Logic a -> Logic b -> Logic c) -> Term a -> Term b -> Term c
+unsafePromoteBinOp _name f (Value x) (Value y) = Value (f x y)
+unsafePromoteBinOp name _f (Var x) _ = error ("cannot apply " <> name <> " to the unification variable " <> show x)
+unsafePromoteBinOp name _f _ (Var x) = error ("cannot apply " <> name <> " to the unification variable " <> show x)
 
 -- | 'unify', but on 'Term's instead of 'Logic' values. If new knowledge is
 -- obtained during unification, it is obtained here.

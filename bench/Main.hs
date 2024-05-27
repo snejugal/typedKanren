@@ -19,6 +19,6 @@ main :: IO ()
 main = defaultMain [
   bgroup "3^n"
     [ bench (" n=" <> show n) $ whnfGoalOnce exp3o (fromIntegral n)
-    | n <- [1..5]
+    | n <- [1..5 :: Int]
     ]
   ]
