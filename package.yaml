@@ -43,18 +43,9 @@ library:
   source-dirs: src
 
 executables:
-  tree-exe:
+  example:
     main:                Main.hs
-    source-dirs:         app/Tree
-    ghc-options:
-    - -threaded
-    - -rtsopts
-    - -with-rtsopts=-N
-    dependencies:
-    - static-minikanren
-  match-exe:
-    main:                Main.hs
-    source-dirs:         app/Match
+    source-dirs:         example
     ghc-options:
     - -threaded
     - -rtsopts
@@ -72,3 +63,5 @@ tests:
     - -with-rtsopts=-N
     dependencies:
     - static-minikanren
+    - hspec
+    - QuickCheck

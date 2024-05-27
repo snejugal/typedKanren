@@ -4,15 +4,47 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 
+-- | 'Generic' implementations of 'Logical' methods.
+--
+-- As discussed in the documentation for the 'Logical' class, method
+-- implementations are not particularly interesting and can be easily
+-- automated. This module provides such automated implementations using
+-- 'Generic'.
+--
+-- This module expects that you already have a logical representation for your
+-- type, and there's already a 'Logic' type instance. The logical type must not
+-- change the order of constructors as well as the order of fields in each
+-- constructor, but the names do not matter. Additionally, each field in the
+-- original type must be wrapped in a 'Term' in the logical representation.
+--
+-- For example, consider the following type definition:
+--
+-- > data Tree a
+-- >   = Leaf a
+-- >   | Node (Tree a) (Tree a)
+-- >   deriving (Generic)
+-- >
+-- > data LogicTree a
+-- >   = LogicLeaf (Term a)
+-- >   | LogicNode (Term (Tree a)) (Term (Tree a))
+-- >   deriving (Generic)
+--
+-- From there, using the generic implementations is trivial:
+--
+-- > instance (Logical a) => Logical (Tree a) where
+-- >   type Logic (Tree a) = LogicTree a
+-- >   unify = genericUnify
+-- >   subst = genericSubst
+-- >   inject = genericInject
+-- >   extract = genericExtract
 module GenericLogical (
-  GLogical,
   genericUnify,
   genericWalk,
   genericInject,
   genericExtract,
+  GLogical,
 ) where
 
 import Control.Monad ((>=>))
@@ -98,6 +130,7 @@ genericInject
   -> Logic a
 genericInject x = to (ginject (from x))
 
+-- | The generic implementation of 'extract'.
 genericExtract
   :: (Generic a, Generic (Logic a), GLogical (Rep a) (Rep (Logic a)))
   => Logic a
