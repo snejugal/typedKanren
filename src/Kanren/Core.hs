@@ -29,7 +29,6 @@ module Kanren.Core (
   State,
   empty,
   makeVariable,
-  walk,
 ) where
 
 import Data.IntMap (IntMap)
