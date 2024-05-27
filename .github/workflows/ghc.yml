@@ -1,0 +1,56 @@
+name: GHC (build, test, haddock)
+
+# Controls when the workflow will run
+on:
+  push:
+    branches: [main]
+    tags: [v*]
+  pull_request:
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: "Build and test with GHC"
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-12]
+
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: 🧰 Setup Stack
+        uses: freckle/stack-action@v5
+
+  haddock:
+    needs: [build]
+    if: ${{ github.ref_name == 'master' }}
+    name: "Build and upload Haddock documentation (master)"
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: 🧰 Setup Stack
+        uses: freckle/stack-action@v5
+
+      - name: 🔨 Build Haddock Documentation (with Stack)
+        run: |
+          stack haddock
+          mkdir -p dist/haddock
+          mv $(stack path --local-doc-root)/* dist/haddock
+
+      - name: 🚀 Publish Haddock Documentation
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          folder: dist/haddock
+          target-folder: haddock
+          single-commit: true
