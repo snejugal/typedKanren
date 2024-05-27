@@ -1,4 +1,4 @@
-module Main where
+module Main (main) where
 
 import Kanren.Core
 import Kanren.Goal
@@ -22,11 +22,11 @@ main :: IO ()
 main = defaultMain
   [ bgroup "3^n "
     [ bench (" n=" <> show n) $ whnfGoalOnce exp3o (fromIntegral n)
-    | n <- [0..2 :: Int]
+    | n <- [0..5 :: Int]
     ]
   , bgroup "log_3 n "
     [ bench (" n=" <> show n) $ whnfGoalOnce log3o (fromIntegral n)
-    | p <- [0..2 :: Int]
+    | p <- [0..5 :: Int]
     , let n = 3^p :: Int
     ]
   ]
