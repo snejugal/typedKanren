@@ -303,3 +303,18 @@ instance (Logical a, Logical b, Logical c) => Fresh (Term a, Term b, Term c) whe
     a' = walk state a
     b' = walk state b
     c' = walk state c
+
+instance
+  (Logical a, Logical b, Logical c, Logical d)
+  => Fresh (Term a, Term b, Term c, Term d)
+  where
+  fresh = do
+    (a, b, c) <- fresh
+    d <- fresh
+    pure (a, b, c, d)
+  resolve state (a, b, c, d) = (a', b', c', d')
+   where
+    a' = walk state a
+    b' = walk state b
+    c' = walk state c
+    d' = walk state d

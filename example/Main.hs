@@ -1,5 +1,6 @@
 module Main (main) where
 
+import qualified Binary
 import qualified Lists
 import qualified Matche
 import qualified Trees
@@ -13,3 +14,6 @@ main = do
 
   putStrLn ""
   Matche.example
+
+  putStrLn ""
+  Binary.example
