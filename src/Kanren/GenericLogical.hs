@@ -107,6 +107,7 @@ instance (GLogical f f') => GLogical (M1 i t f) (M1 i' t' f') where
   ginject (M1 x) = M1 (ginject x)
   gextract (M1 x) = M1 <$> gextract x
 
+-- | The generic implementation of 'unify'.
 genericUnify
   :: forall a
    . (Generic (Logic a), GLogical (Rep a) (Rep (Logic a)))
@@ -116,6 +117,7 @@ genericUnify
   -> Maybe State
 genericUnify l r = gunify (Proxy @(Rep a)) (from l) (from r)
 
+-- | The generic implementation of 'walk'.
 genericWalk
   :: forall a
    . (Generic (Logic a), GLogical (Rep a) (Rep (Logic a)))
@@ -124,6 +126,7 @@ genericWalk
   -> Logic a
 genericWalk k term = to (gwalk (Proxy @(Rep a)) k (from term))
 
+-- | The generic implementation of 'inject'.
 genericInject
   :: (Generic a, Generic (Logic a), GLogical (Rep a) (Rep (Logic a)))
   => a

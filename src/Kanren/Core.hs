@@ -103,12 +103,12 @@ import Unsafe.Coerce (unsafeCoerce)
 --
 -- When we find out that a variable must have a particular value, we need not
 -- only to add a new entry in the state, but also update existing values which
--- might contain that variable. This is the job of 'subst', which takes
--- the value being updated and a function that maps variables to their current
--- value. Just like with 'unify', the actual job of replacing variables with
--- values is done by 'subst'', and you only need to apply it to each field.
+-- might contain that variable. This is the job of 'walk', which takes the value
+-- being updated and the current state. Just like with 'unify', the actual job
+-- of replacing variables with values is done by 'walk'', and you only need to
+-- apply it to each field.
 --
--- > subst f (LogicPoint x y) = LogicPoint (subst' f x) (subst' f x)
+-- > walk f (LogicPoint x y) = LogicPoint (walk' f x) (walk' f x)
 --
 -- You may notice that the logical representation of the type and the 'Logical'
 -- instance are suitable for automatic generation. Indeed, the
@@ -143,6 +143,12 @@ class Logical a where
     | x == y = Just state
     | otherwise = Nothing
 
+  -- | Update the value with acquired knowledge. This method the current state
+  -- to substitute variables with their obtained values.
+  --
+  -- The default implementation works for simple types and returns the value as
+  -- is (since there's nothing to substitute inside). Complex types will provide
+  -- their own implementations which apply 'walk'' to each field.
   walk :: State -> Logic a -> Logic a
   default walk :: (a ~ Logic a) => State -> Logic a -> Logic a
   walk _ = id
@@ -222,6 +228,8 @@ unify' l r state =
     (l', Var y) -> Just (addSubst y l' state)
     (Value l', Value r') -> unify l' r' state
 
+-- | 'walk', but on 'Term's instead of 'Logic' values. The actual substitution
+-- of variables with values happens here.
 walk' :: (Logical a) => State -> Term a -> Term a
 walk' state x = case shallowWalk state x of
   Var i -> Var i
