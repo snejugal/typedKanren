@@ -54,6 +54,7 @@ library
 executable example
   main-is: Main.hs
   other-modules:
+      Binary
       Lists
       Matche
       Trees

@@ -70,18 +70,7 @@ data LogicList a
   deriving (Generic)
 
 deriving instance (Eq (Term a)) => Eq (LogicList a)
-
-_LogicNil :: Prism' (LogicList a) ()
-_LogicNil = prism (const LogicNil) $ \case
-  LogicNil -> Right ()
-  LogicCons x xs -> Left (LogicCons x xs)
-
-_LogicCons :: Prism (LogicList a) (LogicList b) (Term a, Term [a]) (Term b, Term [b])
-_LogicCons = prism (uncurry LogicCons) $ \case
-  LogicCons x xs -> Right (x, xs)
-  LogicNil -> Left LogicNil
-
-deriving instance (Show (Logic a)) => Show (LogicList a)
+deriving instance (Show (Term a)) => Show (LogicList a)
 
 instance (Logical a) => Logical [a] where
   type Logic [a] = LogicList a
@@ -89,6 +78,24 @@ instance (Logical a) => Logical [a] where
   unify = genericUnify
   inject = genericInject
   extract = genericExtract
+
+makePrisms ''LogicList
+
+_LogicNil'
+  :: Prism
+      (Tagged (nil, cons) (LogicList a))
+      (Tagged (nil', cons) (LogicList a))
+      (Tagged nil ())
+      (Tagged nil' ())
+_LogicNil' = from _Tagged . _LogicNil . _Tagged
+
+_LogicCons'
+  :: Prism
+      (Tagged (nil, cons) (LogicList a))
+      (Tagged (nil, cons') (LogicList a'))
+      (Tagged cons (Term a, Term [a]))
+      (Tagged cons' (Term a', Term [a']))
+_LogicCons' = from _Tagged . _LogicCons . _Tagged
 
 instance IsList (LogicList a) where
   type Item (LogicList a) = Term a
