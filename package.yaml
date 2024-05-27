@@ -1,14 +1,14 @@
-name:                static-minikanren
-version:             0.1.0.0
-github:              "githubuser/static-minikanren"
-license:             BSD-3-Clause
-author:              "Author name here"
-maintainer:          "example@example.com"
-copyright:           "2023 Author name here"
+name: static-minikanren
+version: 0.1.0.0
+github: "githubuser/static-minikanren"
+license: BSD-3-Clause
+author: "Author name here"
+maintainer: "example@example.com"
+copyright: "2023 Author name here"
 
 extra-source-files:
-- README.md
-- CHANGELOG.md
+  - README.md
+  - CHANGELOG.md
 
 # Metadata used when publishing your package
 # synopsis:            Short description of your package
@@ -17,51 +17,64 @@ extra-source-files:
 # To avoid duplicated efforts in documentation and dealing with the
 # complications of embedding Haddock markup inside cabal files, it is
 # common to point users to the README.md file.
-description:         Please see the README on GitHub at <https://github.com/githubuser/static-minikanren#readme>
+description: Please see the README on GitHub at <https://github.com/githubuser/static-minikanren#readme>
 
 dependencies:
-- base >= 4.7 && < 5
-- containers
-- template-haskell
-- lens
-- lens-family-core
-- bifunctors
-- tagged
+  - base >= 4.7 && < 5
+  - containers
+  - template-haskell
+  - lens
+  - lens-family-core
+  - bifunctors
+  - tagged
 
 ghc-options:
-- -Wall
-- -Wcompat
-- -Widentities
-- -Wincomplete-record-updates
-- -Wincomplete-uni-patterns
-- -Wmissing-export-lists
-- -Wmissing-home-modules
-- -Wpartial-fields
-- -Wredundant-constraints
+  - -Wall
+  - -Wcompat
+  - -Widentities
+  - -Wincomplete-record-updates
+  - -Wincomplete-uni-patterns
+  - -Wmissing-export-lists
+  - -Wmissing-home-modules
+  - -Wpartial-fields
+  - -Wredundant-constraints
 
 library:
   source-dirs: src
 
 executables:
   example:
-    main:                Main.hs
-    source-dirs:         example
+    main: Main.hs
+    source-dirs: example
     ghc-options:
-    - -threaded
-    - -rtsopts
-    - -with-rtsopts=-N
+      - -threaded
+      - -rtsopts
+      - -with-rtsopts=-N
     dependencies:
-    - static-minikanren
+      - static-minikanren
 
 tests:
   static-minikanren-test:
-    main:                Spec.hs
-    source-dirs:         test
+    main: Spec.hs
+    source-dirs: test
     ghc-options:
-    - -threaded
-    - -rtsopts
-    - -with-rtsopts=-N
+      - -threaded
+      - -rtsopts
+      - -with-rtsopts=-N
     dependencies:
-    - static-minikanren
-    - hspec
-    - QuickCheck
+      - static-minikanren
+      - hspec
+      - QuickCheck
+
+benchmarks:
+  bench:
+    main: Main.hs
+    source-dirs: bench
+    ghc-options:
+      - -threaded
+      - -O2
+      - -rtsopts
+      - -with-rtsopts=-N
+    dependencies:
+      - criterion
+      - static-minikanren
