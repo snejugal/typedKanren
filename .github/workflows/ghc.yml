@@ -3,7 +3,7 @@ name: GHC (build, test, haddock)
 # Controls when the workflow will run
 on:
   push:
-    branches: [main]
+    branches: [master]
     tags: [v*]
   pull_request:
 
