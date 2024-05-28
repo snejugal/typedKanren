@@ -7,7 +7,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# OPTIONS_GHC -Wno-redundant-constraints #-}
 
-module THSpec (spec) where
+module Kanren.THSpec (spec) where
 
 import Data.Maybe (isJust, isNothing)
 import GHC.Generics (Generic)
@@ -15,9 +15,9 @@ import Test.Hspec
 import Test.Hspec.QuickCheck (prop)
 import Test.QuickCheck (Arbitrary (arbitrary), frequency, label)
 
-import Core
-import LogicalBase ()
-import TH
+import Kanren.Core
+import Kanren.LogicalBase ()
+import Kanren.TH
 
 data Constructors
   = Simple

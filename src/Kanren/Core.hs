@@ -13,7 +13,7 @@
 -- | The very core of miniKanren. So core that it basically deals with
 -- unification only. For writing relational programs, you will need @"Goal"@ as
 -- well.
-module Core (
+module Kanren.Core (
   -- * Values and terms
   Logical (..),
   VarId,
@@ -21,7 +21,7 @@ module Core (
 
   -- ** Operations on terms
   unify',
-  subst',
+  walk',
   inject',
   extract',
 
@@ -29,12 +29,10 @@ module Core (
   State,
   empty,
   makeVariable,
-  walk,
 ) where
 
 import Data.IntMap (IntMap)
 import qualified Data.IntMap as IntMap
-import Data.Maybe (fromMaybe)
 import GHC.Exts (IsList (..))
 import Unsafe.Coerce (unsafeCoerce)
 
@@ -105,12 +103,12 @@ import Unsafe.Coerce (unsafeCoerce)
 --
 -- When we find out that a variable must have a particular value, we need not
 -- only to add a new entry in the state, but also update existing values which
--- might contain that variable. This is the job of 'subst', which takes
--- the value being updated and a function that maps variables to their current
--- value. Just like with 'unify', the actual job of replacing variables with
--- values is done by 'subst'', and you only need to apply it to each field.
+-- might contain that variable. This is the job of 'walk', which takes the value
+-- being updated and the current state. Just like with 'unify', the actual job
+-- of replacing variables with values is done by 'walk'', and you only need to
+-- apply it to each field.
 --
--- > subst f (LogicPoint x y) = LogicPoint (subst' f x) (subst' f x)
+-- > walk f (LogicPoint x y) = LogicPoint (walk' f x) (walk' f x)
 --
 -- You may notice that the logical representation of the type and the 'Logical'
 -- instance are suitable for automatic generation. Indeed, the
@@ -145,15 +143,15 @@ class Logical a where
     | x == y = Just state
     | otherwise = Nothing
 
-  -- | Update the value with acquired knowledge. This method takes a function
-  -- which maps variables to its current known value.
+  -- | Update the value with acquired knowledge. This method the current state
+  -- to substitute variables with their obtained values.
   --
   -- The default implementation works for simple types and returns the value as
   -- is (since there's nothing to substitute inside). Complex types will provide
-  -- their own implementations which apply 'subst'' to each field.
-  subst :: (forall x. VarId x -> Maybe (Term x)) -> Logic a -> Logic a
-  default subst :: (a ~ Logic a) => (forall x. VarId x -> Maybe (Term x)) -> Logic a -> Logic a
-  subst _ = id
+  -- their own implementations which apply 'walk'' to each field.
+  walk :: State -> Logic a -> Logic a
+  default walk :: (a ~ Logic a) => State -> Logic a -> Logic a
+  walk _ = id
 
   -- | Transform a value to its logical representation.
   --
@@ -198,26 +196,44 @@ deriving instance (Eq (Logic a)) => Eq (Term a)
 instance (IsList (Logic a)) => IsList (Term a) where
   type Item (Term a) = Item (Logic a)
   fromList = Value . fromList
+  toList (Value xs) = toList xs
+  toList (Var x) = error ("cannot convert unification variable " <> show x <> " to list")
 
 instance (Num (Logic a)) => Num (Term a) where
   fromInteger = Value . fromInteger
+  (+) = unsafePromoteBinOp "(+)" (+)
+  (-) = unsafePromoteBinOp "(-)" (-)
+  (*) = unsafePromoteBinOp "(*)" (*)
+  abs = unsafePromoteUnaryOp "abs" abs
+  signum = unsafePromoteUnaryOp "signum" signum
+  negate = unsafePromoteUnaryOp "negate" negate
+
+unsafePromoteUnaryOp :: String -> (Logic a -> Logic b) -> Term a -> Term b
+unsafePromoteUnaryOp _name f (Value x) = Value (f x)
+unsafePromoteUnaryOp name _f (Var x) = error ("cannot apply " <> name <> " to the unification variable " <> show x)
+
+unsafePromoteBinOp :: String -> (Logic a -> Logic b -> Logic c) -> Term a -> Term b -> Term c
+unsafePromoteBinOp _name f (Value x) (Value y) = Value (f x y)
+unsafePromoteBinOp name _f (Var x) _ = error ("cannot apply " <> name <> " to the unification variable " <> show x)
+unsafePromoteBinOp name _f _ (Var x) = error ("cannot apply " <> name <> " to the unification variable " <> show x)
 
 -- | 'unify', but on 'Term's instead of 'Logic' values. If new knowledge is
 -- obtained during unification, it is obtained here.
 unify' :: (Logical a) => Term a -> Term a -> State -> Maybe State
 unify' l r state =
-  case (walk state l, walk state r) of
+  case (shallowWalk state l, shallowWalk state r) of
     (Var x, Var y)
       | x == y -> Just state
     (Var x, r') -> Just (addSubst x r' state)
     (l', Var y) -> Just (addSubst y l' state)
     (Value l', Value r') -> unify l' r' state
 
--- | 'subst', but on 'Term's instead of 'Logic' values. The actual substitution
--- happens here.
-subst' :: (Logical a) => (forall x. VarId x -> Maybe (Term x)) -> Term a -> Term a
-subst' k (Value x) = Value (subst k x)
-subst' k x@(Var i) = fromMaybe x (k i)
+-- | 'walk', but on 'Term's instead of 'Logic' values. The actual substitution
+-- of variables with values happens here.
+walk' :: (Logical a) => State -> Term a -> Term a
+walk' state x = case shallowWalk state x of
+  Var i -> Var i
+  Value v -> Value (walk state v)
 
 -- | 'inject', but to a 'Term' instead of a 'Logic' value. You will use this
 -- function in your relational programs to inject normal values.
@@ -276,22 +292,16 @@ makeVariable State{maxVarId, ..} = (state', var)
   var = Var (VarId maxVarId)
   state' = State{maxVarId = maxVarId + 1, ..}
 
--- | Update the term using knowledge from the state.
-walk :: (Logical a) => State -> Term a -> Term a
-walk State{knownSubst} = apply knownSubst
-
-apply :: (Logical a) => Subst -> Term a -> Term a
-apply (Subst m) = subst' (\(VarId i) -> unsafeReconstructTerm <$> IntMap.lookup i m)
+shallowWalk :: (Logical a) => State -> Term a -> Term a
+shallowWalk _ (Value v) = Value v
+shallowWalk state@State{knownSubst = Subst m} (Var (VarId i)) =
+  case IntMap.lookup i m of
+    Nothing -> Var (VarId i)
+    Just v -> shallowWalk state (unsafeReconstructTerm v)
 
 addSubst :: (Logical a) => VarId a -> Term a -> State -> State
 addSubst (VarId i) value State{knownSubst = Subst m, ..} =
   State
-    { knownSubst =
-        Subst $
-          IntMap.insert i (ErasedTerm value) $
-            updateErasedTerm <$> m
+    { knownSubst = Subst $ IntMap.insert i (ErasedTerm value) m
     , ..
     }
- where
-  updateErasedTerm (ErasedTerm x) =
-    ErasedTerm (apply (Subst (IntMap.singleton i (ErasedTerm value))) x)

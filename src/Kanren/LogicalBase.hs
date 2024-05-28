@@ -10,7 +10,7 @@
 
 -- | Logical representations for some @base@ types along with their (orphan)
 -- 'Logical' instances.
-module LogicalBase (
+module Kanren.LogicalBase (
   -- * Primitive types
 
   -- | There are 'Logical' instances for 'Bool', 'Char', 'Int', and 'Void'. They
@@ -63,10 +63,10 @@ import Data.Void (Void)
 import GHC.Exts (IsList (..))
 import GHC.Generics (Generic)
 
-import Core
-import GenericLogical
-import Match (_Tagged)
-import TH (makeLogic)
+import Kanren.Core
+import Kanren.GenericLogical
+import Kanren.Match (_Tagged)
+import Kanren.TH (makeLogic)
 
 instance Logical Int
 instance Logical Char
@@ -93,8 +93,8 @@ _True' = from _Tagged . _True . _Tagged
 
 instance (Logical a, Logical b) => Logical (a, b) where
   type Logic (a, b) = (Term a, Term b)
-  subst = genericSubst
   unify = genericUnify
+  walk = genericWalk
   inject = genericInject
   extract = genericExtract
 
@@ -107,8 +107,8 @@ deriving instance (Show (Logic a)) => Show (LogicList a)
 
 instance (Logical a) => Logical [a] where
   type Logic [a] = LogicList a
-  subst = genericSubst
   unify = genericUnify
+  walk = genericWalk
   inject = genericInject
   extract = genericExtract
 
@@ -116,6 +116,8 @@ instance IsList (LogicList a) where
   type Item (LogicList a) = Term a
   fromList [] = LogicNil
   fromList (x : xs) = LogicCons x (Value (fromList xs))
+  toList LogicNil = []
+  toList (LogicCons x xs) = x : toList xs   -- NOTE: toList for (Term [a]) is partial
 
 makePrisms ''LogicList
 

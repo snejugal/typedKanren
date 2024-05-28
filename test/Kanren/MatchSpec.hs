@@ -1,14 +1,14 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
-module MatchSpec (spec) where
+module Kanren.MatchSpec (spec) where
 
 import Data.Function ((&))
 import Test.Hspec
 
-import Core
-import Goal
-import LogicalBase
-import Match
+import Kanren.Core
+import Kanren.Goal
+import Kanren.LogicalBase
+import Kanren.Match
 
 import Util
 

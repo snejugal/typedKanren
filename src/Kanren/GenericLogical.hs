@@ -39,9 +39,9 @@
 -- >   subst = genericSubst
 -- >   inject = genericInject
 -- >   extract = genericExtract
-module GenericLogical (
+module Kanren.GenericLogical (
   genericUnify,
-  genericSubst,
+  genericWalk,
   genericInject,
   genericExtract,
   GLogical,
@@ -51,23 +51,23 @@ import Control.Monad ((>=>))
 import Data.Proxy (Proxy (..))
 import GHC.Generics
 
-import Core
+import Kanren.Core
 
 class GLogical f f' where
   gunify :: Proxy f -> f' p -> f' p -> State -> Maybe State
-  gsubst :: Proxy f -> (forall a. VarId a -> Maybe (Term a)) -> f' p -> f' p
+  gwalk :: Proxy f -> State -> f' p -> f' p
   ginject :: f p -> f' p
   gextract :: f' p -> Maybe (f p)
 
 instance GLogical V1 V1 where
   gunify _ _ _ = Just
-  gsubst _ _ = id
+  gwalk _ _ = id
   ginject = id
   gextract = Just
 
 instance GLogical U1 U1 where
   gunify _ _ _ = Just
-  gsubst _ _ = id
+  gwalk _ _ = id
   ginject = id
   gextract = Just
 
@@ -76,8 +76,8 @@ instance (GLogical f f', GLogical g g') => GLogical (f :+: g) (f' :+: g') where
   gunify _ (R1 x) (R1 y) = gunify (Proxy @g) x y
   gunify _ _ _ = const Nothing
 
-  gsubst _ k (L1 x) = L1 (gsubst (Proxy @f) k x)
-  gsubst _ k (R1 y) = R1 (gsubst (Proxy @g) k y)
+  gwalk _ k (L1 x) = L1 (gwalk (Proxy @f) k x)
+  gwalk _ k (R1 y) = R1 (gwalk (Proxy @g) k y)
 
   ginject (L1 x) = L1 (ginject x)
   ginject (R1 y) = R1 (ginject y)
@@ -88,7 +88,7 @@ instance (GLogical f f', GLogical g g') => GLogical (f :+: g) (f' :+: g') where
 instance (GLogical f f', GLogical g g') => GLogical (f :*: g) (f' :*: g') where
   gunify _ (x1 :*: y1) (x2 :*: y2) =
     gunify (Proxy @f) x1 x2 >=> gunify (Proxy @g) y1 y2
-  gsubst _ k (x :*: y) = gsubst (Proxy @f) k x :*: gsubst (Proxy @g) k y
+  gwalk _ k (x :*: y) = gwalk (Proxy @f) k x :*: gwalk (Proxy @g) k y
   ginject (x :*: y) = ginject x :*: ginject y
   gextract (x :*: y) = do
     x' <- gextract x
@@ -97,13 +97,13 @@ instance (GLogical f f', GLogical g g') => GLogical (f :*: g) (f' :*: g') where
 
 instance (Logical c) => GLogical (K1 i c) (K1 i' (Term c)) where
   gunify _ (K1 x) (K1 y) = unify' x y
-  gsubst _ k (K1 c) = K1 (subst' k c)
+  gwalk _ state (K1 c) = K1 (walk' state c)
   ginject (K1 x) = K1 (inject' x)
   gextract (K1 x) = K1 <$> extract' x
 
 instance (GLogical f f') => GLogical (M1 i t f) (M1 i' t' f') where
   gunify _ (M1 x) (M1 y) = gunify (Proxy @f) x y
-  gsubst _ k (M1 m) = M1 (gsubst (Proxy @f) k m)
+  gwalk _ k (M1 m) = M1 (gwalk (Proxy @f) k m)
   ginject (M1 x) = M1 (ginject x)
   gextract (M1 x) = M1 <$> gextract x
 
@@ -117,14 +117,14 @@ genericUnify
   -> Maybe State
 genericUnify l r = gunify (Proxy @(Rep a)) (from l) (from r)
 
--- | The generic implementation of 'subst'.
-genericSubst
+-- | The generic implementation of 'walk'.
+genericWalk
   :: forall a
    . (Generic (Logic a), GLogical (Rep a) (Rep (Logic a)))
-  => (forall b. VarId b -> Maybe (Term b))
+  => State
   -> Logic a
   -> Logic a
-genericSubst k term = to (gsubst (Proxy @(Rep a)) k (from term))
+genericWalk k term = to (gwalk (Proxy @(Rep a)) k (from term))
 
 -- | The generic implementation of 'inject'.
 genericInject

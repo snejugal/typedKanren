@@ -9,7 +9,7 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module PrismA (
+module Kanren.PrismA (
   PrismA (..),
   (:.) (..),
   Just',

@@ -1,15 +1,15 @@
 {-# LANGUAGE TemplateHaskell #-}
 
 -- | Automatic generation of logic types.
-module TH (makeLogic) where
+module Kanren.TH (makeLogic) where
 
 import Data.Char (toUpper)
 import Data.Foldable (foldl')
 import GHC.Generics (Generic)
 import Language.Haskell.TH hiding (bang, cxt)
 
-import Core
-import GenericLogical
+import Kanren.Core
+import Kanren.GenericLogical
 
 -- | Generate a logic representation and a 'Logical' instance
 -- for the given type.
@@ -96,6 +96,8 @@ makeDecLogic DefaultSigD{} = fail "Cannot derive logic instances for a type sign
 makeDecLogic PatSynD{} = fail "Deriving logic instances for pattern synonyms is not implemented yet!"
 makeDecLogic PatSynSigD{} = fail "Cannot derive logic instances for a pattern synonym signature!"
 makeDecLogic ImplicitParamBindD{} = fail "Cannot derive logic instances for an implicit param binding!"
+makeDecLogic TypeDataD{} = fail "Cannot derive logic instances for type-level data declaration!"
+makeDecLogic DefaultD{} = fail "Cannot derive logic instances for type defaults declaration!"
 
 makeLogicCon :: Con -> Q Con
 -- Foo a b ==> LogicFoo (Term a) (Term b)
@@ -134,11 +136,13 @@ makeLogicName name = mkName ("Logic" ++ nameBase name)
 
 -- | > ham ==> logicHam
 makeLogicField :: VarBangType -> VarBangType
-makeLogicField (name, bang, ty) = (name', bang, ty')
- where
-  firstLetter : nameRest = nameBase name
-  name' = mkName ("logic" ++ toUpper firstLetter : nameRest)
-  ty' = makeLogicType ty
+makeLogicField (name, bang, ty) =
+  case nameBase name of
+    firstLetter : nameRest ->
+      let name' = mkName ("logic" ++ toUpper firstLetter : nameRest)
+          ty' = makeLogicType ty
+       in (name', bang, ty')
+    [] -> error "impossible: empty field name!"
 
 -- | > !T ==> !(Term T)
 makeLogicBangType :: BangType -> BangType
@@ -166,8 +170,8 @@ makeLogical name vars name' = do
   [d|
     instance ($ctx) => Logical $name_ where
       type Logic $name_ = $name'_
-      subst = genericSubst
       unify = genericUnify
+      walk = genericWalk
       inject = genericInject
       extract = genericExtract
     |]

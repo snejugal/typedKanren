@@ -3,7 +3,7 @@
 {-# LANGUAGE TupleSections #-}
 
 -- | Implement and execute relational programs.
-module Goal (
+module Kanren.Goal (
   -- * The Goal monad
   Goal,
   run,
@@ -26,8 +26,9 @@ import Control.Applicative (Alternative (..))
 import Control.Monad (ap)
 import qualified Data.Foldable as Foldable
 
-import Core
-import Stream
+import qualified Kanren.Core as Core
+import Kanren.Core
+import Kanren.Stream
 
 -- $setup
 -- >>> :set -package static-minikanren
@@ -281,7 +282,7 @@ instance Fresh () where
 
 instance (Logical a) => Fresh (Term a) where
   fresh = Goal (pure . makeVariable)
-  resolve = walk
+  resolve = walk'
 
 instance (Logical a, Logical b) => Fresh (Term a, Term b) where
   fresh = do
@@ -290,8 +291,8 @@ instance (Logical a, Logical b) => Fresh (Term a, Term b) where
     pure (a, b)
   resolve state (a, b) = (a', b')
    where
-    a' = walk state a
-    b' = walk state b
+    a' = walk' state a
+    b' = walk' state b
 
 instance (Logical a, Logical b, Logical c) => Fresh (Term a, Term b, Term c) where
   fresh = do
@@ -300,9 +301,9 @@ instance (Logical a, Logical b, Logical c) => Fresh (Term a, Term b, Term c) whe
     pure (a, b, c)
   resolve state (a, b, c) = (a', b', c')
    where
-    a' = walk state a
-    b' = walk state b
-    c' = walk state c
+    a' = walk' state a
+    b' = walk' state b
+    c' = walk' state c
 
 instance
   (Logical a, Logical b, Logical c, Logical d)
@@ -314,7 +315,7 @@ instance
     pure (a, b, c, d)
   resolve state (a, b, c, d) = (a', b', c', d')
    where
-    a' = walk state a
-    b' = walk state b
-    c' = walk state c
-    d' = walk state d
+    a' = walk' state a
+    b' = walk' state b
+    c' = walk' state c
+    d' = walk' state d

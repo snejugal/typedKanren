@@ -6,13 +6,13 @@
 {-# LANGUAGE TypeFamilies #-}
 
 -- | This module implements binary numbers as described in the declarative pearl
--- “Pure, Declarative, and Constructive Arithmetic Relations” by O. Kiselyov _et
--- al_.
+-- “Pure, Declarative, and Constructive Arithmetic Relations” by O. Kiselyov
+-- /et al/.
 --
 -- The paper is available at <https://okmij.org/ftp/Prolog/Arithm/arithm.pdf>
 -- and the original implementation in Prolog is available at
 -- <https://okmij.org/ftp/Prolog/Arithm/pure-bin-arithm.prl>.
-module Binary (
+module Kanren.Data.Binary (
   Bit (..),
   _O,
   _I,
@@ -40,10 +40,10 @@ import Data.Function ((&))
 import Data.Tagged (Tagged)
 import GHC.Generics (Generic)
 
-import Core
-import Goal
-import LogicalBase
-import Match
+import Kanren.Core
+import Kanren.Goal
+import Kanren.LogicalBase
+import Kanren.Match
 
 data Bit = O | I deriving (Eq, Show, Generic)
 instance Logical Bit
@@ -140,8 +140,8 @@ samelo xs = matche'
 -- | Check that the first list is shorter than the second one and at least of
 -- the same length as the third list combined with the forth one.
 --
--- Meaningfully, the part `[a]` must be shorter than the whole `[b]` and must
--- fit the result of multiplying `[c]` with `[d]`, but here we're just concerned
+-- Meaningfully, the part @[a]@ must be shorter than the whole @[b]@ and must
+-- fit the result of multiplying @[c]@ with @[d]@, but here we're just concerned
 -- with the lengths of the lists.
 lessl3o
   :: (Logical a, Logical b, Logical c, Logical d)
@@ -240,7 +240,7 @@ fullNAddero carryIn a b r =
         fullNAddero carryOut ar br rr
     ]
 
--- | Calculate the sum `c` of two numbers `a` and `b`.
+-- | Calculate the sum @c@ of two numbers @a@ and @b@.
 --
 -- >>> extract' <$> run (addo (inject' 3) (inject' 5))
 -- [Just [O,O,O,I]]
@@ -264,27 +264,27 @@ fullNAddero carryIn a b r =
 -- The implementation of @add@ is discussed in section 4 of the paper.
 addo
   :: Term Binary
-  -- ^ `a`, the first summand
+  -- ^ @a@, the first summand
   -> Term Binary
-  -- ^ `b`, the second summand
+  -- ^ @b@, the second summand
   -> Term Binary
-  -- ^ `c`, the sum
+  -- ^ @c@, the sum
   -> Goal ()
 addo = fullNAddero (inject' O)
 
--- | Calculate the difference `c` of two numbers `a` and `b`. This is just
--- `addo`, but with parameters in different order.
+-- | Calculate the difference @c@ of two numbers @a@ and @b@. This is just
+-- 'addo', but with parameters in different order.
 subo
   :: Term Binary
-  -- ^ `a`, the minuend
+  -- ^ @a@, the minuend
   -> Term Binary
-  -- ^ `b`, the subtrahend
+  -- ^ @b@, the subtrahend
   -> Term Binary
-  -- ^ `c`, the difference
+  -- ^ @c@, the difference
   -> Goal ()
 subo a b c = addo b c a
 
--- | Check that `a` is strictly less than `b`. Otherwise, the goal fails.
+-- | Check that @a@ is strictly less than @b@. Otherwise, the goal fails.
 --
 -- >>> run (\() -> lesso (inject' 3) (inject' 4))
 -- [()]
@@ -300,16 +300,16 @@ subo a b c = addo b c a
 -- [Just [I,O,I],Just [O,I,I],Just [I,I,I],Just [O,O,O,I],Just [I,O,O,I]]
 lesso
   :: Term Binary
-  -- ^ `a`, the lesser number
+  -- ^ @a@, the lesser number
   -> Term Binary
-  -- ^ `b`, the greater number
+  -- ^ @b@, the greater number
   -> Goal ()
 lesso a b = do
   x <- fresh
   poso x
   addo a x b
 
--- | Calculate the product `c` of two numbers `a` and `b`.
+-- | Calculate the product @c@ of two numbers @a@ and @b@.
 --
 -- >>> extract' <$> run (mulo (inject' 3) (inject' 4))
 -- [Just [O,O,I,I]]
@@ -329,11 +329,11 @@ lesso a b = do
 -- The implementation of @mul@ is discussed in section 5 of the paper.
 mulo
   :: Term Binary
-  -- ^ `a`, the first multiplier
+  -- ^ @a@, the first multiplier
   -> Term Binary
-  -- ^ `b`, the second multiplier
+  -- ^ @b@, the second multiplier
   -> Term Binary
-  -- ^ `c`, the product
+  -- ^ @c@, the product
   -> Goal ()
 mulo a b c =
   disjMany
@@ -370,7 +370,7 @@ mulo a b c =
     ]
 
 {- FOURMOLU_DISABLE -}
--- | Calculate the quotient `q` and remainder `r` of dividing `n` by `m`.
+-- | Calculate the quotient @q@ and remainder @r@ of dividing @n@ by @m@.
 --
 -- >>> bimap extract' extract' <$> run (\(q, r) -> divo (inject' 17) (inject' 5) q r)
 -- [(Just [I,I],Just [O,I])]
@@ -383,13 +383,13 @@ mulo a b c =
 -- The implementation of @div@ is discussed in section 6 of the paper.
 divo
   :: Term Binary
-  -- ^ `n`, the dividend
+  -- ^ @n@, the dividend
   -> Term Binary
-  -- ^ `m`, the divisor
+  -- ^ @m@, the divisor
   -> Term Binary
-  -- ^ `q`, the quotient
+  -- ^ @q@, the quotient
   -> Term Binary
-  -- ^ `r`, the remainder
+  -- ^ @r@, the remainder
   -> Goal ()
 divo n m q r =
   disjMany
@@ -428,7 +428,7 @@ divo n m q r =
     ]
 {- FOURMOLU_ENABLE -}
 
--- | Split `n` into `n1` and `n2` such that `n = 2^(length r + 1) * n1 + n2`.
+-- | Split @n@ into @n1@ and @n2@ such that @n = 2^(length r + 1) * n1 + n2@.
 splito :: Term Binary -> Term Binary -> Term Binary -> Term Binary -> Goal ()
 splito n r n1 n2 =
   disjMany
@@ -477,7 +477,7 @@ splito n r n1 n2 =
     ]
 
 {- FOURMOLU_DISABLE -}
--- | Calculate `n = (b + 1)^q`, where `b + 1` is a power of two.
+-- | Calculate @n = (b + 1)^q@, where @b + 1@ is a power of two.
 exp2o :: Term Binary -> Term Binary -> Term Binary -> Goal ()
 exp2o n b = matche'
   & on' _LogicNil' (\() -> n === inject' [I])
@@ -505,7 +505,7 @@ exp2o n b = matche'
   & enter'
 {- FOURMOLU_ENABLE -}
 
--- | Calculate `nq = n ^ q`.
+-- | Calculate @nq = n ^ q@.
 repeatedMulo :: Term Binary -> Term Binary -> Term Binary -> Goal ()
 repeatedMulo n q nq =
   disjMany
@@ -524,25 +524,25 @@ repeatedMulo n q nq =
         mulo nq1 n nq
     ]
 
--- | Calculate discrete logarithm `q` of a number `n` in base `b`, perhaps with
--- some remainder `r`.
+-- | Calculate discrete logarithm @q@ of a number @n@ in base @b@, perhaps with
+-- some remainder @r@.
 --
 -- >>> bimap extract' extract' <$> run (\(q, r) -> logo (inject' 9) (inject' 3) q r)
 -- [(Just [O,I],Just [])]
 -- >>> bimap extract' extract' <$> run (\(q, r) -> logo (inject' 15) (inject' 3) q r)
 -- [(Just [O,I],Just [0,I,I])]
 --
--- One can turn this around to find the number `b` raised to some power `q`:
+-- One can turn this around to find the number @b@ raised to some power @q@:
 --
 -- >>> extract' <$> run (\n -> logo n (inject' 5) (inject' 2) (inject' 0))
 -- [Just [I,O,O,I,I]]
 --
--- or to find the `q`-th root of `n`:
+-- or to find the @q@-th root of @n@:
 --
 -- >>> extract' <$> run (\b -> logo (inject' 8) b (inject' 3) (inject' 0))
 -- [Just [O,I]]
 --
--- If you want to enumerate solutions to `logo n b q r`, you probably shouldn't
+-- If you want to enumerate solutions to @logo n b q r@, you probably shouldn't
 -- go beyond the first 16 solutions without an OOM killer.
 --
 -- The original implementation of this relation in Prolog can be found at
@@ -551,13 +551,13 @@ repeatedMulo n q nq =
 -- in detail.
 logo
   :: Term Binary
-  -- ^ `n`, of which to calculate the logarithm
+  -- ^ @n@, of which to calculate the logarithm
   -> Term Binary
-  -- ^ `b`, the base
+  -- ^ @b@, the base
   -> Term Binary
-  -- ^ `q`, the logarithm
+  -- ^ @q@, the logarithm
   -> Term Binary
-  -- ^ `r`, the remainder
+  -- ^ @r@, the remainder
   -> Goal ()
 logo n b q r =
   disjMany

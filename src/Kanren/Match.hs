@@ -4,7 +4,7 @@
 
 -- | The @matche@ for Haskell. Comes in non-exhaustive and, most importantly,
 -- exhaustive versions.
-module Match (
+module Kanren.Match (
   -- * Non-exhaustive pattern matching
 
   -- | Pattern matching in this library syntactially looks similar to the one
@@ -250,8 +250,8 @@ module Match (
 import Control.Lens (Iso, Prism, Prism', from, iso, prism', review, reviewing)
 import Data.Tagged (Tagged (Tagged, unTagged))
 
-import Core
-import Goal
+import Kanren.Core
+import Kanren.Goal
 
 -- | One case for non-exhaustive pattern matching.
 --
