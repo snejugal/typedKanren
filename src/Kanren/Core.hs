@@ -18,6 +18,7 @@ module Kanren.Core (
   Logical (..),
   VarId,
   Term (..),
+  Atomic (..),
 
   -- ** Operations on terms
   unify',
@@ -216,6 +217,15 @@ unsafePromoteBinOp :: String -> (Logic a -> Logic b -> Logic c) -> Term a -> Ter
 unsafePromoteBinOp _name f (Value x) (Value y) = Value (f x y)
 unsafePromoteBinOp name _f (Var x) _ = error ("cannot apply " <> name <> " to the unification variable " <> show x)
 unsafePromoteBinOp name _f _ (Var x) = error ("cannot apply " <> name <> " to the unification variable " <> show x)
+
+-- | Treat a type as atomic, i.e. containing no variables inside. This requires
+-- @a@ only to have an 'Eq' instance, thus ignoring its logical representation
+-- if it exists. Useful when you really don't want to look inside something.
+--
+-- > type Symbol = Atomic String
+newtype Atomic a = Atomic a deriving (Eq, Show)
+
+instance (Eq a) => Logical (Atomic a)
 
 -- | 'unify', but on 'Term's instead of 'Logic' values. If new knowledge is
 -- obtained during unification, it is obtained here.
