@@ -28,6 +28,7 @@ library
       Kanren.Biprism
       Kanren.Core
       Kanren.Data.Binary
+      Kanren.Data.Scheme
       Kanren.Example.List
       Kanren.Example.Matche
       Kanren.Example.Tree
