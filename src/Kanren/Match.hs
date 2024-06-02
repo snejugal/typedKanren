@@ -309,6 +309,9 @@ class Exhausted a
 instance Exhausted Checked
 instance (Exhausted a, Exhausted b) => Exhausted (a, b)
 instance (Exhausted a, Exhausted b, Exhausted c) => Exhausted (a, b, c)
+instance
+  (Exhausted a, Exhausted b, Exhausted c, Exhausted d)
+  => Exhausted (a, b, c, d)
 
 -- | Begin exhaustive pattern matching by attaching initial tags to the term.
 -- Do keep in mind that these tags do not exist at runtime.
