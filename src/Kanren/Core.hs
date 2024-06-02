@@ -197,8 +197,10 @@ data Term a
   = Var (VarId a)
   | Value (Logic a)
 
-deriving instance (Show (Logic a)) => Show (Term a)
 deriving instance (Eq (Logic a)) => Eq (Term a)
+instance (Show (Logic a)) => Show (Term a) where
+  show (Var (VarId varId)) = "_." ++ show varId
+  show (Value value) = show value
 
 instance (IsList (Logic a)) => IsList (Term a) where
   type Item (Term a) = Item (Logic a)
@@ -229,9 +231,11 @@ unsafePromoteBinOp name _f _ (Var x) = error ("cannot apply " <> name <> " to th
 -- if it exists. Useful when you really don't want to look inside something.
 --
 -- > type Symbol = Atomic String
-newtype Atomic a = Atomic a deriving (Eq, Show)
+newtype Atomic a = Atomic a deriving (Eq)
 
 instance (Eq a) => Logical (Atomic a)
+instance (Show a) => Show (Atomic a) where
+  show (Atomic x) = show x
 
 -- | 'unify', but on 'Term's instead of 'Logic' values. If new knowledge is
 -- obtained during unification, it is obtained here.

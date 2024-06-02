@@ -32,7 +32,19 @@ data SExpr
   | SNil
   | SCons SExpr SExpr
   | SClosure Symbol SExpr Env
-  deriving (Eq, Show, Generic)
+  deriving (Eq, Generic)
+
+instance Show SExpr where
+  show (SSymbol (Atomic symbol)) = symbol
+  show SNil = "()"
+  show (SCons car cdr) = "(" ++ show car ++ showSList cdr
+  show (SClosure (Atomic var) body env) =
+    "#(lambda (" ++ var ++ ") " ++ show body ++ " " ++ show env ++ ")"
+
+showSList :: SExpr -> [Char]
+showSList SNil = ")"
+showSList (SCons car cdr) = " " ++ show car ++ showSList cdr
+showSList other = " . " ++ show other ++ ")"
 
 instance IsList SExpr where
   type Item SExpr = SExpr
@@ -41,7 +53,19 @@ instance IsList SExpr where
   toList = undefined
 
 makeLogic ''SExpr
-deriving instance Show LogicSExpr
+
+instance Show LogicSExpr where
+  show (LogicSSymbol (Value (Atomic symbol))) = symbol
+  show (LogicSSymbol var) = show var
+  show LogicSNil = "()"
+  show (LogicSCons car cdr) = "(" ++ show car ++ showLogicSList cdr
+  show (LogicSClosure var body env) =
+    "#(lambda (" ++ show var ++ ") " ++ show body ++ " " ++ show env ++ ")"
+
+showLogicSList :: Term SExpr -> [Char]
+showLogicSList (Value LogicSNil) = ")"
+showLogicSList (Value (LogicSCons car cdr)) = " " ++ show car ++ showLogicSList cdr
+showLogicSList other = " . " ++ show other ++ ")"
 
 symbolo :: Term SExpr -> Goal ()
 symbolo value = do
