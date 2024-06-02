@@ -104,6 +104,15 @@ evalo :: Term SExpr -> Term Env -> Term SExpr -> Goal ()
 evalo expr env value =
   disjMany
     [ do
+        x <- fresh
+        expr === Value (LogicSSymbol x)
+        lookupo x env value
+    , do
+        (x, body) <- fresh
+        lambdao x body expr
+        value === Value (LogicSClosure x body env)
+        notInEnvo lambda env
+    , do
         (rator, rand) <- fresh
         applyo rator rand expr
 
@@ -113,13 +122,4 @@ evalo expr env value =
         evalo rand env rand'
 
         evalo body (Value (LogicCons (Value (x, rand')) ratorEnv)) value
-    , do
-        (x, body) <- fresh
-        lambdao x body expr
-        value === Value (LogicSClosure x body env)
-        notInEnvo lambda env
-    , do
-        x <- fresh
-        expr === Value (LogicSSymbol x)
-        lookupo x env value
     ]
