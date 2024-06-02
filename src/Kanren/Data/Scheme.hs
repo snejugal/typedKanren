@@ -9,7 +9,8 @@ module Kanren.Data.Scheme (
   Env,
   SExpr (..),
   LogicSExpr (..),
-  symbolo,
+  Value (..),
+  LogicValue (..),
   evalo,
 ) where
 
@@ -28,26 +29,33 @@ import Kanren.Match
 import Kanren.TH
 
 type Symbol = Atomic String
-type Env = [(Symbol, SExpr)]
+type Env = [(Symbol, Value)]
 
 data SExpr
   = SSymbol Symbol
   | SNil
   | SCons SExpr SExpr
-  | SClosure Symbol SExpr Env
+  deriving (Eq, Generic)
+
+data Value
+  = SExpr SExpr
+  | Closure Symbol SExpr Env
   deriving (Eq, Generic)
 
 instance Show SExpr where
   show (SSymbol (Atomic symbol)) = symbol
   show SNil = "()"
   show (SCons car cdr) = "(" ++ show car ++ showSList cdr
-  show (SClosure (Atomic var) body env) =
-    "#(lambda (" ++ var ++ ") " ++ show body ++ " " ++ show env ++ ")"
 
 showSList :: SExpr -> [Char]
 showSList SNil = ")"
 showSList (SCons car cdr) = " " ++ show car ++ showSList cdr
 showSList other = " . " ++ show other ++ ")"
+
+instance Show Value where
+  show (SExpr expr) = show expr
+  show (Closure (Atomic var) body env) =
+    "#(lambda (" ++ var ++ ") " ++ show body ++ " " ++ show env ++ ")"
 
 instance IsList SExpr where
   type Item SExpr = SExpr
@@ -59,57 +67,49 @@ instance IsString SExpr where
   fromString = SSymbol . Atomic
 
 makeLogic ''SExpr
+makeLogic ''Value
 makePrisms ''LogicSExpr
+makePrisms ''LogicValue
 
 _LogicSSymbol'
   :: Prism
-      (Tagged (s, n, c, l) LogicSExpr)
-      (Tagged (s', n, c, l) LogicSExpr)
+      (Tagged (s, n, c) LogicSExpr)
+      (Tagged (s', n, c) LogicSExpr)
       (Tagged s (Term Symbol))
       (Tagged s' (Term Symbol))
 _LogicSSymbol' = from _Tagged . _LogicSSymbol . _Tagged
 
 _LogicSNil'
   :: Prism
-      (Tagged (s, n, c, l) LogicSExpr)
-      (Tagged (s, n', c, l) LogicSExpr)
+      (Tagged (s, n, c) LogicSExpr)
+      (Tagged (s, n', c) LogicSExpr)
       (Tagged n ())
       (Tagged n' ())
 _LogicSNil' = from _Tagged . _LogicSNil . _Tagged
 
 _LogicSCons'
   :: Prism
-      (Tagged (s, n, c, l) LogicSExpr)
-      (Tagged (s, n, c', l) LogicSExpr)
+      (Tagged (s, n, c) LogicSExpr)
+      (Tagged (s, n, c') LogicSExpr)
       (Tagged c (Term SExpr, Term SExpr))
       (Tagged c' (Term SExpr, Term SExpr))
 _LogicSCons' = from _Tagged . _LogicSCons . _Tagged
-
-_LogicSClosure'
-  :: Prism
-      (Tagged (s, n, c, l) LogicSExpr)
-      (Tagged (s, n, c, l') LogicSExpr)
-      (Tagged l (Term Symbol, Term SExpr, Term Env))
-      (Tagged l' (Term Symbol, Term SExpr, Term Env))
-_LogicSClosure' = from _Tagged . _LogicSClosure . _Tagged
 
 instance Show LogicSExpr where
   show (LogicSSymbol (Value (Atomic symbol))) = symbol
   show (LogicSSymbol var) = show var
   show LogicSNil = "()"
   show (LogicSCons car cdr) = "(" ++ show car ++ showLogicSList cdr
-  show (LogicSClosure var body env) =
+
+instance Show LogicValue where
+  show (LogicSExpr expr) = show expr
+  show (LogicClosure var body env) =
     "#(lambda (" ++ show var ++ ") " ++ show body ++ " " ++ show env ++ ")"
 
 showLogicSList :: Term SExpr -> [Char]
 showLogicSList (Value LogicSNil) = ")"
 showLogicSList (Value (LogicSCons car cdr)) = " " ++ show car ++ showLogicSList cdr
 showLogicSList other = " . " ++ show other ++ ")"
-
-symbolo :: Term SExpr -> Goal ()
-symbolo value = do
-  x <- fresh
-  value === Value (LogicSSymbol x)
 
 applyo :: Term SExpr -> Term SExpr -> Term SExpr -> Goal ()
 applyo f x expr = expr === Value (LogicSCons f (Value (LogicSCons x (Value LogicSNil))))
@@ -152,17 +152,8 @@ listo :: Term SExpr -> Term SExpr -> Goal ()
 listo exprs expr =
   expr === Value (LogicSCons (Value (LogicSSymbol list)) exprs)
 
-notClosureo :: Term SExpr -> Goal ()
-notClosureo =
-  matche'
-    & on' _LogicSClosure' (const failo)
-    & on' _LogicSSymbol' (\_ -> successo ())
-    & on' _LogicSNil' successo
-    & on' _LogicSCons' (\_ -> successo ())
-    & enter'
-
 {- FOURMOLU_DISABLE -}
-lookupo :: Term Symbol -> Term Env -> Term SExpr -> Goal ()
+lookupo :: Term Symbol -> Term Env -> Term Value -> Goal ()
 lookupo expectedVar env returnValue =
   env & (matche'
     & on' _LogicNil' (const failo)
@@ -196,41 +187,42 @@ properListo exprs env value = exprs & (matche'
   & on' _LogicSCons' (\(car, cdr) -> do
       (car', cdr') <- fresh
       value === Value (LogicSCons car' cdr')
-      evalo car env car'
+      evalo car env (Value (LogicSExpr car'))
       properListo cdr env cdr')
   & on' _LogicSSymbol' (const failo)
-  & on' _LogicSClosure' (const failo)
   & enter')
 {- FOURMOLU_ENABLE -}
 
-evalo :: Term SExpr -> Term Env -> Term SExpr -> Goal ()
+evalo :: Term SExpr -> Term Env -> Term Value -> Goal ()
 evalo expr env value =
   disjMany
     [ do
-        quoteo value expr
-        notClosureo value
+        arg <- fresh
+        quoteo arg expr
         notInEnvo quote env
+        value === Value (LogicSExpr arg)
     , do
-        exprs <- fresh
+        (exprs, value') <- fresh
         listo exprs expr
-        properListo exprs env value
+        value === Value (LogicSExpr value')
+        properListo exprs env value'
     , do
         x <- fresh
         expr === Value (LogicSSymbol x)
         lookupo x env value
     , do
+        (x, body) <- fresh
+        lambdao x body expr
+        value === Value (LogicClosure x body env)
+        notInEnvo lambda env
+    , do
         (rator, rand) <- fresh
         applyo rator rand expr
 
         (x, body, ratorEnv) <- fresh
-        evalo rator env (Value (LogicSClosure x body ratorEnv))
+        evalo rator env (Value (LogicClosure x body ratorEnv))
         rand' <- fresh
         evalo rand env rand'
 
         evalo body (Value (LogicCons (Value (x, rand')) ratorEnv)) value
-    , do
-        (x, body) <- fresh
-        lambdao x body expr
-        value === Value (LogicSClosure x body env)
-        notInEnvo lambda env
     ]
