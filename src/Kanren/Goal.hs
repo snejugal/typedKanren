@@ -8,7 +8,7 @@ module Kanren.Goal (
   Goal,
   run,
 
-  -- * Primitve operations
+  -- * Primitive operations
   successo,
   failo,
   (===),
@@ -18,6 +18,9 @@ module Kanren.Goal (
   disjMany,
   conde,
 
+  -- * Constraints
+  (=/=),
+
   -- * Fresh variables
   Fresh (..),
 ) where
@@ -26,8 +29,8 @@ import Control.Applicative (Alternative (..))
 import Control.Monad (ap)
 import qualified Data.Foldable as Foldable
 
-import qualified Kanren.Core as Core
 import Kanren.Core
+import qualified Kanren.Core as Core
 import Kanren.Stream
 
 -- $setup
@@ -111,6 +114,9 @@ instance Alternative Goal where
 --
 -- >>> extract' <$> run (\x -> x === inject' [True])
 -- [Just [True]]
+--
+-- Note that the retrived solutions might be subject to constraints, but it is
+-- not yet possible to retrieve them.
 run :: (Fresh v) => (v -> Goal ()) -> [v]
 run f = Foldable.toList solutions
  where
@@ -142,6 +148,17 @@ failo = Goal (const Done)
 -- []
 (===) :: (Logical a) => Term a -> Term a -> Goal ()
 a === b = Goal (maybeToStream . fmap (,()) . unify' a b)
+
+-- | Put a constraint that two terms must not be equal.
+--
+-- >>> run (\x -> (x =/= Value 42) `conj` (x === Value (37 :: Int)))
+-- [Value 37]
+-- >>> run (\x -> (x =/= Value 42) `conj` (x === Value (42 :: Int)))
+-- []
+--
+-- It is not yet possible to retrieve solutions along with remaining constraints.
+(=/=) :: (Logical a) => Term a -> Term a -> Goal ()
+a =/= b = Goal (maybeToStream . fmap (,()) . disequality a b)
 
 -- | Perform conjnction of two goals. If the first goal succeeds, run the second
 -- goal on its results.

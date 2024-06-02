@@ -26,14 +26,20 @@ module Kanren.Core (
   inject',
   extract',
 
+  -- ** Constraints
+  disequality,
+
   -- * The search state
   State,
   empty,
   makeVariable,
 ) where
 
+import Data.Bifunctor (first)
+import Data.Foldable (foldrM)
 import Data.IntMap (IntMap)
 import qualified Data.IntMap as IntMap
+import Data.Maybe (fromMaybe)
 import GHC.Exts (IsList (..))
 import Unsafe.Coerce (unsafeCoerce)
 
@@ -234,8 +240,8 @@ unify' l r state =
   case (shallowWalk state l, shallowWalk state r) of
     (Var x, Var y)
       | x == y -> Just state
-    (Var x, r') -> Just (addSubst x r' state)
-    (l', Var y) -> Just (addSubst y l' state)
+    (Var x, r') -> addSubst x r' state
+    (l', Var y) -> addSubst y l' state
     (Value l', Value r') -> unify l' r' state
 
 -- | 'walk', but on 'Term's instead of 'Logic' values. The actual substitution
@@ -265,6 +271,12 @@ extract' :: (Logical a) => Term a -> Maybe a
 extract' Var{} = Nothing
 extract' (Value x) = extract x
 
+-- | Add a constraint that two terms must not be equal.
+disequality :: (Logical a) => Term a -> Term a -> State -> Maybe State
+disequality left right state = case addedSubst left right state of
+  Nothing -> Just state
+  Just added -> stateInsertDisequality added state
+
 -- | Since 'Term's are polymorphic, we cannot easily store them in the
 -- substitution map. 'ErasedTerm' is the way to erase the type before putting
 -- a 'Term' into the map.
@@ -283,17 +295,125 @@ unsafeReconstructTerm (ErasedTerm x) = unsafeCoerce x
 -- | Current knowledge of variable values.
 newtype Subst = Subst (IntMap ErasedTerm) deriving (Show)
 
+substEmpty :: Subst
+substEmpty = Subst IntMap.empty
+
+substNull :: Subst -> Bool
+substNull (Subst m) = IntMap.null m
+
+-- | “Arbitrary” in the sense that this function decides which particular entry
+-- to look up, but for the caller it's just some entry from the map. This
+-- function must agree on this arbitrary entry with 'substExtractArbitrary'.
+substLookupArbitraryId :: Subst -> Maybe Int
+substLookupArbitraryId (Subst m) = fst <$> IntMap.lookupMin m
+
+substExtractArbitrary :: Subst -> Maybe ((Int, ErasedTerm), Subst)
+substExtractArbitrary (Subst m) = fmap Subst <$> IntMap.minViewWithKey m
+
+addedSubst :: (Logical a) => Term a -> Term a -> State -> Maybe Subst
+addedSubst left right state = knownSubst <$> unify' left' right' empty
+ where
+  left' = walk' state left
+  right' = walk' state right
+
+instance Semigroup Subst where
+  Subst l <> Subst r = Subst (l <> r)
+
+-- | Disequality constraints.
+--
+-- We try to perform the same optimization as @faster-minikanren@ does. If
+-- we meet a constraint @(x, y) =/= (1, 2)@, we can transform it to
+-- @x /= 1 || y /= 2@. But note that every disequality must be falsified for the
+-- constraint to fail. Hence we do not need to attach this constraint to every
+-- variable; we only need to pick one variable and attach the whole constraint
+-- to it.
+--
+-- > x => [(1, y => 2)]
+--
+-- Together with the disallowed value for @x@, we store a map with the rest of
+-- disequalities for this constraint. If we find that @x@ is 1, we merge that
+-- map into 'Disequalities'. If that map is empty however, it means that the
+-- constraint must fail. If we first learn that @y@ is 2, we don't care until
+-- @x /= 1@ is falsified.
+--
+-- If there are several constraints on @x@, they'll be stored in a list.
+--
+-- > x => [(1, y => 2), (2, empty)]
+--
+-- If @x@ turns out to be 1, there are still other disequalities to check,
+-- but if @x@ becomes 2, then we fail. If @x@ is anything else, we just drop
+-- all constraints attached to it.
+newtype Disequalities = Disequalities (IntMap [(ErasedTerm, Subst)])
+  deriving (Show)
+
+disequalitiesInsert :: Subst -> Disequalities -> Maybe Disequalities
+disequalitiesInsert subst (Disequalities d) = do
+  ((varId, value), subst') <- substExtractArbitrary subst
+  let entry' = (value, subst') : fromMaybe [] (IntMap.lookup varId d)
+  return (Disequalities (IntMap.insert varId entry' d))
+
+disequalitiesExtract
+  :: VarId a
+  -> Disequalities
+  -> Maybe ([(Term a, Subst)], Disequalities)
+disequalitiesExtract (VarId varId) (Disequalities d) = do
+  entry <- IntMap.lookup varId d
+  let entry' = map (first unsafeReconstructTerm) entry
+
+  let withoutEntry = Disequalities (IntMap.delete varId d)
+  return (entry', withoutEntry)
+
+disequalitiesUpdate
+  :: (Logical a)
+  => State
+  -> VarId a
+  -> Term a
+  -> Disequalities
+  -> Maybe Disequalities
+disequalitiesUpdate state varId value d =
+  case disequalitiesExtract varId d of
+    Nothing -> Just d
+    Just (varDisequalities, d') ->
+      foldrM updateDisequality d' varDisequalities
+ where
+  value' = walk' state value
+  updateDisequality (disallowedValue, subst) d' =
+    case addedSubst value' disallowedValue state of
+      Nothing -> Just d'
+      Just added
+        | substNull subst' -> Nothing
+        | otherwise -> disequalitiesInsert subst' d'
+       where
+        subst' = updateComponents state (subst <> added)
+
+updateComponents :: State -> Subst -> Subst
+updateComponents state subst = case substExtractArbitrary subst of
+  Nothing -> subst
+  Just ((varId, ErasedTerm value), subst') ->
+    case substLookupArbitraryId subst'' of
+      Just varId' | varId == varId' -> subst''
+      _ -> updateComponents state subst''
+   where
+    added = fromMaybe substEmpty (addedSubst (Var (VarId varId)) value state)
+    subst'' = subst' <> added
+
 -- | One branch in the search tree. Keeps track of known substitutions and
 -- variables.
 data State = State
   { knownSubst :: !Subst
+  , disequalities :: !Disequalities
   , maxVarId :: !Int
   }
   deriving (Show)
 
 -- | The initial state without any knowledge and variables.
 empty :: State
-empty = State{knownSubst = Subst IntMap.empty, maxVarId = 0}
+empty =
+  State
+    { knownSubst = substEmpty
+    , disequalities = Disequalities IntMap.empty
+    , maxVarId = 0
+    }
 
 -- | Create a variable in the given state.
 makeVariable :: State -> (State, Term a)
@@ -309,9 +429,25 @@ shallowWalk state@State{knownSubst = Subst m} (Var (VarId i)) =
     Nothing -> Var (VarId i)
     Just v -> shallowWalk state (unsafeReconstructTerm v)
 
-addSubst :: (Logical a) => VarId a -> Term a -> State -> State
+addSubst :: (Logical a) => VarId a -> Term a -> State -> Maybe State
 addSubst (VarId i) value State{knownSubst = Subst m, ..} =
-  State
-    { knownSubst = Subst $ IntMap.insert i (ErasedTerm value) m
-    , ..
-    }
+  stateUpdateDisequalities (VarId i) value $
+    State
+      { knownSubst = Subst $ IntMap.insert i (ErasedTerm value) m
+      , ..
+      }
+
+stateInsertDisequality :: Subst -> State -> Maybe State
+stateInsertDisequality subst state@State{disequalities} = do
+  disequalities' <- disequalitiesInsert subst disequalities
+  return state{disequalities = disequalities'}
+
+stateUpdateDisequalities
+  :: (Logical a)
+  => VarId a
+  -> Term a
+  -> State
+  -> Maybe State
+stateUpdateDisequalities varId value state@State{disequalities} = do
+  disequalities' <- disequalitiesUpdate state varId value disequalities
+  return (state{disequalities = disequalities'})
