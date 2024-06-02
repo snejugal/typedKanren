@@ -83,7 +83,7 @@ lookupo expectedVar env returnValue =
               var === expectedVar
               value === returnValue
           , do
-              -- var =/= expectedVar
+              var =/= expectedVar
               lookupo expectedVar rest returnValue
           ])
     & enter')
@@ -95,7 +95,7 @@ notInEnvo var =
     & on' _LogicCons' (\(entry, rest) -> do
         (entryVar, value) <- fresh
         entry === Value (entryVar, value)
-        -- entryVar =/= var
+        entryVar =/= var
         notInEnvo var rest)
     & enter'
 {- FOURMOLU_ENABLE -}
