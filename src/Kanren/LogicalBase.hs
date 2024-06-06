@@ -1,10 +1,10 @@
-{-# LANGUAGE ConstraintKinds #-}
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE StandaloneDeriving #-}
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE ConstraintKinds      #-}
+{-# LANGUAGE DeriveGeneric        #-}
+{-# LANGUAGE FlexibleContexts     #-}
+{-# LANGUAGE LambdaCase           #-}
+{-# LANGUAGE StandaloneDeriving   #-}
+{-# LANGUAGE TemplateHaskell      #-}
+{-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
@@ -56,17 +56,17 @@ module Kanren.LogicalBase (
   _LogicRight',
 ) where
 
-import Control.Lens (Prism, from)
-import Control.Lens.TH (makePrisms)
-import Data.Tagged (Tagged)
-import Data.Void (Void)
-import GHC.Exts (IsList (..))
-import GHC.Generics (Generic)
+import           Control.Lens          (Prism, from)
+import           Control.Lens.TH       (makePrisms)
+import           Data.Tagged           (Tagged)
+import           Data.Void             (Void)
+import           GHC.Exts              (IsList (..))
+import           GHC.Generics          (Generic)
 
-import Kanren.Core
-import Kanren.GenericLogical
-import Kanren.Match (_Tagged)
-import Kanren.TH (makeLogic)
+import           Kanren.Core
+import           Kanren.GenericLogical
+import           Kanren.Match          (_Tagged)
+import           Kanren.TH             (makeLogic)
 
 instance Logical Int
 instance Logical Char
@@ -95,6 +95,7 @@ instance (Logical a, Logical b) => Logical (a, b) where
   type Logic (a, b) = (Term a, Term b)
   unify = genericUnify
   walk = genericWalk
+  occursCheck = genericOccursCheck
   inject = genericInject
   extract = genericExtract
 
@@ -109,14 +110,15 @@ instance (Logical a) => Logical [a] where
   type Logic [a] = LogicList a
   unify = genericUnify
   walk = genericWalk
+  occursCheck = genericOccursCheck
   inject = genericInject
   extract = genericExtract
 
 instance IsList (LogicList a) where
   type Item (LogicList a) = Term a
-  fromList [] = LogicNil
+  fromList []       = LogicNil
   fromList (x : xs) = LogicCons x (Value (fromList xs))
-  toList LogicNil = []
+  toList LogicNil         = []
   toList (LogicCons x xs) = x : toList xs   -- NOTE: toList for (Term [a]) is partial
 
 makePrisms ''LogicList
