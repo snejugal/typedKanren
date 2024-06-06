@@ -1,14 +1,18 @@
-{-# LANGUAGE DefaultSignatures      #-}
-{-# LANGUAGE FlexibleContexts       #-}
-{-# LANGUAGE GADTs                  #-}
-{-# LANGUAGE KindSignatures         #-}
-{-# LANGUAGE NamedFieldPuns         #-}
-{-# LANGUAGE RankNTypes             #-}
-{-# LANGUAGE RecordWildCards        #-}
-{-# LANGUAGE StandaloneDeriving     #-}
-{-# LANGUAGE TypeFamilyDependencies #-}
-{-# LANGUAGE TypeOperators          #-}
-{-# LANGUAGE UndecidableInstances   #-}
+{-# LANGUAGE DefaultSignatures          #-}
+{-# LANGUAGE DeriveAnyClass             #-}
+{-# LANGUAGE DeriveGeneric              #-}
+{-# LANGUAGE DerivingStrategies         #-}
+{-# LANGUAGE FlexibleContexts           #-}
+{-# LANGUAGE GADTs                      #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE KindSignatures             #-}
+{-# LANGUAGE NamedFieldPuns             #-}
+{-# LANGUAGE RankNTypes                 #-}
+{-# LANGUAGE RecordWildCards            #-}
+{-# LANGUAGE StandaloneDeriving         #-}
+{-# LANGUAGE TypeFamilyDependencies     #-}
+{-# LANGUAGE TypeOperators              #-}
+{-# LANGUAGE UndecidableInstances       #-}
 {-# OPTIONS_GHC -Wno-redundant-constraints #-}
 
 -- | The very core of miniKanren. So core that it basically deals with
@@ -37,14 +41,16 @@ module Kanren.Core (
   makeVariable,
 ) where
 
-import           Data.Bifunctor (first)
-import           Data.Coerce    (coerce)
-import           Data.Foldable  (foldrM)
-import           Data.IntMap    (IntMap)
-import qualified Data.IntMap    as IntMap
-import           Data.Maybe     (fromMaybe)
-import           GHC.Exts       (IsList (..))
-import           Unsafe.Coerce  (unsafeCoerce)
+import           Control.DeepSeq
+import           Data.Bifunctor  (first)
+import           Data.Coerce     (coerce)
+import           Data.Foldable   (foldrM)
+import           Data.IntMap     (IntMap)
+import qualified Data.IntMap     as IntMap
+import           Data.Maybe      (fromMaybe)
+import           GHC.Exts        (IsList (..))
+import           GHC.Generics    (Generic)
+import           Unsafe.Coerce   (unsafeCoerce)
 
 -- | Types that can enter the relational world.
 --
@@ -191,7 +197,7 @@ class Logical a where
 
 -- | A variable, which reserves a place for a logical value for type @a@.
 newtype VarId a = VarId Int
-  deriving (Show, Eq)
+  deriving newtype (Show, Eq, NFData)
 
 -- | A logical value for type @a@, or a variable.
 --
@@ -203,6 +209,9 @@ newtype VarId a = VarId Int
 data Term a
   = Var (VarId a)
   | Value (Logic a)
+  deriving (Generic)
+
+deriving instance (NFData (Logic a)) => NFData (Term a)
 
 deriving instance (Eq (Logic a)) => Eq (Term a)
 instance (Show (Logic a)) => Show (Term a) where
@@ -238,7 +247,8 @@ unsafePromoteBinOp name _f _ (Var x) = error ("cannot apply " <> name <> " to th
 -- if it exists. Useful when you really don't want to look inside something.
 --
 -- > type Symbol = Atomic String
-newtype Atomic a = Atomic a deriving (Eq)
+newtype Atomic a = Atomic a
+  deriving newtype (Eq, NFData)
 
 instance (Eq a) => Logical (Atomic a)
 instance (Show a) => Show (Atomic a) where

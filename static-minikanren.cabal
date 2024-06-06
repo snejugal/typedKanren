@@ -50,6 +50,7 @@ library
       base >=4.7 && <5
     , bifunctors
     , containers
+    , deepseq
     , lens
     , lens-family-core
     , tagged
@@ -69,6 +70,7 @@ executable example
       base >=4.7 && <5
     , bifunctors
     , containers
+    , deepseq
     , lens
     , lens-family-core
     , static-minikanren
@@ -96,6 +98,7 @@ test-suite static-minikanren-test
     , base >=4.7 && <5
     , bifunctors
     , containers
+    , deepseq
     , hspec
     , lens
     , lens-family-core
@@ -119,6 +122,7 @@ benchmark bench
     , bifunctors
     , containers
     , criterion
+    , deepseq
     , lens
     , lens-family-core
     , static-minikanren

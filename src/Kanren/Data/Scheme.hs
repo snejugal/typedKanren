@@ -1,4 +1,5 @@
 {-# LANGUAGE ConstraintKinds    #-}
+{-# LANGUAGE DeriveAnyClass     #-}
 {-# LANGUAGE DeriveGeneric      #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TemplateHaskell    #-}
@@ -22,6 +23,7 @@ import           GHC.Exts           (IsList, IsString (..))
 import           GHC.Generics       (Generic)
 import           GHC.IsList         (IsList (..))
 
+import           Control.DeepSeq
 import           Kanren.Core
 import           Kanren.Goal
 import           Kanren.LogicalBase
@@ -35,12 +37,12 @@ data SExpr
   = SSymbol Symbol
   | SNil
   | SCons SExpr SExpr
-  deriving (Eq, Generic)
+  deriving (Eq, Generic, NFData)
 
 data Value
   = SExpr SExpr
   | Closure Symbol SExpr Env
-  deriving (Eq, Generic)
+  deriving (Eq, Generic, NFData)
 
 instance Show SExpr where
   show (SSymbol (Atomic symbol)) = symbol
@@ -70,6 +72,8 @@ makeLogic ''SExpr
 makeLogic ''Value
 makePrisms ''LogicSExpr
 makePrisms ''LogicValue
+
+deriving instance NFData LogicSExpr
 
 _LogicSSymbol'
   :: Prism
