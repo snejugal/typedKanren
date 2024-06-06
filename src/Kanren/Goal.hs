@@ -1,6 +1,6 @@
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE KindSignatures #-}
-{-# LANGUAGE TupleSections #-}
+{-# LANGUAGE KindSignatures    #-}
+{-# LANGUAGE TupleSections     #-}
 
 -- | Implement and execute relational programs.
 module Kanren.Goal (
@@ -17,6 +17,7 @@ module Kanren.Goal (
   disj,
   disjMany,
   conde,
+  delay,
 
   -- * Constraints
   (=/=),
@@ -25,13 +26,13 @@ module Kanren.Goal (
   Fresh (..),
 ) where
 
-import Control.Applicative (Alternative (..))
-import Control.Monad (ap)
-import qualified Data.Foldable as Foldable
+import           Control.Applicative (Alternative (..))
+import           Control.Monad       (ap)
+import qualified Data.Foldable       as Foldable
 
-import Kanren.Core
-import qualified Kanren.Core as Core
-import Kanren.Stream
+import           Kanren.Core
+import qualified Kanren.Core         as Core
+import           Kanren.Stream
 
 -- $setup
 -- >>> :set -package static-minikanren
@@ -207,7 +208,7 @@ disj = (<|>)
 -- >>> run (\x -> disjMany (map (\a -> x === Value a) [1, 3 .. 11 :: Int]))
 -- [Value 1,Value 3,Value 5,Value 7,Value 9,Value 11]
 disjMany :: [Goal x] -> Goal x
-disjMany = foldr disj failo
+disjMany = delay . foldr disj failo
 
 -- | Consider several possible cases, using syntax similar to @conde@ from
 -- @faster-minikanren@.
@@ -336,3 +337,6 @@ instance
     b' = walk' state b
     c' = walk' state c
     d' = walk' state d
+
+delay :: Goal a -> Goal a
+delay (Goal g) = Goal (Await . g)

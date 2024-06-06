@@ -247,11 +247,12 @@ module Kanren.Match (
   _Value',
 ) where
 
-import Control.Lens (Iso, Prism, Prism', from, iso, prism', review, reviewing)
-import Data.Tagged (Tagged (Tagged, unTagged))
+import           Control.Lens (Iso, Prism, Prism', from, iso, prism', review,
+                               reviewing)
+import           Data.Tagged  (Tagged (Tagged, unTagged))
 
-import Kanren.Core
-import Kanren.Goal
+import           Kanren.Core
+import           Kanren.Goal
 
 -- | One case for non-exhaustive pattern matching.
 --
@@ -316,7 +317,7 @@ instance
 -- | Begin exhaustive pattern matching by attaching initial tags to the term.
 -- Do keep in mind that these tags do not exist at runtime.
 enter' :: (Matched m a -> Goal x) -> Term a -> Goal x
-enter' f = f . Tagged
+enter' f = delay . f . Tagged
 
 -- | One case for exhaustive pattern matching.
 --
