@@ -299,7 +299,7 @@ instance Fresh () where
   resolve _ () = ()
 
 instance (Logical a) => Fresh (Term a) where
-  fresh = Goal (pure . makeVariable)
+  fresh = delay $ Goal (pure . makeVariable)
   resolve = walk'
 
 instance (Logical a, Logical b) => Fresh (Term a, Term b) where
