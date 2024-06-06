@@ -1,9 +1,9 @@
-{-# LANGUAGE ConstraintKinds    #-}
-{-# LANGUAGE DeriveAnyClass     #-}
-{-# LANGUAGE DeriveGeneric      #-}
+{-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE StandaloneDeriving #-}
-{-# LANGUAGE TemplateHaskell    #-}
-{-# LANGUAGE TypeFamilies       #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeFamilies #-}
 
 module Kanren.Data.Scheme (
   Symbol,
@@ -15,20 +15,20 @@ module Kanren.Data.Scheme (
   evalo,
 ) where
 
-import           Control.Lens       (Prism, from)
-import           Control.Lens.TH    (makePrisms)
-import           Data.Function      ((&))
-import           Data.Tagged        (Tagged)
-import           GHC.Exts           (IsList, IsString (..))
-import           GHC.Generics       (Generic)
-import           GHC.IsList         (IsList (..))
+import Control.Lens (Prism, from)
+import Control.Lens.TH (makePrisms)
+import Data.Function ((&))
+import Data.Tagged (Tagged)
+import GHC.Exts (IsList, IsString (..))
+import GHC.Generics (Generic)
+import GHC.IsList (IsList (..))
 
-import           Control.DeepSeq
-import           Kanren.Core
-import           Kanren.Goal
-import           Kanren.LogicalBase
-import           Kanren.Match
-import           Kanren.TH
+import Control.DeepSeq
+import Kanren.Core
+import Kanren.Goal
+import Kanren.LogicalBase
+import Kanren.Match
+import Kanren.TH
 
 type Symbol = Atomic String
 type Env = [(Symbol, Value)]
@@ -46,13 +46,13 @@ data Value
 
 instance Show SExpr where
   show (SSymbol (Atomic symbol)) = symbol
-  show SNil                      = "()"
-  show (SCons car cdr)           = "(" ++ show car ++ showSList cdr
+  show SNil = "()"
+  show (SCons car cdr) = "(" ++ show car ++ showSList cdr
 
 showSList :: SExpr -> [Char]
-showSList SNil            = ")"
+showSList SNil = ")"
 showSList (SCons car cdr) = " " ++ show car ++ showSList cdr
-showSList other           = " . " ++ show other ++ ")"
+showSList other = " . " ++ show other ++ ")"
 
 instance Show Value where
   show (SExpr expr) = show expr
@@ -61,7 +61,7 @@ instance Show Value where
 
 instance IsList SExpr where
   type Item SExpr = SExpr
-  fromList []       = SNil
+  fromList [] = SNil
   fromList (x : xs) = SCons x (fromList xs)
   toList = undefined
 
