@@ -1,18 +1,20 @@
-{-# LANGUAGE DefaultSignatures          #-}
-{-# LANGUAGE DeriveAnyClass             #-}
-{-# LANGUAGE DeriveGeneric              #-}
-{-# LANGUAGE DerivingStrategies         #-}
-{-# LANGUAGE FlexibleContexts           #-}
-{-# LANGUAGE GADTs                      #-}
+{-# LANGUAGE DefaultSignatures #-}
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE GADTs #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE KindSignatures             #-}
-{-# LANGUAGE NamedFieldPuns             #-}
-{-# LANGUAGE RankNTypes                 #-}
-{-# LANGUAGE RecordWildCards            #-}
-{-# LANGUAGE StandaloneDeriving         #-}
-{-# LANGUAGE TypeFamilyDependencies     #-}
-{-# LANGUAGE TypeOperators              #-}
-{-# LANGUAGE UndecidableInstances       #-}
+{-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE TupleSections #-}
+{-# LANGUAGE TypeFamilyDependencies #-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -Wno-redundant-constraints #-}
 
 -- | The very core of miniKanren. So core that it basically deals with
@@ -31,6 +33,9 @@ module Kanren.Core (
   occursCheck',
   inject',
   extract',
+  Normalizable (..),
+  normalize',
+  runNormalize,
 
   -- ** Constraints
   disequality,
@@ -41,16 +46,17 @@ module Kanren.Core (
   makeVariable,
 ) where
 
-import           Control.DeepSeq
-import           Data.Bifunctor  (first)
-import           Data.Coerce     (coerce)
-import           Data.Foldable   (foldrM)
-import           Data.IntMap     (IntMap)
-import qualified Data.IntMap     as IntMap
-import           Data.Maybe      (fromMaybe)
-import           GHC.Exts        (IsList (..))
-import           GHC.Generics    (Generic)
-import           Unsafe.Coerce   (unsafeCoerce)
+import Control.DeepSeq
+import Control.Monad (ap)
+import Data.Bifunctor (first)
+import Data.Coerce (coerce)
+import Data.Foldable (foldrM)
+import Data.IntMap (IntMap)
+import qualified Data.IntMap as IntMap
+import Data.Maybe (fromMaybe)
+import GHC.Exts (IsList (..))
+import GHC.Generics (Generic)
+import Unsafe.Coerce (unsafeCoerce)
 
 -- | Types that can enter the relational world.
 --
@@ -216,7 +222,7 @@ deriving instance (NFData (Logic a)) => NFData (Term a)
 deriving instance (Eq (Logic a)) => Eq (Term a)
 instance (Show (Logic a)) => Show (Term a) where
   show (Var (VarId varId)) = "_." ++ show varId
-  show (Value value)       = show value
+  show (Value value) = show value
 
 instance (IsList (Logic a)) => IsList (Term a) where
   type Item (Term a) = Item (Logic a)
@@ -253,6 +259,7 @@ newtype Atomic a = Atomic a
 instance (Eq a) => Logical (Atomic a)
 instance (Show a) => Show (Atomic a) where
   show (Atomic x) = show x
+instance (Eq a) => Normalizable (Atomic a)
 
 -- | 'unify', but on 'Term's instead of 'Logic' values. If new knowledge is
 -- obtained during unification, it is obtained here.
@@ -269,17 +276,17 @@ unify' l r state =
       | otherwise -> addSubst y l' state
     (Value l', Value r') -> unify l' r' state
 
-occursCheck' :: Logical a => VarId b -> Term a -> State -> Bool
+occursCheck' :: (Logical a) => VarId b -> Term a -> State -> Bool
 occursCheck' x t state =
   case shallowWalk state t of
-    Var y   -> coerce x == y
+    Var y -> coerce x == y
     Value v -> occursCheck x v state
 
 -- | 'walk', but on 'Term's instead of 'Logic' values. The actual substitution
 -- of variables with values happens here.
 walk' :: (Logical a) => State -> Term a -> Term a
 walk' state x = case shallowWalk state x of
-  Var i   -> Var i
+  Var i -> Var i
   Value v -> Value (walk state v)
 
 -- | 'inject', but to a 'Term' instead of a 'Logic' value. You will use this
@@ -299,13 +306,49 @@ inject' = Value . inject
 -- >>> extract' <$> run (\x -> x === inject' (Left 42))
 -- [Just (Left 42)]
 extract' :: (Logical a) => Term a -> Maybe a
-extract' Var{}     = Nothing
+extract' Var{} = Nothing
 extract' (Value x) = extract x
+
+data Normalization = Normalization (IntMap Int) Int
+newtype Normalizer a = Normalizer (Normalization -> (Normalization, a)) deriving (Functor)
+
+instance Applicative Normalizer where
+  pure x = Normalizer (,x)
+  (<*>) = ap
+
+instance Monad Normalizer where
+  return = pure
+  Normalizer f >>= g = Normalizer $ \state ->
+    let (state', x) = f state
+        Normalizer h = g x
+     in h state'
+
+class (Logical a) => Normalizable a where
+  normalize :: (forall i. VarId i -> Normalizer (VarId i)) -> Logic a -> Normalizer (Logic a)
+  default normalize :: (a ~ Logic a) => (forall i. VarId i -> Normalizer (VarId i)) -> Logic a -> Normalizer (Logic a)
+  normalize _ = pure
+
+normalize' :: (Normalizable a) => (forall i. VarId i -> Normalizer (VarId i)) -> Term a -> Normalizer (Term a)
+normalize' f (Var varId) = Var <$> f varId
+normalize' f (Value x) = Value <$> normalize f x
+
+runNormalize :: (Normalizable a) => Term a -> Term a
+runNormalize x = normalized
+ where
+  Normalizer g = normalize' addVar x
+  (_, normalized) = g (Normalization IntMap.empty 0)
+  addVar (VarId varId) = Normalizer $ \n@(Normalization vars maxId) ->
+    case IntMap.lookup varId vars of
+      Just varId' -> (n, VarId varId')
+      Nothing -> (Normalization vars' maxId', VarId maxId)
+       where
+        maxId' = maxId + 1
+        vars' = IntMap.insert varId maxId vars
 
 -- | Add a constraint that two terms must not be equal.
 disequality :: (Logical a) => Term a -> Term a -> State -> Maybe State
 disequality left right state = case addedSubst left right state of
-  Nothing    -> Just state
+  Nothing -> Just state
   Just added -> stateInsertDisequality added state
 
 -- | Since 'Term's are polymorphic, we cannot easily store them in the
@@ -316,7 +359,7 @@ data ErasedTerm where
 
 instance Show ErasedTerm where
   show (ErasedTerm (Var varId)) = "Var " ++ show varId
-  show (ErasedTerm (Value _))   = "Value _"
+  show (ErasedTerm (Value _)) = "Value _"
 
 -- | Cast an 'ErasedTerm' back to a 'Term a'. Hopefully, you will cast it to the
 -- correct type, or bad things will happen.
@@ -423,7 +466,7 @@ updateComponents state subst = case substExtractArbitrary subst of
   Just ((varId, ErasedTerm value), subst') ->
     case substLookupArbitraryId subst'' of
       Just varId' | varId == varId' -> subst''
-      _                             -> updateComponents state subst''
+      _ -> updateComponents state subst''
    where
     added = fromMaybe substEmpty (addedSubst (Var (VarId varId)) value state)
     subst'' = subst' <> added
@@ -431,9 +474,9 @@ updateComponents state subst = case substExtractArbitrary subst of
 -- | One branch in the search tree. Keeps track of known substitutions and
 -- variables.
 data State = State
-  { knownSubst    :: !Subst
+  { knownSubst :: !Subst
   , disequalities :: !Disequalities
-  , maxVarId      :: !Int
+  , maxVarId :: !Int
   }
   deriving (Show)
 
@@ -458,7 +501,7 @@ shallowWalk _ (Value v) = Value v
 shallowWalk state@State{knownSubst = Subst m} (Var (VarId i)) =
   case IntMap.lookup i m of
     Nothing -> Var (VarId i)
-    Just v  -> shallowWalk state (unsafeReconstructTerm v)
+    Just v -> shallowWalk state (unsafeReconstructTerm v)
 
 addSubst :: (Logical a) => VarId a -> Term a -> State -> Maybe State
 addSubst (VarId i) value State{knownSubst = Subst m, ..} =

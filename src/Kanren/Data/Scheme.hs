@@ -73,6 +73,11 @@ makeLogic ''Value
 makePrisms ''LogicSExpr
 makePrisms ''LogicValue
 
+instance Normalizable SExpr where
+  normalize f (LogicSSymbol x) = LogicSSymbol <$> normalize' f x
+  normalize _ LogicSNil = pure LogicSNil
+  normalize f (LogicSCons car cdr) = LogicSCons <$> normalize' f car <*> normalize' f cdr
+
 deriving instance NFData LogicSExpr
 
 _LogicSSymbol'
