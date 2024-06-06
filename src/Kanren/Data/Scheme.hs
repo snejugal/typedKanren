@@ -215,11 +215,6 @@ evalo expr env value =
         expr === Value (LogicSSymbol x)
         lookupo x env value
     , do
-        (x, body) <- fresh
-        lambdao x body expr
-        value === Value (LogicClosure x body env)
-        notInEnvo lambda env
-    , do
         (rator, rand) <- fresh
         applyo rator rand expr
 
@@ -229,4 +224,9 @@ evalo expr env value =
         evalo rand env rand'
 
         evalo body (Value (LogicCons (Value (x, rand')) ratorEnv)) value
+    , do
+        (x, body) <- fresh
+        lambdao x body expr
+        value === Value (LogicClosure x body env)
+        notInEnvo lambda env
     ]
