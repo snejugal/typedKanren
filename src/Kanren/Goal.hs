@@ -1,6 +1,6 @@
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE KindSignatures    #-}
-{-# LANGUAGE TupleSections     #-}
+{-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE TupleSections #-}
 
 -- | Implement and execute relational programs.
 module Kanren.Goal (
@@ -26,13 +26,13 @@ module Kanren.Goal (
   Fresh (..),
 ) where
 
-import           Control.Applicative (Alternative (..))
-import           Control.Monad       (ap)
-import qualified Data.Foldable       as Foldable
+import Control.Applicative (Alternative (..))
+import Control.Monad (ap)
+import qualified Data.Foldable as Foldable
 
-import           Kanren.Core
-import qualified Kanren.Core         as Core
-import           Kanren.Stream
+import Kanren.Core
+import qualified Kanren.Core as Core
+import Kanren.Stream
 
 -- $setup
 -- >>> :set -package static-minikanren
@@ -298,30 +298,34 @@ instance Fresh () where
   fresh = pure ()
   resolve _ () = ()
 
+-- | 'makeVariable' in the form of 'Goal'. Does not insert an 'Await' point,
+-- while 'fresh' inserts a single point before creating all its variables.
+fresh' :: Goal (Term a)
+fresh' = Goal (pure . makeVariable)
+
 instance (Logical a) => Fresh (Term a) where
-  fresh = delay $ Goal (pure . makeVariable)
+  fresh = delay fresh'
   resolve = walk'
 
 instance (Logical a, Logical b) => Fresh (Term a, Term b) where
   fresh = do
     a <- fresh
-    b <- fresh
+    b <- fresh'
     pure (a, b)
   resolve state (a, b) = (a', b')
    where
-    a' = walk' state a
-    b' = walk' state b
+    a' = resolve state a
+    b' = resolve state b
 
 instance (Logical a, Logical b, Logical c) => Fresh (Term a, Term b, Term c) where
   fresh = do
     (a, b) <- fresh
-    c <- fresh
+    c <- fresh'
     pure (a, b, c)
   resolve state (a, b, c) = (a', b', c')
    where
-    a' = walk' state a
-    b' = walk' state b
-    c' = walk' state c
+    (a', b') = resolve state (a, b)
+    c' = resolve state c
 
 instance
   (Logical a, Logical b, Logical c, Logical d)
@@ -329,13 +333,11 @@ instance
   where
   fresh = do
     (a, b, c) <- fresh
-    d <- fresh
+    d <- fresh'
     pure (a, b, c, d)
   resolve state (a, b, c, d) = (a', b', c', d')
    where
-    a' = walk' state a
-    b' = walk' state b
-    c' = walk' state c
+    (a', b', c') = resolve state (a, b, c)
     d' = walk' state d
 
 delay :: Goal a -> Goal a
