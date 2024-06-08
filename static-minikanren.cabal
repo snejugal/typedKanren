@@ -25,7 +25,6 @@ source-repository head
 
 library
   exposed-modules:
-      Kanren.Biprism
       Kanren.Core
       Kanren.Data.Binary
       Kanren.Data.Scheme
@@ -36,7 +35,6 @@ library
       Kanren.Goal
       Kanren.LogicalBase
       Kanren.Match
-      Kanren.PrismA
       Kanren.Stream
       Kanren.TH
   other-modules:
