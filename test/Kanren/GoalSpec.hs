@@ -24,12 +24,12 @@ spec = do
   describe "conj" $ do
     it "performs conjunction" $ do
       let solutions = run $ \(x, y) ->
-            (x === Value True) `conj` (y === Value 'c')
+            x === Value True `conj` y === Value 'c'
       solutions `shouldBe` [(Value True, Value 'c')]
 
     it "handles contradictions" $ do
       let solutions = run $ \x ->
-            (x === Value True) `conj` (x === Value False)
+            x === Value True `conj` x === Value False
       solutions `shouldBe` []
 
   it "conjMany performs conjunction of several goals" $ do
@@ -43,7 +43,7 @@ spec = do
 
   it "disj performs disjunction" $ do
     let solutions = run $ \x ->
-          (x === Value True) `disj` (x === Value False)
+          x === Value True `disj` x === Value False
     solutions `shouldSatisfy` isPermutationOf [Value True, Value False]
 
   it "disjMany performs disjunction of several goals" $ do

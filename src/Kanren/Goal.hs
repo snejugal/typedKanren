@@ -34,6 +34,10 @@ import Kanren.Core
 import qualified Kanren.Core as Core
 import Kanren.Stream
 
+infix 4 ===, =/=
+infixr 3 `conj`
+infixr 2 `disj`
+
 -- $setup
 -- >>> :set -package typedKanren
 -- >>> instance Logical Int
@@ -63,8 +67,8 @@ import Kanren.Stream
 -- > noto :: Term Bool -> Term Bool -> Goal ()
 -- > noto x y = xIsTrue `disj` xIsFalse
 -- >  where
--- >   xIsTrue = (x === Value True) `conj` (y === Value False)
--- >   xIsFalse = (x === Value False) `conj` (y === Value True)
+-- >   xIsTrue = x === Value True `conj` y === Value False
+-- >   xIsFalse = x === Value False `conj` y === Value True
 --
 -- To execute a goal and find its solutions, use 'run'.
 --
