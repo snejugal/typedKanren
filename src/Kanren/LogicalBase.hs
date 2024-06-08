@@ -106,8 +106,17 @@ data LogicList a
   | LogicCons (Term a) (Term [a])
   deriving (Generic)
 deriving instance (Eq (Logic a)) => Eq (LogicList a)
-deriving instance (Show (Logic a)) => Show (LogicList a)
 deriving instance (NFData (Logic a)) => NFData (LogicList a)
+
+-- | This instance tries to print the list as a regular one. In case the tail is
+-- unknown, the list is printed as @[...|_.n]@, like in Prolog.
+instance (Show (Logic a)) => Show (LogicList a) where
+  showsPrec _ LogicNil s = "[]" ++ s
+  showsPrec _ (LogicCons x xs) s = '[' : shows x (show' xs)
+   where
+    show' (Var var) = '|' : shows var (']' : s)
+    show' (Value LogicNil) = ']' : s
+    show' (Value (LogicCons y ys)) = ',' : shows y (show' ys)
 
 instance (Logical a) => Logical [a] where
   type Logic [a] = LogicList a

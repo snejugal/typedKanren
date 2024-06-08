@@ -58,6 +58,11 @@ import GHC.Exts (IsList (..))
 import GHC.Generics (Generic)
 import Unsafe.Coerce (unsafeCoerce)
 
+-- $setup
+-- >>> :set -package typedKanren
+-- >>> import Kanren.Goal
+-- >>> import Kanren.LogicalBase
+
 -- | Types that can enter the relational world.
 --
 -- Simple types without fields, such as 'Bool' and 'Int', can be used in
@@ -67,7 +72,7 @@ import Unsafe.Coerce (unsafeCoerce)
 -- > instance Logical Ternary
 --
 -- >>> run (\x -> x === Value True)
--- [Value True]
+-- [True]
 --
 -- When a type contains other types, this becomes more tricky. Consider the
 -- following type:
@@ -203,7 +208,10 @@ class Logical a where
 
 -- | A variable, which reserves a place for a logical value for type @a@.
 newtype VarId a = VarId Int
-  deriving newtype (Show, Eq, NFData)
+  deriving newtype (Eq, NFData)
+
+instance Show (VarId a) where
+  show (VarId varId) = "_." ++ show varId
 
 -- | A logical value for type @a@, or a variable.
 --
@@ -220,9 +228,13 @@ data Term a
 deriving instance (NFData (Logic a)) => NFData (Term a)
 
 deriving instance (Eq (Logic a)) => Eq (Term a)
+
+-- | This instance doesn't print the 'Var' and 'Value' tags. While this reduces
+-- noise in the output, this may also be confusing since fully instantiated
+-- terms may look indistinguishable from regular values.
 instance (Show (Logic a)) => Show (Term a) where
-  show (Var (VarId varId)) = "_." ++ show varId
-  show (Value value) = show value
+  showsPrec d (Var var) = showsPrec d var
+  showsPrec d (Value value) = showsPrec d value
 
 instance (IsList (Logic a)) => IsList (Term a) where
   type Item (Term a) = Item (Logic a)
@@ -303,7 +315,7 @@ inject' = Value . inject
 -- You will use this function to transform solutions of a program back to their
 -- normal representation.
 --
--- >>> extract' <$> run (\x -> x === inject' (Left 42))
+-- >>> extract' <$> run (\x -> x === inject' (Left 42 :: Either Int Bool))
 -- [Just (Left 42)]
 extract' :: (Logical a) => Term a -> Maybe a
 extract' Var{} = Nothing

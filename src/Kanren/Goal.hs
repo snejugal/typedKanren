@@ -38,7 +38,7 @@ import Kanren.Stream
 -- >>> :set -package typedKanren
 -- >>> instance Logical Int
 -- >>> instance Logical Bool
--- >>> import LogicalBase
+-- >>> import Kanren.LogicalBase
 
 -- | A computation in the relational world.
 --
@@ -94,7 +94,7 @@ instance Alternative Goal where
 -- | Query for solutions of a goal.
 --
 -- >>> run (\x -> x === Value (42 :: Int))
--- [Value 42]
+-- [42]
 --
 -- You can ask to solve for several variables, or none at all. You can still
 -- create intermediate variables inside using 'fresh', but they will not be
@@ -107,7 +107,7 @@ instance Alternative Goal where
 -- If you want to limit the number of solutions, just put it through 'take'.
 --
 -- >>> take 5 $ run (\x -> disjMany (map (\a -> x === Value a) [0 :: Int ..]))
--- [Value 0,Value 1,Value 2,Value 3,Value 4]
+-- [0,1,2,3,4]
 --
 -- This function will return logical representation of solutions. This matters
 -- for complex types which have a separate logical representation. If you want
@@ -152,9 +152,9 @@ a === b = Goal (maybeToStream . fmap (,()) . unify' a b)
 
 -- | Put a constraint that two terms must not be equal.
 --
--- >>> run (\x -> (x =/= Value 42) `conj` (x === Value (37 :: Int)))
--- [Value 37]
--- >>> run (\x -> (x =/= Value 42) `conj` (x === Value (42 :: Int)))
+-- >>> run (\x -> x =/= Value 42 `conj` x === Value (37 :: Int))
+-- [37]
+-- >>> run (\x -> x =/= Value 42 `conj` x === Value (42 :: Int))
 -- []
 --
 -- It is not yet possible to retrieve solutions along with remaining constraints.
@@ -164,49 +164,49 @@ a =/= b = Goal (maybeToStream . fmap (,()) . disequality a b)
 -- | Perform conjnction of two goals. If the first goal succeeds, run the second
 -- goal on its results.
 --
--- >>> run (\x -> (x === Value 42) `conj` (x === Value (42 :: Int)))
--- [Value 42]
--- >>> run (\x -> (x === Value 42) `conj` (x === Value (37 :: Int)))
+-- >>> run (\x -> x === Value 42 `conj` x === Value (42 :: Int))
+-- [42]
+-- >>> run (\x -> x === Value 42 `conj` x === Value (37 :: Int))
 -- []
--- >>> run (\(x, y) -> (x === Value (42 :: Int)) `conj` (y === Value True))
--- [(Value 42,Value True)]
+-- >>> run (\(x, y) -> x === Value (42 :: Int) `conj` y === Value True)
+-- [(42,True)]
 --
 -- Note that the do-notation performs conjunction as well, so you will rarely
 -- need to use this function directly.
 --
 -- >>> :{
---   run (\(x, y) -> do
---     x === Value (42 :: Int)
---     y === Value True
---   )
+--  run (\(x, y) -> do
+--    x === Value (42 :: Int)
+--    y === Value True
+--  )
 -- :}
--- [(Value 42,Value True)]
+-- [(42,True)]
 conj :: Goal x -> Goal y -> Goal y
 conj = (>>)
 
 -- | Perform conjunction of several goals, left to right.
 --
 -- >>> run (\(x, y) -> conjMany [x === Value (42 :: Int), y === Value True])
--- [(Value 42,Value True)]
+-- [(42,True)]
 conjMany :: [Goal ()] -> Goal ()
 conjMany = foldr conj (pure ())
 
 -- | Perform disjunction of two goals. Run the first goal, then the second, and
 -- combine their results.
 --
--- >>> run (\x -> (x === Value 42) `disj` (x === Value (37 :: Int)))
--- [Value 42,Value 37]
--- >>> run (\x -> (x === Value 42) `disj` (x === Value (42 :: Int)))
--- [Value 42,Value 42]
--- >>> run (\(x, y) -> (x === Value (42 :: Int)) `disj` (y === Value True))
--- [(Value 42,Var (VarId 1)),(Var (VarId 0),Value True)]
+-- >>> run (\x -> x === Value 42 `disj` x === Value (37 :: Int))
+-- [42,37]
+-- >>> run (\x -> x === Value 42 `disj` x === Value (42 :: Int))
+-- [42,42]
+-- >>> run (\(x, y) -> x === Value (42 :: Int) `disj` y === Value True)
+-- [(42,_.0),(_.1,True)]
 disj :: Goal x -> Goal x -> Goal x
 disj = (<|>)
 
 -- | Perform disjunction of several goals, left to right.
 --
 -- >>> run (\x -> disjMany (map (\a -> x === Value a) [1, 3 .. 11 :: Int]))
--- [Value 1,Value 3,Value 5,Value 7,Value 9,Value 11]
+-- [1,3,5,7,9,11]
 disjMany :: [Goal x] -> Goal x
 disjMany = delay . foldr disj failo
 
@@ -219,7 +219,7 @@ disjMany = delay . foldr disj failo
 --     , [ x === Value True, y === Value 1 ]
 --     ])
 -- :}
--- [(Value False,Value 0),(Value True,Value 1)]
+-- [(False,0),(True,1)]
 --
 -- However, this might not be the best syntax for Haskell. Using 'disjMany' with
 -- the do-notation may be easier to type and less noisy:
@@ -234,7 +234,7 @@ disjMany = delay . foldr disj failo
 --         y === Value 1
 --     ])
 -- :}
--- [(Value False,Value 0),(Value True,Value 1)]
+-- [(False,0),(True,1)]
 --
 -- In addition, the "Match" module provides pattern matching over variants,
 -- which might better express your intent.
@@ -244,7 +244,7 @@ disjMany = delay . foldr disj failo
 --     & on _False (\() -> y === Value 0)
 --     & on _True (\() -> y === Value 1)))
 -- :}
--- [(Value False,Value 0),(Value True,Value 1)]
+-- [(False,0),(True,1)]
 conde :: [[Goal ()]] -> Goal ()
 conde = disjMany . map conjMany
 
@@ -280,7 +280,7 @@ conde = disjMany . map conjMany
 --     x === Value True
 --     y === Value False)
 -- :}
--- [(Value True,Value False)]
+-- [(True,False)]
 --
 -- As an edge case, you can ask for no variables at all using @()@. While this
 -- is not useful inside relations, this is how the first two examples actually
