@@ -4,6 +4,7 @@
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE DeriveAnyClass #-}
 
 -- | This module implements binary numbers as described in the declarative pearl
 -- “Pure, Declarative, and Constructive Arithmetic Relations” by O. Kiselyov
@@ -39,13 +40,14 @@ import Data.Bifunctor (bimap)
 import Data.Function ((&))
 import Data.Tagged (Tagged)
 import GHC.Generics (Generic)
+import Control.DeepSeq (NFData)
 
 import Kanren.Core
 import Kanren.Goal
 import Kanren.LogicalBase
 import Kanren.Match
 
-data Bit = O | I deriving (Eq, Show, Generic)
+data Bit = O | I deriving (Eq, Show, Generic, NFData)
 instance Logical Bit
 makePrisms ''Bit
 

@@ -3,13 +3,13 @@
 -- | Automatic generation of logic types.
 module Kanren.TH (makeLogic) where
 
-import Data.Char (toUpper)
-import Data.Foldable (foldl')
-import GHC.Generics (Generic)
-import Language.Haskell.TH hiding (bang, cxt)
+import           Data.Char             (toUpper)
+import           Data.Foldable         (foldl')
+import           GHC.Generics          (Generic)
+import           Language.Haskell.TH   hiding (bang, cxt)
 
-import Kanren.Core
-import Kanren.GenericLogical
+import           Kanren.Core
+import           Kanren.GenericLogical
 
 -- | Generate a logic representation and a 'Logical' instance
 -- for the given type.
@@ -172,6 +172,7 @@ makeLogical name vars name' = do
       type Logic $name_ = $name'_
       unify = genericUnify
       walk = genericWalk
+      occursCheck = genericOccursCheck
       inject = genericInject
       extract = genericExtract
     |]
@@ -187,5 +188,5 @@ applyVars :: Name -> [TyVarBndr flag] -> Type
 applyVars name vars = foldl' AppT (ConT name) (map (VarT . extractVar) vars)
 
 extractVar :: TyVarBndr flag -> Name
-extractVar (PlainTV v _) = v
+extractVar (PlainTV v _)    = v
 extractVar (KindedTV v _ _) = v

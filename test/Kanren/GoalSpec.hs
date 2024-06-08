@@ -18,6 +18,9 @@ spec = do
   it "(===) unifies values" $ do
     run (\x -> x === Value '5') `shouldBe` [Value '5']
 
+  it "(=/=) constrains values" $ do
+    run (\() -> Value True =/= Value True) `shouldBe` []
+
   describe "conj" $ do
     it "performs conjunction" $ do
       let solutions = run $ \(x, y) ->

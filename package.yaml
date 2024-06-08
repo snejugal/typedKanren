@@ -27,6 +27,7 @@ dependencies:
   - lens-family-core
   - bifunctors
   - tagged
+  - deepseq
 
 ghc-options:
   - -Wall
@@ -78,3 +79,4 @@ benchmarks:
     dependencies:
       - criterion
       - static-minikanren
+      - deepseq

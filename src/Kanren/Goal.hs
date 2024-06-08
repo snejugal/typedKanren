@@ -8,7 +8,7 @@ module Kanren.Goal (
   Goal,
   run,
 
-  -- * Primitve operations
+  -- * Primitive operations
   successo,
   failo,
   (===),
@@ -17,6 +17,10 @@ module Kanren.Goal (
   disj,
   disjMany,
   conde,
+  delay,
+
+  -- * Constraints
+  (=/=),
 
   -- * Fresh variables
   Fresh (..),
@@ -26,8 +30,8 @@ import Control.Applicative (Alternative (..))
 import Control.Monad (ap)
 import qualified Data.Foldable as Foldable
 
-import qualified Kanren.Core as Core
 import Kanren.Core
+import qualified Kanren.Core as Core
 import Kanren.Stream
 
 -- $setup
@@ -111,6 +115,9 @@ instance Alternative Goal where
 --
 -- >>> extract' <$> run (\x -> x === inject' [True])
 -- [Just [True]]
+--
+-- Note that the retrived solutions might be subject to constraints, but it is
+-- not yet possible to retrieve them.
 run :: (Fresh v) => (v -> Goal ()) -> [v]
 run f = Foldable.toList solutions
  where
@@ -142,6 +149,17 @@ failo = Goal (const Done)
 -- []
 (===) :: (Logical a) => Term a -> Term a -> Goal ()
 a === b = Goal (maybeToStream . fmap (,()) . unify' a b)
+
+-- | Put a constraint that two terms must not be equal.
+--
+-- >>> run (\x -> (x =/= Value 42) `conj` (x === Value (37 :: Int)))
+-- [Value 37]
+-- >>> run (\x -> (x =/= Value 42) `conj` (x === Value (42 :: Int)))
+-- []
+--
+-- It is not yet possible to retrieve solutions along with remaining constraints.
+(=/=) :: (Logical a) => Term a -> Term a -> Goal ()
+a =/= b = Goal (maybeToStream . fmap (,()) . disequality a b)
 
 -- | Perform conjnction of two goals. If the first goal succeeds, run the second
 -- goal on its results.
@@ -190,7 +208,7 @@ disj = (<|>)
 -- >>> run (\x -> disjMany (map (\a -> x === Value a) [1, 3 .. 11 :: Int]))
 -- [Value 1,Value 3,Value 5,Value 7,Value 9,Value 11]
 disjMany :: [Goal x] -> Goal x
-disjMany = foldr disj failo
+disjMany = delay . foldr disj failo
 
 -- | Consider several possible cases, using syntax similar to @conde@ from
 -- @faster-minikanren@.
@@ -277,45 +295,76 @@ class Fresh v where
   resolve :: State -> v -> v
 
 instance Fresh () where
-  fresh = pure ()
+  fresh = delay (pure ())
   resolve _ () = ()
 
+-- | 'makeVariable' in the form of 'Goal'. Does not insert an 'Await' point,
+-- while 'fresh' inserts a single point before creating all its variables.
+fresh' :: Goal (Term a)
+fresh' = Goal (pure . makeVariable)
+
 instance (Logical a) => Fresh (Term a) where
-  fresh = Goal (pure . makeVariable)
+  fresh = delay fresh'
   resolve = walk'
 
-instance (Logical a, Logical b) => Fresh (Term a, Term b) where
+instance (Logical a, Fresh v) => Fresh (Term a, v) where
   fresh = do
-    a <- fresh
-    b <- fresh
-    pure (a, b)
-  resolve state (a, b) = (a', b')
+    v <- fresh
+    a <- fresh'
+    pure (a, v)
+  resolve state (a, v) = (a', v')
    where
-    a' = walk' state a
-    b' = walk' state b
+    a' = resolve state a
+    v' = resolve state v
 
-instance (Logical a, Logical b, Logical c) => Fresh (Term a, Term b, Term c) where
+instance (Logical a, Logical b, Fresh v) => Fresh (Term a, Term b, v) where
   fresh = do
-    (a, b) <- fresh
-    c <- fresh
-    pure (a, b, c)
-  resolve state (a, b, c) = (a', b', c')
+    (b, v) <- fresh
+    a <- fresh'
+    pure (a, b, v)
+  resolve state (a, b, v) = (a', b', v')
    where
-    a' = walk' state a
-    b' = walk' state b
-    c' = walk' state c
+    a' = resolve state a
+    (b', v') = resolve state (b, v)
 
 instance
-  (Logical a, Logical b, Logical c, Logical d)
-  => Fresh (Term a, Term b, Term c, Term d)
+  (Logical a, Logical b, Logical c, Fresh v)
+  => Fresh (Term a, Term b, Term c, v)
   where
   fresh = do
-    (a, b, c) <- fresh
-    d <- fresh
-    pure (a, b, c, d)
-  resolve state (a, b, c, d) = (a', b', c', d')
+    (b, c, v) <- fresh
+    a <- fresh'
+    pure (a, b, c, v)
+  resolve state (a, b, c, v) = (a', b', c', v')
    where
-    a' = walk' state a
-    b' = walk' state b
-    c' = walk' state c
-    d' = walk' state d
+    a' = resolve state a
+    (b', c', v') = resolve state (b, c, v)
+
+instance
+  (Logical a, Logical b, Logical c, Logical d, Fresh v)
+  => Fresh (Term a, Term b, Term c, Term d, v)
+  where
+  fresh = do
+    (b, c, d, v) <- fresh
+    a <- fresh'
+    pure (a, b, c, d, v)
+  resolve state (a, b, c, d, v) = (a', b', c', d', v')
+   where
+    a' = resolve state a
+    (b', c', d', v') = resolve state (b, c, d, v)
+
+instance
+  (Logical a, Logical b, Logical c, Logical d, Logical e, Fresh v)
+  => Fresh (Term a, Term b, Term c, Term d, Term e, v)
+  where
+  fresh = do
+    (b, c, d, e, v) <- fresh
+    a <- fresh'
+    pure (a, b, c, d, e, v)
+  resolve state (a, b, c, d, e, v) = (a', b', c', d', e', v')
+   where
+    a' = resolve state a
+    (b', c', d', e', v') = resolve state (b, c, d, e, v)
+
+delay :: Goal a -> Goal a
+delay (Goal g) = Goal (Await . g)

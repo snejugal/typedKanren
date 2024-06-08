@@ -1,4 +1,5 @@
 {-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase #-}
@@ -63,6 +64,7 @@ import Data.Void (Void)
 import GHC.Exts (IsList (..))
 import GHC.Generics (Generic)
 
+import Control.DeepSeq (NFData)
 import Kanren.Core
 import Kanren.GenericLogical
 import Kanren.Match (_Tagged)
@@ -95,6 +97,7 @@ instance (Logical a, Logical b) => Logical (a, b) where
   type Logic (a, b) = (Term a, Term b)
   unify = genericUnify
   walk = genericWalk
+  occursCheck = genericOccursCheck
   inject = genericInject
   extract = genericExtract
 
@@ -104,11 +107,13 @@ data LogicList a
   deriving (Generic)
 deriving instance (Eq (Logic a)) => Eq (LogicList a)
 deriving instance (Show (Logic a)) => Show (LogicList a)
+deriving instance (NFData (Logic a)) => NFData (LogicList a)
 
 instance (Logical a) => Logical [a] where
   type Logic [a] = LogicList a
   unify = genericUnify
   walk = genericWalk
+  occursCheck = genericOccursCheck
   inject = genericInject
   extract = genericExtract
 
@@ -117,7 +122,7 @@ instance IsList (LogicList a) where
   fromList [] = LogicNil
   fromList (x : xs) = LogicCons x (Value (fromList xs))
   toList LogicNil = []
-  toList (LogicCons x xs) = x : toList xs   -- NOTE: toList for (Term [a]) is partial
+  toList (LogicCons x xs) = x : toList xs -- NOTE: toList for (Term [a]) is partial
 
 makePrisms ''LogicList
 
