@@ -1,6 +1,6 @@
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE KindSignatures #-}
-{-# LANGUAGE TupleSections #-}
+{-# LANGUAGE KindSignatures    #-}
+{-# LANGUAGE TupleSections     #-}
 
 -- | Implement and execute relational programs.
 module Kanren.Goal (
@@ -26,13 +26,13 @@ module Kanren.Goal (
   Fresh (..),
 ) where
 
-import Control.Applicative (Alternative (..))
-import Control.Monad (ap)
-import qualified Data.Foldable as Foldable
+import           Control.Applicative (Alternative (..))
+import           Control.Monad       (ap)
+import qualified Data.Foldable       as Foldable
 
-import Kanren.Core
-import qualified Kanren.Core as Core
-import Kanren.Stream
+import           Kanren.Core
+import qualified Kanren.Core         as Core
+import           Kanren.Stream
 
 -- $setup
 -- >>> :set -package static-minikanren
@@ -76,7 +76,7 @@ instance Functor Goal where
   fmap f (Goal g) = Goal (fmap (fmap (fmap f)) g)
 
 instance Applicative Goal where
-  pure x = Goal (\s -> Yield (s, x) Done)
+  pure x = Goal (\s -> pure (s, x))
   (<*>) = ap
 
 instance Monad Goal where
@@ -139,7 +139,7 @@ successo = pure
 -- >>> run (\() -> failo)
 -- []
 failo :: Goal x
-failo = Goal (const Done)
+failo = Goal (const emptyStream)
 
 -- | Unify two terms.
 --
@@ -367,4 +367,4 @@ instance
     f' = walk' state f
 
 delay :: Goal a -> Goal a
-delay (Goal g) = Goal (Await . g)
+delay (Goal g) = Goal (delayStream . g)
