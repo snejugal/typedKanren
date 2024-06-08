@@ -1,10 +1,10 @@
 cradle:
   stack:
     - path: "./src"
-      component: "static-minikanren:lib"
+      component: "typedKanren:lib"
 
     - path: "./example"
-      component: "static-minikanren:exe:example"
+      component: "typedKanren:exe:example"
 
     - path: "./test"
-      component: "static-minikanren:test:static-minikanren-test"
+      component: "typedKanren:test:typedKanren-tests"

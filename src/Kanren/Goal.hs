@@ -35,7 +35,7 @@ import qualified Kanren.Core as Core
 import Kanren.Stream
 
 -- $setup
--- >>> :set -package static-minikanren
+-- >>> :set -package typedKanren
 -- >>> instance Logical Int
 -- >>> instance Logical Bool
 -- >>> import LogicalBase

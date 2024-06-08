@@ -4,11 +4,11 @@ cabal-version: 2.2
 --
 -- see: https://github.com/sol/hpack
 
-name:           static-minikanren
+name:           typedKanren
 version:        0.1.0.0
-description:    Please see the README on GitHub at <https://github.com/githubuser/static-minikanren#readme>
-homepage:       https://github.com/githubuser/static-minikanren#readme
-bug-reports:    https://github.com/githubuser/static-minikanren/issues
+description:    Please see the README on GitHub at <https://github.com/SnejUgal/typedKanren#readme>
+homepage:       https://github.com/SnejUgal/typedKanren#readme
+bug-reports:    https://github.com/SnejUgal/typedKanren/issues
 author:         Author name here
 maintainer:     example@example.com
 copyright:      2023 Author name here
@@ -21,7 +21,7 @@ extra-source-files:
 
 source-repository head
   type: git
-  location: https://github.com/githubuser/static-minikanren
+  location: https://github.com/SnejUgal/typedKanren
 
 library
   exposed-modules:
@@ -38,9 +38,9 @@ library
       Kanren.Stream
       Kanren.TH
   other-modules:
-      Paths_static_minikanren
+      Paths_typedKanren
   autogen-modules:
-      Paths_static_minikanren
+      Paths_typedKanren
   hs-source-dirs:
       src
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints
@@ -58,9 +58,9 @@ library
 executable example
   main-is: Main.hs
   other-modules:
-      Paths_static_minikanren
+      Paths_typedKanren
   autogen-modules:
-      Paths_static_minikanren
+      Paths_typedKanren
   hs-source-dirs:
       example
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
@@ -71,12 +71,12 @@ executable example
     , deepseq
     , lens
     , lens-family-core
-    , static-minikanren
     , tagged
     , template-haskell
+    , typedKanren
   default-language: Haskell2010
 
-test-suite static-minikanren-test
+test-suite typedKanren-tests
   type: exitcode-stdio-1.0
   main-is: Spec.hs
   other-modules:
@@ -85,9 +85,9 @@ test-suite static-minikanren-test
       Kanren.MatchSpec
       Kanren.THSpec
       Util
-      Paths_static_minikanren
+      Paths_typedKanren
   autogen-modules:
-      Paths_static_minikanren
+      Paths_typedKanren
   hs-source-dirs:
       test
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
@@ -100,18 +100,18 @@ test-suite static-minikanren-test
     , hspec
     , lens
     , lens-family-core
-    , static-minikanren
     , tagged
     , template-haskell
+    , typedKanren
   default-language: Haskell2010
 
 benchmark bench
   type: exitcode-stdio-1.0
   main-is: Main.hs
   other-modules:
-      Paths_static_minikanren
+      Paths_typedKanren
   autogen-modules:
-      Paths_static_minikanren
+      Paths_typedKanren
   hs-source-dirs:
       bench
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -O2 -rtsopts -with-rtsopts=-N
@@ -123,7 +123,7 @@ benchmark bench
     , deepseq
     , lens
     , lens-family-core
-    , static-minikanren
     , tagged
     , template-haskell
+    , typedKanren
   default-language: Haskell2010
