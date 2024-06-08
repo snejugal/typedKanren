@@ -1,10 +1,10 @@
 {-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE DeriveAnyClass #-}
 
 -- | This module implements binary numbers as described in the declarative pearl
 -- “Pure, Declarative, and Constructive Arithmetic Relations” by O. Kiselyov
@@ -33,14 +33,13 @@ module Kanren.Data.Binary (
   example,
 ) where
 
+import Control.DeepSeq (NFData)
 import Control.Lens (Prism, from)
 import Control.Lens.TH (makePrisms)
-import Control.Monad (void)
 import Data.Bifunctor (bimap)
 import Data.Function ((&))
 import Data.Tagged (Tagged)
 import GHC.Generics (Generic)
-import Control.DeepSeq (NFData)
 
 import Kanren.Core
 import Kanren.Goal
@@ -89,23 +88,19 @@ instance Num Binary where
 zeroo :: Term Binary -> Goal ()
 zeroo n = n === inject' 0
 
-cons :: (Logical a) => Term [a] -> Goal (Term a, Term [a])
-cons list = do
-  (x, xs) <- fresh
-  list === Value (LogicCons x xs)
-  return (x, xs)
-
 -- | Check that the number is positive, i.e. greater than zero.
 poso :: Term Binary -> Goal ()
-poso = void . cons
+poso n = do
+  (x, xs) <- fresh
+  n === Value (LogicCons x xs)
 
 -- | Check that the number is greater than one (i.e. at least two).
 --
 -- The naming comes from the paper.
 gtlo :: Term Binary -> Goal ()
 gtlo n = do
-  (_, ns) <- cons n
-  poso ns
+  (x, y, ys) <- fresh
+  n === Value (LogicCons x (Value (LogicCons y ys)))
 
 {- FOURMOLU_DISABLE -}
 -- | Generate valid binary numbers.
@@ -119,25 +114,45 @@ binaryo = matche'
         & enter')
       binaryo bs)
   & enter'
+{- FOURMOLU_ENABLE -}
 
 -- | Check that the first list is shorter than the second one.
-lesslo :: (Logical a, Logical b) => Term [a] -> Term [b] -> Goal ()
-lesslo xs ys = do
-  (y, ys') <- fresh
-  ys === Value (LogicCons y ys')
-  xs & (matche'
-    & on' _LogicNil' return
-    & on' _LogicCons' (\(_, xs') -> lesslo xs' ys')
-    & enter')
+lesslo :: Term Binary -> Term Binary -> Goal ()
+lesslo n m =
+  disjMany
+    [ do
+        zeroo n
+        poso m
+    , do
+        n === inject' 1
+        gtlo m
+    , do
+        (a, x, b, y) <- fresh
+        n === Value (LogicCons a x)
+        poso x
+        m === Value (LogicCons b y)
+        poso y
+        lesslo x y
+    ]
 
 -- | Check that the lists have the same length.
-samelo :: (Logical a, Logical b) => Term [a] -> Term [b] -> Goal ()
-samelo xs = matche'
-  & on' _LogicNil' (\() -> xs === inject' [])
-  & on' _LogicCons' (\(_, ys') -> do
-      (_, xs') <- cons xs
-      samelo xs' ys')
-  & enter'
+samelo :: Term Binary -> Term Binary -> Goal ()
+samelo n m =
+  disjMany
+    [ do
+        zeroo n
+        zeroo m
+    , do
+        n === inject' 1
+        m === inject' 1
+    , do
+        (a, x, b, y) <- fresh
+        n === Value (LogicCons a x)
+        poso x
+        m === Value (LogicCons b y)
+        poso y
+        samelo x y
+    ]
 
 -- | Check that the first list is shorter than the second one and at least of
 -- the same length as the third list combined with the forth one.
@@ -145,102 +160,129 @@ samelo xs = matche'
 -- Meaningfully, the part @[a]@ must be shorter than the whole @[b]@ and must
 -- fit the result of multiplying @[c]@ with @[d]@, but here we're just concerned
 -- with the lengths of the lists.
-lessl3o
-  :: (Logical a, Logical b, Logical c, Logical d)
-  => Term [a]
-  -> Term [b]
-  -> Term [c]
-  -> Term [d]
-  -> Goal ()
-lessl3o a x y z = a & (matche'
-  & on' _LogicNil' (\() -> void (cons x))
-  & on' _LogicCons' (\(_, ar) -> do
-      (_, xr) <- cons x
-      y & (matche'
-        & on' _LogicNil' (\() -> do
-            (_, zr) <- cons z
-            lessl3o ar xr y zr)
-        & on' _LogicCons' (\(_, yr) -> lessl3o ar xr yr z)
-        & enter'))
-  & enter')
+lessl3o :: Term Binary -> Term Binary -> Term Binary -> Term Binary -> Goal ()
+lessl3o q c a b =
+  disjMany
+    [ do
+        zeroo q
+        poso c
+    , do
+        (a0, a1, a2, a3, x, (y, z)) <- fresh
+        q === Value (LogicCons a0 x)
+        c === Value (LogicCons a1 y)
+        disjMany
+          [ do
+              zeroo a
+              b === Value (LogicCons a2 z)
+              lessl3o x y z (inject' 0)
+          , do
+              a === Value (LogicCons a3 z)
+              lessl3o x y z b
+          ]
+    ]
 
 appendo :: (Logical a) => Term [a] -> Term [a] -> Term [a] -> Goal ()
-appendo xs ys zs = xs & (matche'
-  & on' _LogicNil' (\() -> ys === zs)
-  & on' _LogicCons' (\(x, xs') -> do
-      zs' <- fresh
-      zs === Value (LogicCons x zs')
-      appendo xs' ys zs')
-  & enter')
-{- FOURMOLU_ENABLE -}
-
-toBit :: Term Bit -> Goal Bit
-toBit =
-  matche'
-    & on' _O' (\() -> return O)
-    & on' _I' (\() -> return I)
-    & enter'
+appendo xs ys zs =
+  disjMany
+    [ do
+        xs === inject' []
+        ys === zs
+    , do
+        (x, xs', zs') <- fresh
+        xs === Value (LogicCons x xs')
+        zs === Value (LogicCons x zs')
+        appendo xs' ys zs'
+    ]
 
 -- | A one-bit full adder.
 full1Addero :: Term Bit -> Term Bit -> Term Bit -> Term Bit -> Term Bit -> Goal ()
-full1Addero carryIn a b s carryOut = do
-  sumOfBits <- (fmap (length . filter (== I)) . mapM toBit) [carryIn, a, b]
-  case sumOfBits of
-    0 -> (carryOut === inject' O) `conj` (s === inject' O)
-    1 -> (carryOut === inject' O) `conj` (s === inject' I)
-    2 -> (carryOut === inject' I) `conj` (s === inject' O)
-    3 -> (carryOut === inject' I) `conj` (s === inject' I)
-    _ -> failo
+full1Addero carryIn a b s carryOut =
+  disjMany
+    [ do
+        carryIn === Value O
+        disjMany
+          [ do
+              a === Value O
+              conde
+                [ [b === Value O, s === Value O, carryOut === Value O]
+                , [b === Value I, s === Value I, carryOut === Value O]
+                ]
+          , do
+              a === Value I
+              conde
+                [ [b === Value O, s === Value I, carryOut === Value O]
+                , [b === Value I, s === Value O, carryOut === Value I]
+                ]
+          ]
+    , do
+        carryIn === Value I
+        disjMany
+          [ do
+              a === Value O
+              conde
+                [ [b === Value O, s === Value I, carryOut === Value O]
+                , [b === Value I, s === Value O, carryOut === Value I]
+                ]
+          , do
+              a === Value I
+              conde
+                [ [b === Value O, s === Value O, carryOut === Value I]
+                , [b === Value I, s === Value I, carryOut === Value I]
+                ]
+          ]
+    ]
 
 -- | A full adder for numbers of arbitrary lengths.
 fullNAddero :: Term Bit -> Term Binary -> Term Binary -> Term Binary -> Goal ()
 fullNAddero carryIn a b r =
   disjMany
     [ do
+        carryIn === Value O
         zeroo b
-        carryIn
-          & ( matche'
-                & on' _O' (\() -> a === r)
-                & on' _I' (\() -> fullNAddero (inject' O) a (inject' 1) r)
-                & enter'
-            )
+        a === r
     , do
+        carryIn === Value O
+        zeroo a
+        b === r
+        poso b
+    , do
+        carryIn === Value I
+        zeroo b
+        fullNAddero (Value O) a (inject' 1) r
+    , do
+        carryIn === Value I
         zeroo a
         poso b
-        fullNAddero carryIn b a r
+        fullNAddero (Value O) (inject' 1) b r
     , do
         a === inject' 1
         b === inject' 1
-        (r1, r2) <- fresh
-        r === Value (LogicCons r1 (Value (LogicCons r2 (Value LogicNil))))
-        full1Addero carryIn (inject' I) (inject' I) r1 r2
+        (d, c) <- fresh
+        r === Value (LogicCons d (Value (LogicCons c (Value LogicNil))))
+        full1Addero carryIn (Value I) (Value I) d c
     , do
         a === inject' 1
-        (bb, br) <- cons b
-        poso br
-        (rb, rr) <- cons r
-        poso rr
-
-        carryOut <- fresh
-        full1Addero carryIn (inject' I) bb rb carryOut
-        fullNAddero carryOut (inject' 0) br rr
+        genFullNAddero carryIn a b r
     , do
         b === inject' 1
         gtlo a
         gtlo r
-        fullNAddero carryIn b a r
+        fullNAddero carryIn (inject' 1) a r
     , do
-        (ab, ar) <- cons a
-        poso ar
-        (bb, br) <- cons b
-        poso br
-        (rb, rr) <- cons r
-        poso rr
-
-        carryOut <- fresh
-        full1Addero carryIn ab bb rb carryOut
-        fullNAddero carryOut ar br rr
+        gtlo a
+        genFullNAddero carryIn a b r
     ]
+
+genFullNAddero :: Term Bit -> Term Binary -> Term Binary -> Term Binary -> Goal ()
+genFullNAddero carryIn n m r = do
+  (a, b, c, e, x, (y, z)) <- fresh
+  n === Value (LogicCons a x)
+  m === Value (LogicCons b y)
+  poso y
+  r === Value (LogicCons c z)
+  poso z
+  full1Addero carryIn a b c e
+  fullNAddero e x y z
 
 -- | Calculate the sum @c@ of two numbers @a@ and @b@.
 --
@@ -306,10 +348,16 @@ lesso
   -> Term Binary
   -- ^ @b@, the greater number
   -> Goal ()
-lesso a b = do
-  x <- fresh
-  poso x
-  addo a x b
+lesso a b =
+  disjMany
+    [ do
+        lesslo a b
+    , do
+        samelo a b
+        x <- fresh
+        poso x
+        addo a x b
+    ]
 
 -- | Calculate the product @c@ of two numbers @a@ and @b@.
 --
@@ -341,37 +389,47 @@ mulo a b c =
   disjMany
     [ do
         zeroo a
-        c === a
+        zeroo c
     , do
-        zeroo b
-        c === b
         poso a
+        zeroo b
+        zeroo c
     , do
         a === inject' 1
+        poso b
         b === c
     , do
-        (ar, cr) <- fresh
-        a === Value (LogicCons (inject' O) ar)
-        c === Value (LogicCons (inject' O) cr)
-        poso b
-        poso ar
-        poso cr
-        mulo ar b cr
+        gtlo a
+        b === inject' 1
+        a === c
     , do
-        ar <- fresh
-        a === Value (LogicCons (inject' I) ar)
-        poso b
-        poso ar
-        gtlo c
+        (x, z) <- fresh
+        a === Value (LogicCons (Value O) x)
+        poso x
+        c === Value (LogicCons (Value O) z)
+        poso z
+        gtlo b
+        mulo x b z
+    , do
+        (x, y) <- fresh
+        a === Value (LogicCons (Value I) x)
+        poso x
+        b === Value (LogicCons (Value O) y)
+        poso y
+        mulo b a c
+    , do
+        (x, y) <- fresh
+        a === Value (LogicCons (Value I) x)
+        poso x
+        b === Value (LogicCons (Value I) y)
+        poso y
 
-        c1 <- fresh
-        lessl3o c1 c a b
-
-        mulo ar b c1
-        addo (Value (LogicCons (inject' O) c1)) b c
+        q <- fresh
+        lessl3o q c a b
+        mulo x b q
+        addo (Value (LogicCons (Value O) q)) b c
     ]
 
-{- FOURMOLU_DISABLE -}
 -- | Calculate the quotient @q@ and remainder @r@ of dividing @n@ by @m@.
 --
 -- >>> bimap extract' extract' <$> run (\(q, r) -> divo (inject' 17) (inject' 5) q r)
@@ -396,8 +454,8 @@ divo
 divo n m q r =
   disjMany
     [ do
-        zeroo q
         n === r
+        zeroo q
         lesso n m
     , do
         q === inject' 1
@@ -409,26 +467,24 @@ divo n m q r =
         lesso r m
         poso q
 
-        (n1, n2) <- fresh
+        (n1, n2, q1, q2, q2m, (q2mr, rr, r1)) <- fresh
         splito n r n1 n2
-        (q1, q2) <- fresh
         splito q r q1 q2
-        q2m <- fresh
-        n1 & (matche'
-          & on' _LogicNil' (\() -> do
+        disjMany
+          [ do
+              zeroo n1
               zeroo q1
               subo n2 r q2m
-              mulo q2 m q2m)
-          & on' _LogicCons' (\_ -> do
-              (q2mr, rr, r1) <- fresh
+              mulo q2 m q2m
+          , do
+              poso n1
               mulo q2 m q2m
               addo q2m r q2mr
               subo q2mr n2 rr
               splito rr r r1 (inject' 0)
-              divo n1 m q1 r1)
-          & enter')
+              divo n1 m q1 r1
+          ]
     ]
-{- FOURMOLU_ENABLE -}
 
 -- | Split @n@ into @n1@ and @n2@ such that @n = 2^(length r + 1) * n1 + n2@.
 splito :: Term Binary -> Term Binary -> Term Binary -> Term Binary -> Goal ()
@@ -439,73 +495,66 @@ splito n r n1 n2 =
         zeroo n1
         zeroo n2
     , do
-        (b, n') <- cons n
-        b === inject' O
-        poso n'
-
+        (b, n') <- fresh
+        n === Value (LogicCons (Value O) (Value (LogicCons b n')))
         zeroo r
-        n1 === n'
+        n1 === Value (LogicCons b n')
         zeroo n2
     , do
-        (b, n') <- cons n
-        b === inject' I
-
+        n' <- fresh
+        n === Value (LogicCons (Value I) n')
         zeroo r
         n1 === n'
         n2 === inject' 1
     , do
-        (b, n') <- cons n
-        b === inject' O
-        poso n'
-
-        (_, r') <- cons r
+        (b, n', a, r') <- fresh
+        n === Value (LogicCons (Value O) (Value (LogicCons b n')))
+        r === Value (LogicCons a r')
         zeroo n2
-        splito n' r' n1 n2
+        splito (Value (LogicCons b n')) r' n1 (inject' 0)
     , do
-        (b, n') <- cons n
-        b === inject' I
-
-        (_, r') <- cons r
+        (n', a, r') <- fresh
+        n === Value (LogicCons (Value I) n')
+        r === Value (LogicCons a r')
         n2 === inject' 1
         splito n' r' n1 (inject' 0)
     , do
-        (b, n') <- cons n
-        (_, r') <- cons r
-
-        n2' <- fresh
-        poso n2'
+        (b, n', a, r', n2') <- fresh
+        n === Value (LogicCons b n')
+        r === Value (LogicCons a r')
         n2 === Value (LogicCons b n2')
+        poso n2'
         splito n' r' n1 n2'
     ]
 
-{- FOURMOLU_DISABLE -}
 -- | Calculate @n = (b + 1)^q@, where @b + 1@ is a power of two.
 exp2o :: Term Binary -> Term Binary -> Term Binary -> Goal ()
-exp2o n b = matche'
-  & on' _LogicNil' (\() -> n === inject' [I])
-  & on' _LogicCons' (\(q, q1) -> q & (matche'
-      & on' _O' (\() -> do
-          poso q1
-          lesslo b n
-          b2 <- fresh
-          appendo b (Value (LogicCons (inject' I) b)) b2
-          exp2o n b2 q1)
-      & on' _I' (\() -> q1 & (matche'
-        & on' _LogicNil' (\() -> do
-            gtlo n
-            _n2 <- fresh
-            splito n b (inject' 1) _n2)
-        & on' _LogicCons' (\_ -> do
-            (n1, _n2) <- fresh
-            poso n1
-            splito n b n1 _n2
-            b2 <- fresh
-            appendo b (Value (LogicCons (inject' I) b)) b2
-            exp2o n1 b2 q1)
-        & enter'))
-      & enter'))
-  & enter'
-{- FOURMOLU_ENABLE -}
+exp2o n b q =
+  disjMany
+    [ do
+        n === inject' 1
+        zeroo q
+    , do
+        gtlo n
+        q === inject' 1
+        _n2 <- fresh
+        splito n b (inject' 1) _n2
+    , do
+        (q1, b2) <- fresh
+        q === Value (LogicCons (Value O) q1)
+        poso q1
+        lesslo b n
+        appendo b (Value (LogicCons (Value I) b)) b2
+        exp2o n b2 q1
+    , do
+        (q1, n1, b2, _n2) <- fresh
+        q === Value (LogicCons (Value I) q1)
+        poso q1
+        poso n1
+        splito n b n1 _n2
+        appendo b (Value (LogicCons (Value I) b)) b2
+        exp2o n1 b2 q1
+    ]
 
 -- | Calculate @nq = n ^ q@.
 repeatedMulo :: Term Binary -> Term Binary -> Term Binary -> Goal ()
@@ -602,34 +651,35 @@ logo n b q r =
         splito n n1 _r1 r
     , do
         -- n = b^q + r, b >= 3
-        b === inject' 3 `disj` do
-          (b1, b2, b3, br) <- fresh
-          b === Value (LogicCons b1 (Value (LogicCons b2 (Value (LogicCons b3 br)))))
+        (b1, b2, b3, br) <- fresh
+        disjMany
+          [ b === inject' 3
+          , b === Value (LogicCons b1 (Value (LogicCons b2 (Value (LogicCons b3 br)))))
+          ]
         lesslo b n
 
-        (bw1, bw) <- fresh
+        (bw1, bw, nw1, nw, ql, (ql1, _r)) <- fresh
         exp2o b (inject' 0) bw1
         addo bw1 (inject' 1) bw
-
-        (q1, bwq1, nw1, nw) <- fresh
         lesslo q n
+
+        (q1, bwq1) <- fresh
         addo q (inject' 1) q1
         mulo bw q1 bwq1
         lesso nw1 bwq1
+
         exp2o n (inject' 0) nw1
         addo nw1 (inject' 1) nw
-
-        (ql, ql1, _r, bql) <- fresh
         divo nw bw ql1 _r
         addo ql (inject' 1) ql1
-        samelo q ql `disj` lesslo ql q
-        repeatedMulo b ql bql
+        disjMany [samelo q ql, lesslo ql q]
 
-        (_r', qh, qdh, qd) <- fresh
+        (bql, qh, _r', qdh, qd) <- fresh
+        repeatedMulo b ql bql
         divo nw bw1 qh _r'
         addo ql qdh qh
         addo ql qd q
-        qd === qdh `disj` lesso qd qdh
+        disjMany [qd === qdh, lesso qd qdh]
 
         (bqd, bq, bq1) <- fresh
         repeatedMulo b qd bqd
@@ -650,5 +700,14 @@ example = do
   putStrLn "\ndivo 15 4 q r:"
   mapM_ print $ bimap extract' extract' <$> run (uncurry (divo (inject' 15) (inject' 4)))
 
-  putStrLn "\nlogo n 3 2 0:"
-  mapM_ print $ extract' <$> run (\n -> logo n (inject' 3) (inject' 2) (inject' 0))
+  let exps =
+        [ (b, p, run (\n -> logo n (inject' (fromInteger b)) (inject' (fromInteger p)) (inject' 0)))
+        | b <- [1 .. 3]
+        , p <- [1 .. 6]
+        ]
+  mapM_
+    ( \(b, p, bp) -> do
+        putStrLn ("\nlogo n " ++ show b ++ " " ++ show p ++ " 0:")
+        mapM_ print (extract' <$> bp)
+    )
+    exps
