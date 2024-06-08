@@ -340,5 +340,31 @@ instance
     (a', b', c') = resolve state (a, b, c)
     d' = walk' state d
 
+instance
+  (Logical a, Logical b, Logical c, Logical d, Logical e)
+  => Fresh (Term a, Term b, Term c, Term d, Term e)
+  where
+  fresh = do
+    (a, b, c, d) <- fresh
+    e <- fresh'
+    pure (a, b, c, d, e)
+  resolve state (a, b, c, d, e) = (a', b', c', d', e')
+   where
+    (a', b', c', d') = resolve state (a, b, c, d)
+    e' = walk' state e
+
+instance
+  (Logical a, Logical b, Logical c, Logical d, Logical e, Logical f)
+  => Fresh (Term a, Term b, Term c, Term d, Term e, Term f)
+  where
+  fresh = do
+    (a, b, c, d, e) <- fresh
+    f <- fresh'
+    pure (a, b, c, d, e, f)
+  resolve state (a, b, c, d, e, f) = (a', b', c', d', e', f')
+   where
+    (a', b', c', d', e') = resolve state (a, b, c, d, e)
+    f' = walk' state f
+
 delay :: Goal a -> Goal a
 delay (Goal g) = Goal (Await . g)

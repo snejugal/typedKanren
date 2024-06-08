@@ -1,6 +1,7 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE OverloadedLists #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -17,7 +18,6 @@ module Kanren.Data.Scheme (
 
 import Control.Lens (Prism, from)
 import Control.Lens.TH (makePrisms)
-import Data.Function ((&))
 import Data.Tagged (Tagged)
 import GHC.Exts (IsList, IsString (..))
 import GHC.Generics (Generic)
@@ -161,46 +161,44 @@ listo :: Term SExpr -> Term SExpr -> Goal ()
 listo exprs expr =
   expr === Value (LogicSCons (Value (LogicSSymbol list)) exprs)
 
-{- FOURMOLU_DISABLE -}
 lookupo :: Term Symbol -> Term Env -> Term Value -> Goal ()
-lookupo expectedVar env returnValue =
-  env & (matche'
-    & on' _LogicNil' (const failo)
-    & on' _LogicCons' (\(entry, rest) -> do
-        (var, value) <- fresh
-        entry === Value (var, value)
-        disjMany
-          [ do
-              var === expectedVar
-              value === returnValue
-          , do
-              var =/= expectedVar
-              lookupo expectedVar rest returnValue
-          ])
-    & enter')
+lookupo expectedVar env returnValue = do
+  (var, value, rest) <- fresh
+  env === Value (LogicCons (Value (var, value)) rest)
+  disjMany
+    [ do
+        var === expectedVar
+        value === returnValue
+    , do
+        var =/= expectedVar
+        lookupo expectedVar rest returnValue
+    ]
 
 notInEnvo :: Term Symbol -> Term Env -> Goal ()
-notInEnvo var =
-  matche'
-    & on' _LogicNil' successo
-    & on' _LogicCons' (\(entry, rest) -> do
-        (entryVar, value) <- fresh
-        entry === Value (entryVar, value)
+notInEnvo var env =
+  disjMany
+    [ do
+        (entryVar, value, rest) <- fresh
+        env === Value (LogicCons (Value (entryVar, value)) rest)
         entryVar =/= var
-        notInEnvo var rest)
-    & enter'
+        notInEnvo var rest
+    , do
+        env === inject' []
+    ]
 
 properListo :: Term SExpr -> Term Env -> Term SExpr -> Goal ()
-properListo exprs env value = exprs & (matche'
-  & on' _LogicSNil' (\() -> value === Value LogicSNil)
-  & on' _LogicSCons' (\(car, cdr) -> do
-      (car', cdr') <- fresh
-      value === Value (LogicSCons car' cdr')
-      evalo car env (Value (LogicSExpr car'))
-      properListo cdr env cdr')
-  & on' _LogicSSymbol' (const failo)
-  & enter')
-{- FOURMOLU_ENABLE -}
+properListo exprs env value =
+  disjMany
+    [ do
+        exprs === inject' []
+        value === inject' []
+    , do
+        (car, cdr, car', cdr') <- fresh
+        exprs === Value (LogicSCons car cdr)
+        value === Value (LogicSCons car' cdr')
+        evalo car env (Value (LogicSExpr car'))
+        properListo cdr env cdr'
+    ]
 
 evalo :: Term SExpr -> Term Env -> Term Value -> Goal ()
 evalo expr env value =
@@ -220,14 +218,10 @@ evalo expr env value =
         expr === Value (LogicSSymbol x)
         lookupo x env value
     , do
-        (rator, rand) <- fresh
+        (rator, rand, x, body, ratorEnv, rand') <- fresh
         applyo rator rand expr
-
-        (x, body, ratorEnv) <- fresh
         evalo rator env (Value (LogicClosure x body ratorEnv))
-        rand' <- fresh
         evalo rand env rand'
-
         evalo body (Value (LogicCons (Value (x, rand')) ratorEnv)) value
     , do
         (x, body) <- fresh
