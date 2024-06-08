@@ -51,8 +51,8 @@ import Control.Monad (ap)
 import Data.Bifunctor (first)
 import Data.Coerce (coerce)
 import Data.Foldable (foldrM)
-import Data.IntMap (IntMap)
-import qualified Data.IntMap as IntMap
+import Data.IntMap.Strict (IntMap)
+import qualified Data.IntMap.Strict as IntMap
 import Data.Maybe (fromMaybe)
 import GHC.Exts (IsList (..))
 import GHC.Generics (Generic)
@@ -213,8 +213,8 @@ newtype VarId a = VarId Int
 -- This way, you do not need to know what the logic representation for a type is
 -- named, and deriving the logical representation for a type is trivial.
 data Term a
-  = Var (VarId a)
-  | Value (Logic a)
+  = Var !(VarId a)
+  | Value !(Logic a)
   deriving (Generic)
 
 deriving instance (NFData (Logic a)) => NFData (Term a)
