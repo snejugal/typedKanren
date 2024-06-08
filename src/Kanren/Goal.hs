@@ -295,7 +295,7 @@ class Fresh v where
   resolve :: State -> v -> v
 
 instance Fresh () where
-  fresh = pure ()
+  fresh = delay (pure ())
   resolve _ () = ()
 
 -- | 'makeVariable' in the form of 'Goal'. Does not insert an 'Await' point,
@@ -307,64 +307,64 @@ instance (Logical a) => Fresh (Term a) where
   fresh = delay fresh'
   resolve = walk'
 
-instance (Logical a, Logical b) => Fresh (Term a, Term b) where
+instance (Logical a, Fresh v) => Fresh (Term a, v) where
   fresh = do
-    a <- fresh
-    b <- fresh'
-    pure (a, b)
-  resolve state (a, b) = (a', b')
+    v <- fresh
+    a <- fresh'
+    pure (a, v)
+  resolve state (a, v) = (a', v')
    where
     a' = resolve state a
-    b' = resolve state b
+    v' = resolve state v
 
-instance (Logical a, Logical b, Logical c) => Fresh (Term a, Term b, Term c) where
+instance (Logical a, Logical b, Fresh v) => Fresh (Term a, Term b, v) where
   fresh = do
-    (a, b) <- fresh
-    c <- fresh'
-    pure (a, b, c)
-  resolve state (a, b, c) = (a', b', c')
+    (b, v) <- fresh
+    a <- fresh'
+    pure (a, b, v)
+  resolve state (a, b, v) = (a', b', v')
    where
-    (a', b') = resolve state (a, b)
-    c' = resolve state c
-
-instance
-  (Logical a, Logical b, Logical c, Logical d)
-  => Fresh (Term a, Term b, Term c, Term d)
-  where
-  fresh = do
-    (a, b, c) <- fresh
-    d <- fresh'
-    pure (a, b, c, d)
-  resolve state (a, b, c, d) = (a', b', c', d')
-   where
-    (a', b', c') = resolve state (a, b, c)
-    d' = walk' state d
+    a' = resolve state a
+    (b', v') = resolve state (b, v)
 
 instance
-  (Logical a, Logical b, Logical c, Logical d, Logical e)
-  => Fresh (Term a, Term b, Term c, Term d, Term e)
+  (Logical a, Logical b, Logical c, Fresh v)
+  => Fresh (Term a, Term b, Term c, v)
   where
   fresh = do
-    (a, b, c, d) <- fresh
-    e <- fresh'
-    pure (a, b, c, d, e)
-  resolve state (a, b, c, d, e) = (a', b', c', d', e')
+    (b, c, v) <- fresh
+    a <- fresh'
+    pure (a, b, c, v)
+  resolve state (a, b, c, v) = (a', b', c', v')
    where
-    (a', b', c', d') = resolve state (a, b, c, d)
-    e' = walk' state e
+    a' = resolve state a
+    (b', c', v') = resolve state (b, c, v)
 
 instance
-  (Logical a, Logical b, Logical c, Logical d, Logical e, Logical f)
-  => Fresh (Term a, Term b, Term c, Term d, Term e, Term f)
+  (Logical a, Logical b, Logical c, Logical d, Fresh v)
+  => Fresh (Term a, Term b, Term c, Term d, v)
   where
   fresh = do
-    (a, b, c, d, e) <- fresh
-    f <- fresh'
-    pure (a, b, c, d, e, f)
-  resolve state (a, b, c, d, e, f) = (a', b', c', d', e', f')
+    (b, c, d, v) <- fresh
+    a <- fresh'
+    pure (a, b, c, d, v)
+  resolve state (a, b, c, d, v) = (a', b', c', d', v')
    where
-    (a', b', c', d', e') = resolve state (a, b, c, d, e)
-    f' = walk' state f
+    a' = resolve state a
+    (b', c', d', v') = resolve state (b, c, d, v)
+
+instance
+  (Logical a, Logical b, Logical c, Logical d, Logical e, Fresh v)
+  => Fresh (Term a, Term b, Term c, Term d, Term e, v)
+  where
+  fresh = do
+    (b, c, d, e, v) <- fresh
+    a <- fresh'
+    pure (a, b, c, d, e, v)
+  resolve state (a, b, c, d, e, v) = (a', b', c', d', e', v')
+   where
+    a' = resolve state a
+    (b', c', d', e', v') = resolve state (b, c, d, e, v)
 
 delay :: Goal a -> Goal a
 delay (Goal g) = Goal (Await . g)
