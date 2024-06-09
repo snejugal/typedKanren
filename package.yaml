@@ -21,7 +21,6 @@ dependencies:
   - containers
   - template-haskell
   - lens
-  - lens-family-core
   - bifunctors
   - tagged
   - deepseq
