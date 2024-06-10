@@ -80,7 +80,7 @@ instance Functor Goal where
   fmap f (Goal g) = Goal (fmap (fmap (fmap f)) g)
 
 instance Applicative Goal where
-  pure x = Goal (\s -> Yield (s, x) Done)
+  pure x = Goal (\s -> pure (s, x))
   (<*>) = ap
 
 instance Monad Goal where
