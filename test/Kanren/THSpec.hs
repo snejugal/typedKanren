@@ -1,4 +1,3 @@
-{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -41,11 +40,11 @@ data RecordGADTLike a where
 
 newtype Newtype a = Newtype {runNewtype :: (a, a)} deriving (Generic)
 
-makeLogic ''Constructors
-makeLogic ''Record
-makeLogic ''GADTLike
-makeLogic ''RecordGADTLike
-makeLogic ''Newtype
+makeLogical ''Constructors
+makeLogical ''Record
+makeLogical ''GADTLike
+makeLogical ''RecordGADTLike
+makeLogicType ''Newtype
 
 instance Arbitrary Constructors where
   arbitrary =
@@ -57,6 +56,9 @@ instance Arbitrary Constructors where
 
 ofTypeTerm :: Term a -> ()
 ofTypeTerm = const ()
+
+ofTypeLogic :: Logic a -> ()
+ofTypeLogic = const ()
 
 toConstr :: Constructors -> String
 toConstr Simple = "Simple"
@@ -74,7 +76,7 @@ spec = do
             ofTypeTerm x `seq` ofTypeTerm y
       let _g (LogicGADTLike x) = ofTypeTerm x
       let _h LogicRecordGADTLike{logicGadtSpam = x} = ofTypeTerm x
-      let _n LogicNewtype{logicRunNewtype = x} = ofTypeTerm x
+      let _n LogicNewtype{logicRunNewtype = x} = ofTypeLogic x
 
       return @IO ()
 

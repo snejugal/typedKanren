@@ -1,4 +1,3 @@
-{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
@@ -68,7 +67,7 @@ import Control.DeepSeq (NFData)
 import Kanren.Core
 import Kanren.GenericLogical
 import Kanren.Match (_Tagged)
-import Kanren.TH (makeLogic)
+import Kanren.TH (makeLogical)
 
 instance Logical Int
 instance Logical Char
@@ -151,7 +150,7 @@ _LogicCons'
       (Tagged cons' (Term a', Term [a']))
 _LogicCons' = from _Tagged . _LogicCons . _Tagged
 
-makeLogic ''Maybe
+makeLogical ''Maybe
 makePrisms ''LogicMaybe
 deriving instance (Eq (Logic a)) => Eq (LogicMaybe a)
 deriving instance (Show (Logic a)) => Show (LogicMaybe a)
@@ -172,7 +171,7 @@ _LogicJust'
       (Tagged just' (Term a'))
 _LogicJust' = from _Tagged . _LogicJust . _Tagged
 
-makeLogic ''Either
+makeLogical ''Either
 makePrisms ''LogicEither
 deriving instance (Eq (Logic a), Eq (Logic b)) => Eq (LogicEither a b)
 deriving instance (Show (Logic a), Show (Logic b)) => Show (LogicEither a b)

@@ -1,4 +1,3 @@
-{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE OverloadedLists #-}
@@ -68,8 +67,8 @@ instance IsList SExpr where
 instance IsString SExpr where
   fromString = SSymbol . Atomic
 
-makeLogic ''SExpr
-makeLogic ''Value
+makeLogical ''SExpr
+makeLogical ''Value
 makePrisms ''LogicSExpr
 makePrisms ''LogicValue
 
