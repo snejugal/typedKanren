@@ -1,5 +1,6 @@
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeOperators #-}
 
 -- | Automatic generation of logic types.
 module Kanren.TH (
@@ -19,7 +20,7 @@ module Kanren.TH (
   makeLogicalInstances,
 ) where
 
-import Data.Char (isUpper, toUpper)
+import Data.Char (isLower, isUpper, toUpper)
 import Data.Foldable (foldl')
 import GHC.Generics (Generic)
 import Language.Haskell.TH hiding (bang)
@@ -149,7 +150,8 @@ logicName name = mkName $ case nameBase name of
   ':' : rest -> ":?" <> rest
   firstLetter : rest
     | isUpper firstLetter -> "Logic" <> rest'
-    | otherwise -> "logic" <> rest'
+    | isLower firstLetter -> "logic" <> rest'
+    | otherwise -> '?' : rest'
    where
     rest' = toUpper firstLetter : rest
 

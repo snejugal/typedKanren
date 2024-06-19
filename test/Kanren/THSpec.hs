@@ -4,6 +4,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeOperators #-}
 {-# OPTIONS_GHC -Wno-redundant-constraints #-}
 
 module Kanren.THSpec (spec) where
@@ -38,6 +39,8 @@ data RecordGADTLike a where
   RecordGADTLike :: {gadtSpam :: a} -> RecordGADTLike a
   deriving (Generic)
 
+data a ^ b = (:^) a b | b `Caret` a deriving (Generic)
+
 newtype Newtype a = Newtype {runNewtype :: (a, a)} deriving (Generic)
 
 data RecursiveA = RecursiveA Int RecursiveB deriving (Generic)
@@ -47,6 +50,7 @@ makeLogical ''Constructors
 makeLogical ''Record
 makeLogical ''GADTLike
 makeLogical ''RecordGADTLike
+makeLogical ''(^)
 makeLogicType ''Newtype
 makeLogicals [''RecursiveA, ''RecursiveB]
 
@@ -73,16 +77,26 @@ spec :: Spec
 spec = do
   describe "makeLogic" $ do
     it "generates proper constructors" $ do
-      let _c LogicSimple = ()
+      let _c :: LogicConstructors -> ()
+          _c LogicSimple = ()
           _c (LogicWithData x) = ofTypeTerm x
           _c (x :?@ y) = ofTypeTerm x `seq` ofTypeTerm y
-      let _r LogicRecord{logicSpam = x, logicHam = y} =
+      let _r :: LogicRecord a -> ()
+          _r LogicRecord{logicSpam = x, logicHam = y} =
             ofTypeTerm x `seq` ofTypeTerm y
-      let _g (LogicGADTLike x) = ofTypeTerm x
-      let _h LogicRecordGADTLike{logicGadtSpam = x} = ofTypeTerm x
-      let _n LogicNewtype{logicRunNewtype = x} = ofTypeLogic x
-      let _a (LogicRecursiveA x y) = ofTypeTerm x `seq` ofTypeTerm y
-      let _b (LogicRecursiveB x y) = ofTypeTerm x `seq` ofTypeTerm y
+      let _g :: LogicGADTLike -> ()
+          _g (LogicGADTLike x) = ofTypeTerm x
+      let _h :: LogicRecordGADTLike a -> ()
+          _h LogicRecordGADTLike{logicGadtSpam = x} = ofTypeTerm x
+      let _c :: (a ?^ b) -> ()
+          _c (x :?^ y) = ofTypeTerm x `seq` ofTypeTerm y
+          _c (x `LogicCaret` y) = ofTypeTerm x `seq` ofTypeTerm y
+      let _n :: LogicNewtype a -> ()
+          _n LogicNewtype{logicRunNewtype = x} = ofTypeLogic x
+      let _a :: LogicRecursiveA -> ()
+          _a (LogicRecursiveA x y) = ofTypeTerm x `seq` ofTypeTerm y
+      let _b :: LogicRecursiveB -> ()
+          _b (LogicRecursiveB x y) = ofTypeTerm x `seq` ofTypeTerm y
 
       return @IO ()
 
