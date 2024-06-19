@@ -9,6 +9,8 @@
 
 module Kanren.THSpec (spec) where
 
+import Control.Lens.TH (makePrisms)
+import Data.Function ((&))
 import Data.Maybe (isJust, isNothing)
 import GHC.Generics (Generic)
 import Test.Hspec
@@ -17,6 +19,7 @@ import Test.QuickCheck (Arbitrary (arbitrary), frequency, label)
 
 import Kanren.Core
 import Kanren.LogicalBase ()
+import Kanren.Match
 import Kanren.TH
 
 data Constructors
@@ -53,6 +56,9 @@ makeLogical ''RecordGADTLike
 makeLogical ''(^)
 makeLogicType ''Newtype
 makeLogicals [''RecursiveA, ''RecursiveB]
+
+makePrisms ''LogicConstructors
+makeExhaustivePrisms ''LogicConstructors
 
 instance Arbitrary Constructors where
   arbitrary =
@@ -97,6 +103,16 @@ spec = do
           _a (LogicRecursiveA x y) = ofTypeTerm x `seq` ofTypeTerm y
       let _b :: LogicRecursiveB -> ()
           _b (LogicRecursiveB x y) = ofTypeTerm x `seq` ofTypeTerm y
+
+      return @IO ()
+
+    it "generates proper exhaustive prisms" $ do
+      let _ =
+            matche'
+              & on' _LogicSimple' return
+              & on' _LogicWithData' (return . ofTypeTerm)
+              & on' (.:?@!) (\(x, y) -> return (ofTypeTerm x `seq` ofTypeTerm y))
+              & enter'
 
       return @IO ()
 

@@ -1,5 +1,6 @@
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeOperators #-}
 
 -- | Automatic generation of logic types.
@@ -18,15 +19,20 @@ module Kanren.TH (
   -- * 'Logical' instances
   makeLogicalInstance,
   makeLogicalInstances,
+
+  -- * Exhaustive prisms
+  makeExhaustivePrisms,
 ) where
 
-import Data.Char (isLower, isUpper, toUpper)
+import Control.Lens (from)
+import Data.Char (isLower, isUpper, toLower, toUpper)
 import Data.Foldable (foldl')
 import GHC.Generics (Generic)
 import Language.Haskell.TH hiding (bang)
 
 import Kanren.Core
 import Kanren.GenericLogical
+import Kanren.Match (ExhaustivePrism, _Tagged)
 
 -- | Generate a logic representation and a corresponding 'Logical' instance for
 -- a given type.
@@ -305,3 +311,153 @@ variableName (KindedTV name _ _) = VarT name
 
 applyVariables :: Name -> [TyVarBndr flag] -> Type
 applyVariables = foldl' (\typ -> AppT typ . variableName) . ConT
+
+-- | Generate 'ExhaustivePrism's for a given (supposedly logic) type.
+--
+-- This function expects that you already have regular prisms in the scope whose
+-- names are constructor names prefixed with @_@ (i.e. you used
+-- 'Control.Lens.TH.makePrisms'). Then, exhaustive prisms will have a prime in
+-- the end (or an exclamation mark for infix constructors).
+--
+-- Consider the following declarations:
+--
+-- > data Tree a
+-- >   = Empty
+-- >   | Leaf a
+-- >   | Tree a :* Tree a
+-- >   deriving (Generic)
+-- > makeLogicType ''Tree
+-- > makePrisms ''LogicTree
+--
+-- @makeExhaustivePrisms ''LogicTree@ yields (sans short tags)
+--
+-- > _LogicEmpty' :: ExhaustivePrism (LogicTree a) (e, l, n) (e', l, n) () e e'
+-- > _LogicEmpty' = from _Tagged . _LogicEmpty . _Tagged
+-- >
+-- > _LogicLeaf' :: ExhaustivePrism (LogicTree a) (e, l, n) (e, l', n) (Term a) l l'
+-- > _LogicLeaf' = from _Tagged . _LogicLeaf . _Tagged
+-- >
+-- > (.:?*!) :: ExhaustivePrism (LogicTree a) (e, l, n) (e, l, n') (Term (Tree a), Term (Tree a)) n n'
+-- > (.:?*!) = from _Tagged . (.:?*) . _Tagged
+makeExhaustivePrisms :: Name -> Q [Dec]
+makeExhaustivePrisms name = do
+  TyConI declaration <- reify name
+  (variables, constructors) <- case declaration of
+    DataD _ _ variables _ constructors _ ->
+      (variables,) <$> normalizeConstructors constructors
+    NewtypeD _ _ variables _ constructor _ ->
+      (variables,) <$> normalizeConstructor constructor
+    other -> fail ("Expected a `data` or `newtype` declaration, but got:\n" <> show other)
+  let tags = makeTags constructors
+  let typ = applyVariables name variables
+  let prismsInfo = focusEach makePrismInfo (zip tags constructors)
+  foldMap (makePrism typ (tagsToType tags)) prismsInfo
+
+data Constructor = Constructor Name [Type]
+
+normalizeConstructor :: Con -> Q [Constructor]
+normalizeConstructor (NormalC name fields) =
+  return [Constructor name (extractBangTypes fields)]
+normalizeConstructor (RecC name fields) =
+  return [Constructor name (extractVarBangTypes fields)]
+normalizeConstructor (InfixC (_, left) name (_, right)) =
+  return [Constructor name [left, right]]
+normalizeConstructor ForallC{} =
+  fail "Generation of exhaustive prisms for existential types is not supported (yet)"
+normalizeConstructor (GadtC names fields _) =
+  return [Constructor name (extractBangTypes fields) | name <- names]
+normalizeConstructor (RecGadtC names fields _) =
+  return [Constructor name (extractVarBangTypes fields) | name <- names]
+
+normalizeConstructors :: [Con] -> Q [Constructor]
+normalizeConstructors = foldMap normalizeConstructor
+
+extractBangTypes :: [BangType] -> [Type]
+extractBangTypes = map snd
+
+extractVarBangTypes :: [VarBangType] -> [Type]
+extractVarBangTypes = map (\(_, _, typ) -> typ)
+
+type Tag = Name
+type Tags = [Tag]
+
+makeTags :: [Constructor] -> Tags
+makeTags = zipWith makeTag [1 ..]
+
+makeTag :: Int -> Constructor -> Tag
+makeTag n (Constructor name _) = mkName $ case nameBase name of
+  "" -> ""
+  firstLetter : rest
+    | isUpper firstLetter -> toLower firstLetter : rest
+    | otherwise -> "op" <> show n
+
+focusEach :: ([a] -> a -> [a] -> b) -> [a] -> [b]
+focusEach = go []
+ where
+  go _ _ [] = []
+  go previous f (current : next) =
+    f previous current next : go (previous ++ [current]) f next
+
+data PrismInfo = PrismInfo
+  { regularPrism :: Name
+  , exhaustivePrism :: Name
+  , m' :: Tags
+  , a :: Type
+  , t :: Tag
+  , t' :: Tag
+  }
+
+makePrismInfo
+  :: [(Tag, Constructor)]
+  -> (Tag, Constructor)
+  -> [(Tag, Constructor)]
+  -> PrismInfo
+makePrismInfo previous (t, Constructor name fields) next =
+  PrismInfo{regularPrism, exhaustivePrism, m', a, t, t'}
+ where
+  regularPrism = mkName $ case nameBase name of
+    "" -> ""
+    name'@(firstLetter : _)
+      | isUpper firstLetter -> '_' : name'
+      | otherwise -> '.' : name'
+
+  exhaustivePrism = addPrime regularPrism
+  previousTags = map fst previous
+  nextTags = map fst next
+  t' = addPrime t
+  m' = previousTags ++ (t' : nextTags)
+  a = fieldsToType fields
+
+addPrime :: Name -> Name
+addPrime name = mkName $ case nameBase name of
+  "" -> ""
+  name'@('.' : _) -> name' <> "!"
+  name' -> name' <> "'"
+
+fieldsToType :: [Type] -> Type
+fieldsToType [x] = x
+fieldsToType fields = foldl' AppT (TupleT (length fields)) fields
+
+tagsToType :: Tags -> Type
+tagsToType = fieldsToType . map VarT
+
+makePrism :: Type -> Type -> PrismInfo -> Q [Dec]
+makePrism ss mm (PrismInfo regularPrism exhaustivePrism mm' aa tt tt') = do
+  let s = return ss
+  let m = return mm
+  let m' = return (tagsToType mm')
+  let a = return aa
+  let t = return (VarT tt)
+  let t' = return (VarT tt')
+
+  prismType <- [t|ExhaustivePrism $s $m $m' $a $t $t'|]
+  prismBody <- makePrismBody regularPrism
+  return
+    [ SigD exhaustivePrism prismType
+    , FunD exhaustivePrism [Clause [] prismBody []]
+    ]
+
+makePrismBody :: Name -> Q Body
+makePrismBody regularPrismName = do
+  let regularPrism = return (VarE regularPrismName)
+  NormalB <$> [e|from _Tagged . $regularPrism . _Tagged|]

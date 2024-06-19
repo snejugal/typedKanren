@@ -56,7 +56,6 @@ module Kanren.LogicalBase (
   _LogicRight',
 ) where
 
-import Control.Lens (from)
 import Control.Lens.TH (makePrisms)
 import Data.Void (Void)
 import GHC.Exts (IsList (..))
@@ -65,8 +64,7 @@ import GHC.Generics (Generic)
 import Control.DeepSeq (NFData)
 import Kanren.Core
 import Kanren.GenericLogical
-import Kanren.Match (ExhaustivePrism, _Tagged)
-import Kanren.TH (makeLogical)
+import Kanren.TH (makeExhaustivePrisms, makeLogical)
 
 instance Logical Int
 instance Logical Char
@@ -74,12 +72,7 @@ instance Logical Void
 
 instance Logical Bool
 makePrisms ''Bool
-
-_False' :: ExhaustivePrism Bool (false, true) (false', true) () false false'
-_False' = from _Tagged . _False . _Tagged
-
-_True' :: ExhaustivePrism Bool (false, true) (false', true) () true true'
-_True' = from _Tagged . _True . _Tagged
+makeExhaustivePrisms ''Bool
 
 instance (Logical a, Logical b) => Logical (a, b) where
   type Logic (a, b) = (Term a, Term b)
@@ -122,36 +115,16 @@ instance IsList (LogicList a) where
   toList (LogicCons x xs) = x : toList xs -- NOTE: toList for (Term [a]) is partial
 
 makePrisms ''LogicList
-
-_LogicNil' :: ExhaustivePrism (LogicList a) (nil, cons) (nil', cons) () nil nil'
-_LogicNil' = from _Tagged . _LogicNil . _Tagged
-
-_LogicCons'
-  :: ExhaustivePrism (LogicList a) (nil, cons) (nil, cons') (Term a, Term [a]) cons cons'
-_LogicCons' = from _Tagged . _LogicCons . _Tagged
+makeExhaustivePrisms ''LogicList
 
 makeLogical ''Maybe
 makePrisms ''LogicMaybe
+makeExhaustivePrisms ''LogicMaybe
 deriving instance (Eq (Logic a)) => Eq (LogicMaybe a)
 deriving instance (Show (Logic a)) => Show (LogicMaybe a)
 
-_LogicNothing'
-  :: ExhaustivePrism (LogicMaybe a) (nothing, just) (nothing', just) () nothing nothing'
-_LogicNothing' = from _Tagged . _LogicNothing . _Tagged
-
-_LogicJust'
-  :: ExhaustivePrism (LogicMaybe a) (nothing, just) (nothing, just') (Term a) just just'
-_LogicJust' = from _Tagged . _LogicJust . _Tagged
-
 makeLogical ''Either
 makePrisms ''LogicEither
+makeExhaustivePrisms ''LogicEither
 deriving instance (Eq (Logic a), Eq (Logic b)) => Eq (LogicEither a b)
 deriving instance (Show (Logic a), Show (Logic b)) => Show (LogicEither a b)
-
-_LogicLeft'
-  :: ExhaustivePrism (LogicEither a b) (left, right) (left', right) (Term a) left left'
-_LogicLeft' = from _Tagged . _LogicLeft . _Tagged
-
-_LogicRight'
-  :: ExhaustivePrism (LogicEither a b) (left, right) (left, right') (Term b) right right'
-_LogicRight' = from _Tagged . _LogicRight . _Tagged
