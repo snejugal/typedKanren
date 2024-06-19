@@ -40,11 +40,15 @@ data RecordGADTLike a where
 
 newtype Newtype a = Newtype {runNewtype :: (a, a)} deriving (Generic)
 
+data RecursiveA = RecursiveA Int RecursiveB deriving (Generic)
+data RecursiveB = RecursiveB Bool RecursiveA deriving (Generic)
+
 makeLogical ''Constructors
 makeLogical ''Record
 makeLogical ''GADTLike
 makeLogical ''RecordGADTLike
 makeLogicType ''Newtype
+makeLogicals [''RecursiveA, ''RecursiveB]
 
 instance Arbitrary Constructors where
   arbitrary =
@@ -77,6 +81,8 @@ spec = do
       let _g (LogicGADTLike x) = ofTypeTerm x
       let _h LogicRecordGADTLike{logicGadtSpam = x} = ofTypeTerm x
       let _n LogicNewtype{logicRunNewtype = x} = ofTypeLogic x
+      let _a (LogicRecursiveA x y) = ofTypeTerm x `seq` ofTypeTerm y
+      let _b (LogicRecursiveB x y) = ofTypeTerm x `seq` ofTypeTerm y
 
       return @IO ()
 
