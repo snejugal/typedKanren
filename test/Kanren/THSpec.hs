@@ -54,7 +54,7 @@ makeLogical ''Record
 makeLogical ''GADTLike
 makeLogical ''RecordGADTLike
 makeLogical ''(^)
-makeLogicType ''Newtype
+makeLogical ''Newtype
 makeLogicals [''RecursiveA, ''RecursiveB]
 
 makePrisms ''LogicConstructors

@@ -66,9 +66,10 @@ import Kanren.Match (ExhaustivePrism, _Tagged)
 -- For details, see 'makeLogicType' and 'makeLogicalInstance'.
 makeLogical :: Name -> Q [Dec]
 makeLogical name = do
-  logicType <- makeLogicTypeWith logicTypeRules name
-  logicalInstance <- makeLogicalInstance name (logicName name)
-  return (logicType <> logicalInstance)
+  TyConI declaration <- reify name
+  logicType <- makeLogicTypeWith' logicTypeRules name declaration
+  logicalInstance <- makeLogicalInstance' name declaration (logicName name) logicType
+  return (logicType : logicalInstance)
  where
   logicTypeRules = defaultLogicTypeRules{derives = [ConT ''Generic]}
 
@@ -117,13 +118,18 @@ makeLogicType = makeLogicTypeWith defaultLogicTypeRules
 -- | 'makeLogicType', but allows configuring how the logical representation is
 -- generated.
 makeLogicTypeWith :: LogicTypeRules -> Name -> Q [Dec]
-makeLogicTypeWith (LogicTypeRules{derives}) name = do
+makeLogicTypeWith rules name = do
   TyConI declaration <- reify name
+  logicType <- makeLogicTypeWith' rules name declaration
+  return [logicType]
+
+makeLogicTypeWith' :: LogicTypeRules -> Name -> Dec -> Q Dec
+makeLogicTypeWith' (LogicTypeRules{derives}) name declaration = do
   let deriv
         | null derives = []
         | otherwise = [DerivClause Nothing derives]
 
-  logicType <- case declaration of
+  case declaration of
     -- data T = A B ==> data LogicT = LogicA (Term B)
     DataD constraints _ variables kind constructors _ -> do
       let name' = logicName name
@@ -135,8 +141,6 @@ makeLogicTypeWith (LogicTypeRules{derives}) name = do
       let constructor' = logicConstructor ''Logic constructor
       return (NewtypeD constraints name' variables kind constructor' deriv)
     other -> fail ("Expected a `data` or `newtype` declaration, but got:\n" <> show other)
-
-  return [logicType]
 
 -- | Generate a logic representation for several types. This works like
 -- 'makeLogicType', but better suits mutually recursive types.
@@ -237,6 +241,10 @@ logicGadt (ParensT typ) = ParensT (logicGadt typ)
 logicGadt (ImplicitParamT param typ) = ImplicitParamT param (logicGadt typ)
 logicGadt other = other -- give up. shouldn't appear in a GADT anyway
 
+data LogicalInstanceTypeInfo
+  = Data
+  | Newtype Name Name
+
 -- | Generate a 'Logical' instance, given a type and its logical representation.
 --
 -- Currently, the instance relies on @"GenericLogical"@, so both types need to
@@ -270,25 +278,52 @@ logicGadt other = other -- give up. shouldn't appear in a GADT anyway
 makeLogicalInstance :: Name -> Name -> Q [Dec]
 makeLogicalInstance name logicTypeName = do
   TyConI declaration <- reify name
-  variables <- case declaration of
-    DataD _ _ variables _ _ _ -> return variables
-    NewtypeD _ _ variables _ _ _ -> return variables
+  TyConI logicDeclaration <- reify logicTypeName
+  makeLogicalInstance' name declaration logicTypeName logicDeclaration
+
+makeLogicalInstance' :: Name -> Dec -> Name -> Dec -> Q [Dec]
+makeLogicalInstance' name declaration logicTypeName logicDeclaration = do
+  (variables, typeInfo) <- case declaration of
+    DataD _ _ variables _ _ _ -> return (variables, Data)
+    NewtypeD _ _ variables _ constructor _ -> do
+      con <- extractConstructorName constructor
+      NewtypeD _ _ _ _ logicC _ <- return logicDeclaration
+      logicCon <- extractConstructorName logicC
+      return (variables, Newtype con logicCon)
     other -> fail ("Expected a `data` or `newtype` declaration, but got:\n" <> show other)
+
   let constraints = logicalConstraints variables
   let typ = applyVariables name variables
   let logicTyp = applyVariables logicTypeName variables
 
   logicTypeFamily <- [d|type instance Logic $(return typ) = $(return logicTyp)|]
-  let methods =
-        [ method 'unify 'genericUnify
-        , method 'walk 'genericWalk
-        , method 'occursCheck 'genericOccursCheck
-        , method 'inject 'genericInject
-        , method 'extract 'genericExtract
-        ]
+  methods <- makeMethods typeInfo
   let body = logicTypeFamily <> methods
   let instanc = InstanceD Nothing constraints (AppT (ConT ''Logical) typ) body
   return [instanc]
+
+makeMethods :: LogicalInstanceTypeInfo -> Q [Dec]
+makeMethods Data =
+  return
+    [ method 'unify 'genericUnify
+    , method 'walk 'genericWalk
+    , method 'occursCheck 'genericOccursCheck
+    , method 'inject 'genericInject
+    , method 'extract 'genericExtract
+    ]
+makeMethods (Newtype con logicCon) =
+  sequenceA
+    [ delegateUnify logicCon
+    , delegateWalk logicCon
+    , delegateOccursCheck logicCon
+    , delegateInject con logicCon
+    , delegateExtract con logicCon
+    ]
+
+extractConstructorName :: Con -> Q Name
+extractConstructorName (NormalC con _) = return con
+extractConstructorName (RecC con _) = return con
+extractConstructorName other = fail ("Strange constructor for a `newtype`:\n" <> show other)
 
 -- | Generate 'Logical' instances, given pairs of a type and its logical
 -- representation. This works like 'makeLogicalInstance', but better suits
@@ -298,6 +333,45 @@ makeLogicalInstances = foldMap (uncurry makeLogicalInstance)
 
 method :: Name -> Name -> Dec
 method name generic = FunD name [Clause [] (NormalB (VarE generic)) []]
+
+delegateUnify :: Name -> Q Dec
+delegateUnify logicCon = do
+  left <- newName "left"
+  right <- newName "right"
+  let leftSide = [ConP logicCon [] [VarP left], ConP logicCon [] [VarP right]]
+  let rightSide = AppE (AppE (VarE 'unify) (VarE left)) (VarE right)
+  return (FunD 'unify [Clause leftSide (NormalB rightSide) []])
+
+delegateWalk :: Name -> Q Dec
+delegateWalk logicCon = do
+  state <- newName "state"
+  inner <- newName "inner"
+  let leftSide = [VarP state, ConP logicCon [] [VarP inner]]
+  let delegated = AppE (AppE (VarE 'walk) (VarE state)) (VarE inner)
+  let rightSide = AppE (ConE logicCon) delegated
+  return (FunD 'walk [Clause leftSide (NormalB rightSide) []])
+
+delegateOccursCheck :: Name -> Q Dec
+delegateOccursCheck logicCon = do
+  variable <- newName "variable"
+  inner <- newName "inner"
+  let leftSide = [VarP variable, ConP logicCon [] [VarP inner]]
+  let rightSide = AppE (AppE (VarE 'occursCheck) (VarE variable)) (VarE inner)
+  return (FunD 'occursCheck [Clause leftSide (NormalB rightSide) []])
+
+delegateInject :: Name -> Name -> Q Dec
+delegateInject con logicCon = do
+  inner <- newName "inner"
+  let leftSide = [ConP con [] [VarP inner]]
+  let rightSide = AppE (ConE logicCon) (AppE (VarE 'inject) (VarE inner))
+  return (FunD 'inject [Clause leftSide (NormalB rightSide) []])
+
+delegateExtract :: Name -> Name -> Q Dec
+delegateExtract con logicCon = do
+  inner <- newName "inner"
+  let leftSide = [ConP logicCon [] [VarP inner]]
+  let rightSide = AppE (AppE (VarE 'fmap) (ConE con)) (AppE (VarE 'extract) (VarE inner))
+  return (FunD 'extract [Clause leftSide (NormalB rightSide) []])
 
 logicalConstraints :: [TyVarBndr flag] -> Cxt
 logicalConstraints = map logicalConstraint
