@@ -11,7 +11,6 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeFamilyDependencies #-}
@@ -25,7 +24,7 @@
 module Kanren.Core (
   -- * Values and terms
   Logical (..),
-  VarId,
+  Var,
   Term (..),
   Atomic (..),
 
