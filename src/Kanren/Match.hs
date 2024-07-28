@@ -250,16 +250,7 @@ module Kanren.Match (
   _Value',
 ) where
 
-import Control.Lens (
-  Iso,
-  Prism,
-  Prism',
-  from,
-  iso,
-  prism',
-  review,
-  reviewing,
- )
+import Control.Lens (Iso, Prism, Prism', from, iso, prism', review, reviewing)
 import Data.Tagged (Tagged (Tagged, unTagged))
 
 import Kanren.Core
@@ -275,23 +266,23 @@ import Kanren.Goal
 -- should just work though since 'Fresh' has instances for tuples, and prisms'
 -- foci are tuples too.
 on
-  :: (Logical a, Fresh v)
-  => Prism' (Logic a) v
+  :: (Logical a, Fresh s v)
+  => Prism' (Logic s a) v
   -- ^ The pattern
-  -> (v -> Goal x)
+  -> (v -> Goal s x)
   -- ^ The handler
-  -> (Term a -> Goal x)
+  -> (Term s a -> Goal s x)
   -- ^ Remaining cases
-  -> Term a
+  -> Term s a
   -- ^ Value being matched
-  -> Goal x
+  -> Goal s x
 on p f g x = disj (g x) $ do
   vars <- fresh
   x === Value (review p vars)
   f vars
 
 -- | Finalize non-exhaustive pattern matching.
-matche :: Term a -> Goal x
+matche :: Term s a -> Goal s x
 matche = const failo
 
 -- | Focus on the logical value inside a term.
@@ -307,12 +298,12 @@ matche = const failo
 --
 -- Hence, we need one more prism between 'LogicalBase._LogicJust' and
 -- 'LogicalBase._LogicLeft' for the types to match. This prism is '_Value'.
-_Value :: Prism' (Term a) (Logic a)
+_Value :: Prism' (Term s a) (Logic s a)
 _Value = prism' Value $ \case
   Value x -> Just x
   Var _ -> Nothing
 
-type Matched m a = Tagged m (Term a)
+type Matched s m a = Tagged m (Term s a)
 
 data Remaining
 data Checked
@@ -334,7 +325,7 @@ type ExhaustivePrism s m m' a t t' =
 
 -- | Begin exhaustive pattern matching by attaching initial tags to the term.
 -- Do keep in mind that these tags do not exist at runtime.
-enter' :: (Matched m a -> Goal x) -> Term a -> Goal x
+enter' :: (Matched s m a -> Goal s x) -> Term s a -> Goal s x
 enter' f = delay . f . Tagged
 
 -- | One case for exhaustive pattern matching.
@@ -345,16 +336,16 @@ enter' f = delay . f . Tagged
 --
 -- @Remaining@ and @Checked@ are private types on purpose.
 on'
-  :: (Logical a, Fresh v)
-  => ExhaustivePrism (Logic a) m m' v Remaining Checked
+  :: (Logical a, Fresh s v)
+  => ExhaustivePrism (Logic s a) m m' v Remaining Checked
   -- ^ The pattern, which also participates in the exhaustiveness check
-  -> (v -> Goal x)
+  -> (v -> Goal s x)
   -- ^ The handler
-  -> (Matched m' a -> Goal x)
+  -> (Matched s m' a -> Goal s x)
   -- ^ Remaining cases
-  -> Matched m a
+  -> Matched s m a
   -- ^ Value being matched
-  -> Goal x
+  -> Goal s x
 on' p f g (Tagged x) = disj (g (Tagged x)) $ do
   vars <- fresh
   let Tagged value = review (reviewing p) (Tagged vars)
@@ -369,7 +360,7 @@ on' p f g (Tagged x) = disj (g (Tagged x)) $ do
 -- > instance Exhaustive Checked
 -- > instance (Exhaustive a, Exhaustive b) => Exhaustive (a, b)
 -- > ...
-matche' :: (Exhausted m) => Matched m a -> Goal x
+matche' :: (Exhausted m) => Matched s m a -> Goal s x
 matche' = const failo
 
 -- | The isomorphism for 'Tagged', useful to implement prisms for exhaustive
@@ -388,5 +379,5 @@ _Tagged = iso Tagged unTagged
 --
 -- This prism serves the same purpose as '_Value', but is adapted for exhaustive
 -- pattern matching.
-_Value' :: ExhaustivePrism (Term a) m m' (Logic a) m m'
+_Value' :: ExhaustivePrism (Term s a) m m' (Logic s a) m m'
 _Value' = from _Tagged . _Value . _Tagged

@@ -75,23 +75,23 @@ makePrisms ''Bool
 makeExhaustivePrisms ''Bool
 
 instance (Logical a, Logical b) => Logical (a, b) where
-  type Logic (a, b) = (Term a, Term b)
+  type Logic s (a, b) = (Term s a, Term s b)
   unify = genericUnify
   walk = genericWalk
   occursCheck = genericOccursCheck
   inject = genericInject
   extract = genericExtract
 
-data LogicList a
+data LogicList s a
   = LogicNil
-  | LogicCons (Term a) (Term [a])
+  | LogicCons (Term s a) (Term s [a])
   deriving (Generic)
-deriving instance (Eq (Logic a)) => Eq (LogicList a)
-deriving instance (NFData (Logic a)) => NFData (LogicList a)
+deriving instance (Eq (Logic s a)) => Eq (LogicList s a)
+deriving instance (NFData (Logic s a)) => NFData (LogicList s a)
 
 -- | This instance tries to print the list as a regular one. In case the tail is
 -- unknown, the list is printed as @[...|_.n]@, like in Prolog.
-instance (Show (Logic a)) => Show (LogicList a) where
+instance (Show (Logic s a)) => Show (LogicList s a) where
   showsPrec _ LogicNil s = "[]" ++ s
   showsPrec _ (LogicCons x xs) s = '[' : shows x (show' xs)
    where
@@ -100,19 +100,19 @@ instance (Show (Logic a)) => Show (LogicList a) where
     show' (Value (LogicCons y ys)) = ',' : shows y (show' ys)
 
 instance (Logical a) => Logical [a] where
-  type Logic [a] = LogicList a
+  type Logic s [a] = LogicList s a
   unify = genericUnify
   walk = genericWalk
   occursCheck = genericOccursCheck
   inject = genericInject
   extract = genericExtract
 
-instance IsList (LogicList a) where
-  type Item (LogicList a) = Term a
+instance IsList (LogicList s a) where
+  type Item (LogicList s a) = Term s a
   fromList [] = LogicNil
   fromList (x : xs) = LogicCons x (Value (fromList xs))
   toList LogicNil = []
-  toList (LogicCons x xs) = x : toList xs -- NOTE: toList for (Term [a]) is partial
+  toList (LogicCons x xs) = x : toList xs -- NOTE: toList for (Term s [a]) is partial
 
 makePrisms ''LogicList
 makeExhaustivePrisms ''LogicList
@@ -120,11 +120,11 @@ makeExhaustivePrisms ''LogicList
 makeLogical ''Maybe
 makePrisms ''LogicMaybe
 makeExhaustivePrisms ''LogicMaybe
-deriving instance (Eq (Logic a)) => Eq (LogicMaybe a)
-deriving instance (Show (Logic a)) => Show (LogicMaybe a)
+deriving instance (Eq (Logic s a)) => Eq (LogicMaybe s a)
+deriving instance (Show (Logic s a)) => Show (LogicMaybe s a)
 
 makeLogical ''Either
 makePrisms ''LogicEither
 makeExhaustivePrisms ''LogicEither
-deriving instance (Eq (Logic a), Eq (Logic b)) => Eq (LogicEither a b)
-deriving instance (Show (Logic a), Show (Logic b)) => Show (LogicEither a b)
+deriving instance (Eq (Logic s a), Eq (Logic s b)) => Eq (LogicEither s a b)
+deriving instance (Show (Logic s a), Show (Logic s b)) => Show (LogicEither s a b)
