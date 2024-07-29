@@ -129,17 +129,17 @@ makeLogicTypeWith' (LogicTypeRules{derives}) name declaration = do
         | null derives = []
         | otherwise = [DerivClause Nothing derives]
 
+  let name' = logicName name
+  s <- newName "s"
   case declaration of
     -- data T = A B ==> data LogicT = LogicA (Term B)
     DataD constraints _ variables kind constructors _ -> do
-      let name' = logicName name
-      let constructors' = logicConstructors ''Term constructors
-      return (DataD constraints name' variables kind constructors' deriv)
+      let constructors' = logicConstructors (AppT (ConT ''Term) (VarT s)) constructors
+      return (DataD constraints name' (addVariable s variables) kind constructors' deriv)
     -- newtype T = A B = newtype LogicT = LogicA (Logic B)
     NewtypeD constraints _ variables kind constructor _ -> do
-      let name' = logicName name
-      let constructor' = logicConstructor ''Logic constructor
-      return (NewtypeD constraints name' variables kind constructor' deriv)
+      let constructor' = logicConstructor (AppT (ConT ''Logic) (VarT s)) constructor
+      return (NewtypeD constraints name' (addVariable s variables) kind constructor' deriv)
     other -> fail ("Expected a `data` or `newtype` declaration, but got:\n" <> show other)
 
 -- | Generate a logic representation for several types. This works like
@@ -168,7 +168,10 @@ logicName name = mkName $ case nameBase name of
 logicNames :: [Name] -> [Name]
 logicNames = map logicName
 
-logicConstructor :: Name -> Con -> Con
+addVariable :: Name -> [TyVarBndr ()] -> [TyVarBndr ()]
+addVariable variable variables = PlainTV variable () : variables
+
+logicConstructor :: Type -> Con -> Con
 -- C Int a ==> LogicC (Term Int) (Term a)
 logicConstructor wrapper (NormalC name fields) =
   NormalC (logicName name) (wrapBangTypes wrapper fields)
@@ -193,23 +196,23 @@ logicConstructor wrapper (GadtC names fields returnType) =
 logicConstructor wrapper (RecGadtC names fields returnType) =
   RecGadtC (logicNames names) (wrapVarBangTypes wrapper fields) (logicGadt returnType)
 
-logicConstructors :: Name -> [Con] -> [Con]
+logicConstructors :: Type -> [Con] -> [Con]
 logicConstructors = map . logicConstructor
 
-wrapType :: Name -> Type -> Type
-wrapType = AppT . ConT
+wrapType :: Type -> Type -> Type
+wrapType = AppT
 
-wrapBangType :: Name -> BangType -> BangType
+wrapBangType :: Type -> BangType -> BangType
 wrapBangType = fmap . wrapType
 
-wrapBangTypes :: Name -> [BangType] -> [BangType]
+wrapBangTypes :: Type -> [BangType] -> [BangType]
 wrapBangTypes = map . wrapBangType
 
-wrapVarBangType :: Name -> VarBangType -> VarBangType
+wrapVarBangType :: Type -> VarBangType -> VarBangType
 wrapVarBangType wrapper (name, bang, typ) =
   (logicName name, bang, wrapType wrapper typ)
 
-wrapVarBangTypes :: Name -> [VarBangType] -> [VarBangType]
+wrapVarBangTypes :: Type -> [VarBangType] -> [VarBangType]
 wrapVarBangTypes = map . wrapVarBangType
 
 logicGadt :: Type -> Type
@@ -294,9 +297,10 @@ makeLogicalInstance' name declaration logicTypeName logicDeclaration = do
 
   let constraints = logicalConstraints variables
   let typ = applyVariables name variables
-  let logicTyp = applyVariables logicTypeName variables
+  s <- newName "s"
+  let logicTyp = applyVariables logicTypeName (addVariable s variables)
 
-  logicTypeFamily <- [d|type instance Logic $(return typ) = $(return logicTyp)|]
+  logicTypeFamily <- [d|type instance Logic $(return (VarT s)) $(return typ) = $(return logicTyp)|]
   methods <- makeMethods typeInfo
   let body = logicTypeFamily <> methods
   let instanc = InstanceD Nothing constraints (AppT (ConT ''Logical) typ) body
