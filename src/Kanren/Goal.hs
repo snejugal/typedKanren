@@ -31,7 +31,7 @@ module Kanren.Goal (
 
 import Control.Applicative (Alternative (..))
 import Control.Monad (ap)
-import Control.Monad.ST.Strict (ST, runST)
+import Control.Monad.ST.Strict (ST)
 import qualified Data.Foldable as Foldable
 
 import Kanren.Core
@@ -136,8 +136,8 @@ instance Alternative (Goal s) where
 --
 -- Note that the retrived solutions might be subject to constraints, but it is
 -- not yet possible to retrieve them.
-run :: (forall s. Fresh s v) => (v -> forall s. Goal s ()) -> [v]
-run f = runST $ do
+run :: (Fresh s v) => (v -> Goal s ()) -> ST s [v]
+run f = do
   initialState <- Core.empty
   let goal = fresh >>= (\vars -> f vars >> pure vars)
   states <- runSTStream (runGoal goal initialState)
