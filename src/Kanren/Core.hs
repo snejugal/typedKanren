@@ -600,7 +600,14 @@ shallowWalk state@State{knownSubst = Subst m} var@(Var MkVar{varId = VarId i, va
       Nothing -> return var
 
 addSubst :: (Logical a) => Var s a -> Term s a -> State s -> ST s (Maybe (State s))
-addSubst MkVar{varId, varScope, varValue} value state@State{knownSubst, scope}
+addSubst var value state =
+  occursCheck' var value state >>= \case
+    True -> return Nothing
+    False -> addSubst' var value state
+
+-- | Actually add the substitution
+addSubst' :: (Logical a) => Var s a -> Term s a -> State s -> ST s (Maybe (State s))
+addSubst' MkVar{varId, varScope, varValue} value state@State{knownSubst, scope}
   | varScope == scope = do
       -- NOTE: if the variable were to participate in a disequality, its
       -- scope would be different and this branch would not be taken
