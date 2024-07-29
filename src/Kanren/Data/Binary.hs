@@ -50,6 +50,8 @@ makeLogical ''Bit
 makePrisms ''LogicBit
 makeExhaustivePrisms ''LogicBit
 
+deriving instance NFData (LogicBit s)
+
 type Binary = [Bit]
 
 instance Num Binary where
