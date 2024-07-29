@@ -55,7 +55,7 @@ import Data.Bifunctor (first)
 import Data.IntMap.Strict (IntMap)
 import qualified Data.IntMap.Strict as IntMap
 import Data.Maybe (fromMaybe)
-import Data.STRef.Strict (STRef, modifySTRef', newSTRef, readSTRef, writeSTRef)
+import Data.STRef (STRef, modifySTRef', newSTRef, readSTRef, writeSTRef)
 import Data.Tagged (Tagged (Tagged, unTagged))
 import GHC.Exts (IsList (..))
 import GHC.Generics (Generic)

@@ -31,7 +31,7 @@ module Kanren.Goal (
 
 import Control.Applicative (Alternative (..))
 import Control.Monad (ap)
-import Control.Monad.ST.Strict (ST)
+import Control.Monad.ST (ST)
 import qualified Data.Foldable as Foldable
 
 import Kanren.Core

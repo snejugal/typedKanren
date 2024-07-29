@@ -8,7 +8,7 @@ module Kanren.Stream (
   interleaveSTStream,
 ) where
 
-import Control.Monad.ST.Strict (ST)
+import Control.Monad.ST (ST)
 import Prelude hiding (take)
 
 data Stream a

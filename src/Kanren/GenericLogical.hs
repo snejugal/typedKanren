@@ -49,7 +49,7 @@ module Kanren.GenericLogical (
   GLogical,
 ) where
 
-import Control.Monad.ST.Strict (ST)
+import Control.Monad.ST (ST)
 import Data.Proxy (Proxy (..))
 import GHC.Generics
 

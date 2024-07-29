@@ -6,7 +6,7 @@ module Kanren.Example.List (example) where
 import Data.Function ((&))
 import Data.Maybe (fromJust)
 
-import Control.Monad.ST.Strict (runST)
+import Control.Monad.ST (runST)
 import Kanren.Core
 import Kanren.Goal
 import Kanren.LogicalBase
