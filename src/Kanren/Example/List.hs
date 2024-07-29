@@ -3,10 +3,10 @@
 
 module Kanren.Example.List (example) where
 
+import Control.Monad.ST (runST)
 import Data.Function ((&))
 import Data.Maybe (fromJust)
 
-import Control.Monad.ST (runST)
 import Kanren.Core
 import Kanren.Goal
 import Kanren.LogicalBase
@@ -39,8 +39,8 @@ partitions xs = runST (fmap reifyBoth <$> partitioned)
 
 example :: IO ()
 example = do
-  putStrLn "listo:"
-  mapM_ putStrLn (runST (map show . take 0 <$> run (listo @Int)))
+  -- putStrLn "listo:"
+  -- mapM_ putStrLn (runST (map show . take 0 <$> run (listo @Int)))
 
   putStrLn "\npartitions [1, 2, 3]:"
   mapM_ print $ partitions [1 :: Int, 2, 3]

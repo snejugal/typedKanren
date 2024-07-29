@@ -15,12 +15,13 @@ module Kanren.Data.Scheme (
   evalo,
 ) where
 
+import Control.DeepSeq
 import Control.Lens.TH (makePrisms)
+import Data.Tagged (Tagged (Tagged))
 import GHC.Exts (IsList, IsString (..))
 import GHC.Generics (Generic)
 import GHC.IsList (IsList (..))
 
-import Control.DeepSeq
 import Kanren.Core
 import Kanren.Goal
 import Kanren.LogicalBase
@@ -76,37 +77,37 @@ instance Normalizable SExpr where
   normalize _ LogicSNil = pure LogicSNil
   normalize f (LogicSCons car cdr) = LogicSCons <$> normalize' f car <*> normalize' f cdr
 
-deriving instance NFData LogicSExpr
+deriving instance NFData (LogicSExpr s)
 
-instance Show LogicSExpr where
-  show (LogicSSymbol (Value (Atomic symbol))) = symbol
+instance Show (LogicSExpr s) where
+  show (LogicSSymbol (Value (Tagged (Atomic symbol)))) = symbol
   show (LogicSSymbol var) = show var
   show LogicSNil = "()"
   show (LogicSCons car cdr) = "(" ++ show car ++ showLogicSList cdr
 
-instance Show LogicValue where
+instance Show (LogicValue s) where
   show (LogicSExpr expr) = show expr
   show (LogicClosure var body env) =
     "#(lambda (" ++ show var ++ ") " ++ show body ++ " " ++ show env ++ ")"
 
-showLogicSList :: Term SExpr -> [Char]
+showLogicSList :: Term s SExpr -> [Char]
 showLogicSList (Value LogicSNil) = ")"
 showLogicSList (Value (LogicSCons car cdr)) = " " ++ show car ++ showLogicSList cdr
 showLogicSList other = " . " ++ show other ++ ")"
 
-applyo :: Term SExpr -> Term SExpr -> Term SExpr -> Goal ()
+applyo :: Term s SExpr -> Term s SExpr -> Term s SExpr -> Goal s ()
 applyo f x expr = expr === Value (LogicSCons f (Value (LogicSCons x (Value LogicSNil))))
 
-lambda :: Term Symbol
+lambda :: Term s Symbol
 lambda = inject' (Atomic "lambda")
 
-quote :: Term Symbol
+quote :: Term s Symbol
 quote = inject' (Atomic "quote")
 
-list :: Term Symbol
+list :: Term s Symbol
 list = inject' (Atomic "list")
 
-lambdao :: Term Symbol -> Term SExpr -> Term SExpr -> Goal ()
+lambdao :: Term s Symbol -> Term s SExpr -> Term s SExpr -> Goal s ()
 lambdao x body expr =
   expr
     === Value
@@ -122,7 +123,7 @@ lambdao x body expr =
  where
   parameter = Value (LogicSCons (Value (LogicSSymbol x)) (Value LogicSNil))
 
-quoteo :: Term SExpr -> Term SExpr -> Goal ()
+quoteo :: Term s SExpr -> Term s SExpr -> Goal s ()
 quoteo value expr =
   expr
     === Value
@@ -131,11 +132,11 @@ quoteo value expr =
           (Value (LogicSCons value (Value LogicSNil)))
       )
 
-listo :: Term SExpr -> Term SExpr -> Goal ()
+listo :: Term s SExpr -> Term s SExpr -> Goal s ()
 listo exprs expr =
   expr === Value (LogicSCons (Value (LogicSSymbol list)) exprs)
 
-lookupo :: Term Symbol -> Term Env -> Term Value -> Goal ()
+lookupo :: Term s Symbol -> Term s Env -> Term s Value -> Goal s ()
 lookupo expectedVar env returnValue = do
   (var, value, rest) <- fresh
   env === Value (LogicCons (Value (var, value)) rest)
@@ -148,7 +149,7 @@ lookupo expectedVar env returnValue = do
         lookupo expectedVar rest returnValue
     ]
 
-notInEnvo :: Term Symbol -> Term Env -> Goal ()
+notInEnvo :: Term s Symbol -> Term s Env -> Goal s ()
 notInEnvo var env =
   disjMany
     [ do
@@ -160,7 +161,7 @@ notInEnvo var env =
         env === inject' []
     ]
 
-properListo :: Term SExpr -> Term Env -> Term SExpr -> Goal ()
+properListo :: Term s SExpr -> Term s Env -> Term s SExpr -> Goal s ()
 properListo exprs env value =
   disjMany
     [ do
@@ -174,7 +175,7 @@ properListo exprs env value =
         properListo cdr env cdr'
     ]
 
-evalo :: Term SExpr -> Term Env -> Term Value -> Goal ()
+evalo :: Term s SExpr -> Term s Env -> Term s Value -> Goal s ()
 evalo expr env value =
   disjMany
     [ do
