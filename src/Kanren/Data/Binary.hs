@@ -678,16 +678,16 @@ logo n b q r =
 example :: IO ()
 example = do
   putStrLn "addo 3 5 x:"
-  mapM_ print $ runST (fmap extract' <$> run (addo (inject' 3) (inject' 5)))
+  mapM_ print $ runST (fmap extract' <$> run' (addo (inject' 3) (inject' 5)))
 
   putStrLn "\nmulo 3 4 x:"
-  mapM_ print $ runST (fmap extract' <$> run (mulo (inject' 3) (inject' 4)))
+  mapM_ print $ runST (fmap extract' <$> run' (mulo (inject' 3) (inject' 4)))
 
   putStrLn "\ndivo 15 4 q r:"
-  mapM_ print $ runST (fmap (bimap extract' extract') <$> run (uncurry (divo (inject' 15) (inject' 4))))
+  mapM_ print $ runST (fmap (bimap extract' extract') <$> run' (uncurry (divo (inject' 15) (inject' 4))))
 
   let exps =
-        [ (b, p, runST (fmap extract' <$> run (\n -> logo n (inject' (fromInteger b)) (inject' (fromInteger p)) (inject' 0))))
+        [ (b, p, runST (fmap extract' <$> run' (\n -> logo n (inject' (fromInteger b)) (inject' (fromInteger p)) (inject' 0))))
         | b <- [1 .. 3]
         , p <- [1 .. 6]
         ]

@@ -76,16 +76,16 @@ natToInto nat int =
 example :: IO ()
 example = do
   putStrLn "eithero:"
-  mapM_ putStrLn $ runST (map show <$> run (eithero @Int @Bool))
+  mapM_ putStrLn $ runST (map show <$> run' (eithero @Int @Bool))
 
   putStrLn "\neithero':"
-  mapM_ putStrLn $ runST (map show <$> run (eithero' @Int @Bool))
+  mapM_ putStrLn $ runST (map show <$> run' (eithero' @Int @Bool))
 
   putStrLn "\nnestedo:"
-  mapM_ print $ runST (fmap extract' <$> run nestedo)
+  mapM_ print $ runST (fmap extract' <$> run' nestedo)
 
   putStrLn "\nnestedo':"
-  mapM_ print $ runST (fmap extract' <$> run nestedo')
+  mapM_ print $ runST (fmap extract' <$> run' nestedo')
 
   putStrLn "\nnatToInto:"
-  mapM_ print $ runST (fmap (bimap extract' extract') <$> run (uncurry natToInto))
+  mapM_ print $ runST (fmap (bimap extract' extract') <$> run' (uncurry natToInto))

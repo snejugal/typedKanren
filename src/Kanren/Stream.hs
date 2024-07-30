@@ -5,9 +5,11 @@ module Kanren.Stream (
   maybeToStream,
   interleave,
   toList,
+  take,
 ) where
 
 import Data.Functor ((<&>))
+import Prelude hiding (take)
 
 data StreamT m a
   = Done
@@ -53,3 +55,11 @@ toList f (Yield x xs) = do
   return (x' : xs')
 toList f (Await xs) = xs >>= toList f
 toList f (M xs) = xs >>= toList f
+
+take :: (Functor m) => Int -> StreamT m a -> StreamT m a
+take n _ | n <= 0 = Done
+take _ Done = Done
+take _ (Only x) = Only x
+take n (Yield x xs) = Yield x (take (n - 1) <$> xs)
+take n (Await xs) = Await (take n <$> xs)
+take n (M xs) = M (take n <$> xs)

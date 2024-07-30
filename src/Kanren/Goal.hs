@@ -10,6 +10,7 @@ module Kanren.Goal (
   -- * The Goal monad
   Goal,
   run,
+  run',
 
   -- * Primitive operations
   successo,
@@ -35,7 +36,8 @@ import Control.Monad.ST (ST)
 
 import Kanren.Core
 import qualified Kanren.Core as Core
-import Kanren.Stream
+import Kanren.Stream (StreamT (..), interleave, maybeToStream)
+import qualified Kanren.Stream as Stream
 
 infix 4 ===, =/=
 infixr 3 `conj`
@@ -133,12 +135,18 @@ instance Alternative (Goal s) where
 --
 -- Note that the retrived solutions might be subject to constraints, but it is
 -- not yet possible to retrieve them.
-run :: (Fresh s v) => (v -> Goal s ()) -> ST s [v]
-run f = do
+run :: (Fresh s v) => Int -> (v -> Goal s ()) -> ST s [v]
+run n = run'' (Stream.take n)
+
+run' :: (Fresh s v) => (v -> Goal s ()) -> ST s [v]
+run' = run'' id
+
+run'' :: (Fresh s v) => (forall a. StreamT (ST s) a -> StreamT (ST s) a) -> (v -> Goal s ()) -> ST s [v]
+run'' cutStream f = do
   initialState <- Core.empty
   let goal = fresh >>= (\vars -> f vars >> pure vars)
-  let states = runGoal goal initialState
-  toList (uncurry resolve) states
+  let states = cutStream (runGoal goal initialState)
+  Stream.toList (uncurry resolve) states
 
 -- | A goal that always succeeds.
 --

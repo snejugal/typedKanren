@@ -38,7 +38,7 @@ whnfGoalOnce :: (Fresh RealWorld v, NFData v) => (a -> v -> Goal RealWorld ()) -
 whnfGoalOnce = whnfGoalN 1
 
 whnfGoalN :: (Fresh RealWorld v, NFData v) => Int -> (a -> v -> Goal RealWorld ()) -> a -> Benchmarkable
-whnfGoalN n f = nfAppIO $ \x -> take n <$> stToIO (run (f x))
+whnfGoalN n f = nfAppIO $ \x -> stToIO (run n (f x))
 
 main :: IO ()
 main =
@@ -54,19 +54,19 @@ main =
         | p <- [0 .. 5 :: Int]
         , let n = 3 ^ p :: Int
         ]
-        -- , bgroup
-        --     "N quines "
-        --     [ bench (" N=" <> show n) $ whnfGoalN n quineo ()
-        --     | n <- [1, 100 :: Int]
-        --     ]
-        -- , bgroup
-        --     "N twines "
-        --     [ bench (" N=" <> show n) $ whnfGoalN n twineo ()
-        --     | n <- [1, 15 :: Int]
-        --     ]
-        -- , bgroup
-        --     "N thrines "
-        --     [ bench (" N=" <> show n) $ whnfGoalN n thrineo ()
-        --     | n <- [1, 2 :: Int]
-        --     ]
+    , bgroup
+        "N quines "
+        [ bench (" N=" <> show n) $ whnfGoalN n quineo ()
+        | n <- [1, 100 :: Int]
+        ]
+    , bgroup
+        "N twines "
+        [ bench (" N=" <> show n) $ whnfGoalN n twineo ()
+        | n <- [1, 15 :: Int]
+        ]
+    , bgroup
+        "N thrines "
+        [ bench (" N=" <> show n) $ whnfGoalN n thrineo ()
+        | n <- [1, 2 :: Int]
+        ]
     ]

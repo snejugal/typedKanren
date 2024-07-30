@@ -31,7 +31,7 @@ appendo xs ys zs = xs & (matche
 partitions :: (Logical a) => [a] -> [([a], [a])]
 partitions xs = runST (fmap reifyBoth <$> partitioned)
  where
-  partitioned = run $ \(left, right) -> do
+  partitioned = run' $ \(left, right) -> do
     appendo left right (inject' xs)
 
   reifyBoth (a, b) = (reify a, reify b)
@@ -39,8 +39,8 @@ partitions xs = runST (fmap reifyBoth <$> partitioned)
 
 example :: IO ()
 example = do
-  -- putStrLn "listo:"
-  -- mapM_ putStrLn (runST (map show . take 0 <$> run (listo @Int)))
+  putStrLn "listo:"
+  mapM_ putStrLn (runST (map show <$> run 5 (listo @Int)))
 
   putStrLn "\npartitions [1, 2, 3]:"
   mapM_ print $ partitions [1 :: Int, 2, 3]

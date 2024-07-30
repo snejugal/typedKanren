@@ -64,8 +64,8 @@ exampleTree =
 
 example :: IO ()
 example = do
-  -- putStrLn "trees:"
-  -- mapM_ print $ runST (fmap extract' . take 10 <$> run treeo)
+  putStrLn "trees:"
+  mapM_ print $ runST (fmap extract' <$> run 10 treeo)
 
   putStrLn "\ninverto example:"
-  mapM_ print $ runST (fmap extract' <$> run (inverto (inject' exampleTree)))
+  mapM_ print $ runST (fmap extract' <$> run' (inverto (inject' exampleTree)))
