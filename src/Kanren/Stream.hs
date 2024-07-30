@@ -1,74 +1,55 @@
-{-# LANGUAGE DeriveTraversable #-}
+{-# LANGUAGE DeriveFunctor #-}
 
 module Kanren.Stream (
-  Stream (..),
+  StreamT (..),
   maybeToStream,
   interleave,
-  STStream (..),
-  interleaveSTStream,
+  toList,
 ) where
 
-import Control.Monad.ST (ST)
-import Prelude hiding (take)
+import Data.Functor ((<&>))
 
-data Stream a
+data StreamT m a
   = Done
   | Only a
-  | Yield a (Stream a)
-  | Await (Stream a)
-  deriving (Functor, Foldable, Traversable)
+  | Yield a (m (StreamT m a))
+  | Await (m (StreamT m a))
+  | M (m (StreamT m a))
+  deriving (Functor)
 
-instance (Show a) => Show (Stream a) where
-  show ys = "[" ++ show' ys
-   where
-    show' Done = "]"
-    show' (Only x) = show x ++ "]"
-    show' (Yield x xs@(Yield _ _)) = show x ++ ", " ++ show' xs
-    show' (Yield x xs) = show x ++ show' xs
-    show' (Await xs) = show xs -- FIXME: demonstrate the use of Await
-
-instance Applicative Stream where
+instance (Applicative m) => Applicative (StreamT m) where
   pure = Only
 
   Done <*> _ = Done
   Only f <*> xs = fmap f xs
-  Yield f fs <*> xs = interleave (fmap f xs) (fs <*> xs)
-  Await fs <*> xs = Await (fs <*> xs)
+  Yield f fs <*> xs = M (fs <&> (interleave (fmap f xs) . (<*> xs)))
+  Await fs <*> xs = Await (fs <&> (<*> xs))
+  M fs <*> xs = M (fs <&> (<*> xs))
 
-instance Monad Stream where
+instance (Monad m) => Monad (StreamT m) where
   Done >>= _ = Done
   Only x >>= f = f x
-  Yield x xs >>= f = interleave (f x) (xs >>= f)
-  Await xs >>= f = Await (xs >>= f)
+  Yield x xs >>= f = M (xs <&> (interleave (f x) . (>>= f)))
+  Await xs >>= f = Await (xs <&> (>>= f))
+  M xs >>= f = M (xs <&> (>>= f))
 
-maybeToStream :: Maybe a -> Stream a
+maybeToStream :: Maybe a -> StreamT m a
 maybeToStream Nothing = Done
-maybeToStream (Just x) = pure x
+maybeToStream (Just x) = Only x
 
-interleave :: Stream a -> Stream a -> Stream a
+interleave :: (Applicative m) => StreamT m a -> StreamT m a -> StreamT m a
 interleave Done ys = ys
-interleave (Only x) ys = Yield x ys
-interleave (Yield x xs) ys = Yield x (interleave ys xs)
-interleave (Await xs) ys = Await (interleave ys xs)
+interleave (Only x) ys = Yield x (pure ys)
+interleave (Yield x xs) ys = Yield x (interleave ys <$> xs)
+interleave (Await xs) ys = Await (interleave ys <$> xs)
+interleave (M xs) ys = M (xs <&> (`interleave` ys))
 
-newtype STStream s a = STStream {runSTStream :: ST s (Stream a)}
-  deriving (Functor)
-
-instance Applicative (STStream s) where
-  pure = STStream . pure . pure
-
-  STStream left <*> STStream right = STStream $ do
-    left' <- left
-    right' <- right
-    return (left' <*> right')
-
-instance Monad (STStream s) where
-  (STStream stream) >>= f = STStream (stream >>= go)
-   where
-    go Done = return Done
-    go (Only x) = runSTStream (f x)
-    go (Yield x xs) = interleave <$> runSTStream (f x) <*> go xs
-    go (Await xs) = Await <$> go xs
-
-interleaveSTStream :: STStream s a -> STStream s a -> STStream s a
-interleaveSTStream (STStream left) (STStream right) = STStream (interleave <$> left <*> right)
+toList :: (Monad m) => (a -> m b) -> StreamT m a -> m [b]
+toList _ Done = pure []
+toList f (Only x) = f x <&> (: [])
+toList f (Yield x xs) = do
+  x' <- f x
+  xs' <- xs >>= toList f
+  return (x' : xs')
+toList f (Await xs) = xs >>= toList f
+toList f (M xs) = xs >>= toList f

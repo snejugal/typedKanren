@@ -32,7 +32,6 @@ module Kanren.Goal (
 import Control.Applicative (Alternative (..))
 import Control.Monad (ap)
 import Control.Monad.ST (ST)
-import qualified Data.Foldable as Foldable
 
 import Kanren.Core
 import qualified Kanren.Core as Core
@@ -78,13 +77,13 @@ infixr 2 `disj`
 --
 -- >>> run (\x -> noto (Value False) x)
 -- [Value True]
-newtype Goal s x = Goal {runGoal :: State s -> STStream s (State s, x)}
+newtype Goal s x = Goal {runGoal :: State s -> StreamT (ST s) (State s, x)}
 
 instance Functor (Goal s) where
   fmap f (Goal g) = Goal (fmap (fmap (fmap f)) g)
 
 instance Applicative (Goal s) where
-  pure x = Goal (\s -> pure (s, x))
+  pure x = Goal (pure . (,x))
   (<*>) = ap
 
 instance Monad (Goal s) where
@@ -95,15 +94,13 @@ instance Monad (Goal s) where
     runGoal (f x) s'
 
 unsafeDisjunction :: Goal s x -> Goal s x -> Goal s x
-unsafeDisjunction (Goal g1) (Goal g2) = Goal (\state -> g1 state `interleaveSTStream` g2 state)
+unsafeDisjunction (Goal g1) (Goal g2) = Goal (\state -> g1 state `interleave` g2 state)
 
 newGoalScope :: Goal s x -> Goal s x
-newGoalScope (Goal g) = Goal $ \state -> STStream $ do
-  state' <- newScope state
-  runSTStream (g state')
+newGoalScope (Goal g) = Goal $ \state -> M (g <$> newScope state)
 
 delay :: Goal s a -> Goal s a
-delay (Goal g) = Goal (STStream . fmap Await . runSTStream . g)
+delay (Goal g) = Goal (Await . pure . g)
 
 instance Alternative (Goal s) where
   empty = failo
@@ -140,9 +137,8 @@ run :: (Fresh s v) => (v -> Goal s ()) -> ST s [v]
 run f = do
   initialState <- Core.empty
   let goal = fresh >>= (\vars -> f vars >> pure vars)
-  states <- runSTStream (runGoal goal initialState)
-  solutions <- traverse (uncurry resolve) states
-  return (Foldable.toList solutions)
+  let states = runGoal goal initialState
+  toList (uncurry resolve) states
 
 -- | A goal that always succeeds.
 --
@@ -156,7 +152,7 @@ successo = pure
 -- >>> run (\() -> failo)
 -- []
 failo :: Goal s x
-failo = Goal (const (STStream (return Done)))
+failo = Goal (const Done)
 
 -- | Unify two terms.
 --
@@ -166,8 +162,7 @@ failo = Goal (const (STStream (return Done)))
 -- []
 (===) :: (Logical a) => Term s a -> Term s a -> Goal s ()
 a === b = Goal $ \state ->
-  STStream $
-    fmap (,()) . maybeToStream <$> unify' a b state
+  M (fmap (,()) . maybeToStream <$> unify' a b state)
 
 -- (maybeToStream <$> fmap (,()) . unify' a b)
 --   where
@@ -183,8 +178,7 @@ a === b = Goal $ \state ->
 -- It is not yet possible to retrieve solutions along with remaining constraints.
 (=/=) :: (Logical a) => Term s a -> Term s a -> Goal s ()
 a =/= b = Goal $ \state ->
-  STStream $
-    fmap (,()) . maybeToStream <$> disequality a b state
+  M (fmap (,()) . maybeToStream <$> disequality a b state)
 
 -- | Perform conjnction of two goals. If the first goal succeeds, run the second
 -- goal on its results.
@@ -326,7 +320,7 @@ instance Fresh s () where
 -- | 'makeVariable' in the form of 'Goal'. Does not insert an 'Await' point,
 -- while 'fresh' inserts a single point before creating all its variables.
 fresh' :: Goal s (Term s a)
-fresh' = Goal $ \state -> STStream (return <$> makeVariable state)
+fresh' = Goal $ \state -> M (pure <$> makeVariable state)
 
 instance (Logical a) => Fresh s (Term s a) where
   fresh = delay fresh'

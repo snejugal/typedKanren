@@ -232,15 +232,13 @@ data Var s a = MkVar
   , varValue :: !(STRef s (Maybe (Term s a)))
   -- ^ Value of the variable, if set-var-val was applied
   }
+  deriving (Generic, NFData)
 
 instance Eq (Var s a) where
   MkVar i _ _ == MkVar j _ _ = i == j
 
 instance Show (Var s a) where
   show (MkVar varId _ _) = show varId
-
-instance NFData (Var s a) where
-  rnf (MkVar varId scope value) = rnf varId `seq` rnf scope `seq` rnf value
 
 -- | A logical value for type @a@, or a variable.
 --
