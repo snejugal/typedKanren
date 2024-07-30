@@ -99,10 +99,10 @@ instance (GLogical s f f', GLogical s g g') => GLogical s (f :*: g) (f' :*: g') 
       Nothing -> return Nothing
       Just state' -> gunify (Proxy @g) y1 y2 state'
   gwalk _ k (x :*: y) = (:*:) <$> gwalk (Proxy @f) k x <*> gwalk (Proxy @g) k y
-  goccursCheck _ varId (x :*: y) state = do
-    occursX <- goccursCheck (Proxy @f) varId x state
-    occursY <- goccursCheck (Proxy @g) varId y state
-    return (occursX || occursY)
+  goccursCheck _ varId (x :*: y) state =
+    goccursCheck (Proxy @f) varId x state >>= \case
+      True -> return True
+      False -> goccursCheck (Proxy @g) varId y state
   ginject _ (x :*: y) = ginject (Proxy @s) x :*: ginject (Proxy @s) y
   gextract _ (x :*: y) = do
     x' <- gextract (Proxy @s) x
