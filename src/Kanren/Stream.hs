@@ -1,4 +1,5 @@
 {-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE LambdaCase #-}
 
 module Kanren.Stream (
   StreamT (..),
@@ -8,6 +9,7 @@ module Kanren.Stream (
   take,
 ) where
 
+import Control.Monad (ap)
 import Data.Functor ((<&>))
 import Prelude hiding (take)
 
@@ -19,21 +21,22 @@ data StreamT m a
   | M (m (StreamT m a))
   deriving (Functor)
 
-instance (Applicative m) => Applicative (StreamT m) where
+instance (Monad m) => Applicative (StreamT m) where
   pure = Only
-
-  Done <*> _ = Done
-  Only f <*> xs = fmap f xs
-  Yield f fs <*> xs = M (fs <&> (interleave (fmap f xs) . (<*> xs)))
-  Await fs <*> xs = Await (fs <&> (<*> xs))
-  M fs <*> xs = M (fs <&> (<*> xs))
+  (<*>) = ap
 
 instance (Monad m) => Monad (StreamT m) where
   Done >>= _ = Done
   Only x >>= f = f x
-  Yield x xs >>= f = M (xs <&> (interleave (f x) . (>>= f)))
-  Await xs >>= f = Await (xs <&> (>>= f))
-  M xs >>= f = M (xs <&> (>>= f))
+  Yield x xs >>= f = M (reduceM (xs <&> (interleave (f x) . (>>= f))))
+  Await xs >>= f = Await (reduceM (xs <&> (>>= f)))
+  M xs >>= f = M (reduceM (xs <&> (>>= f)))
+
+reduceM :: (Monad m) => m (StreamT m a) -> m (StreamT m a)
+reduceM xs =
+  xs >>= \case
+    M inner -> inner
+    other -> return other
 
 maybeToStream :: Maybe a -> StreamT m a
 maybeToStream Nothing = Done
