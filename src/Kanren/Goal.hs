@@ -27,7 +27,8 @@ module Kanren.Goal (
   (=/=),
 
   -- * Fresh variables
-  Fresh (..),
+  Fresh,
+  fresh,
 ) where
 
 import Control.Applicative (Alternative (..))
@@ -315,90 +316,82 @@ conde = disjMany . map conjMany
 -- when the matched value is not known yet.
 class Fresh s v where
   -- | Create fresh variables.
-  fresh :: Goal s v
+  fresh' :: State s -> ST s (State s, v)
 
-  -- | Resolve each variable to its value in the given state. You won't need to
-  -- use this method yourself, but 'run' uses it to return solutions.
+  -- | Resolve each variable to its value in the given state.
   resolve :: State s -> v -> ST s v
 
+fresh :: (Fresh s v) => Goal s v
+fresh = Goal (Await . fmap pure . fresh')
+
 instance Fresh s () where
-  fresh = delay (return ())
+  fresh' state = pure (state, ())
   resolve _ () = return ()
 
--- | 'makeVariable' in the form of 'Goal'. Does not insert an 'Await' point,
--- while 'fresh' inserts a single point before creating all its variables.
-fresh' :: Goal s (Term s a)
-fresh' = Goal $ \state -> M (pure <$> makeVariable state)
+-- -- | 'makeVariable' in the form of 'Goal'. Does not insert an 'Await' point,
+-- -- while 'fresh' inserts a single point before creating all its variables.
+-- fresh' :: Goal s (Term s a)
+-- fresh' = Goal $ \state -> M (pure <$> makeVariable state)
 
 instance (Logical a) => Fresh s (Term s a) where
-  fresh = delay fresh'
+  fresh' = makeVariable
   resolve = walk'
 
-instance (Logical a, Fresh s v) => Fresh s (Term s a, v) where
-  fresh = do
-    v <- fresh
-    a <- fresh'
-    pure (a, v)
-  resolve state (a, v) = do
-    a' <- resolve state a
-    v' <- resolve state v
-    return (a', v')
-
-instance (Logical a, Logical b, Fresh s v) => Fresh s (Term s a, Term s b, v) where
-  fresh = do
-    (b, v) <- fresh
-    a <- fresh'
-    pure (a, b, v)
-  resolve state (a, b, v) = do
+instance (Fresh s a, Fresh s b) => Fresh s (a, b) where
+  fresh' state = do
+    (state', a) <- fresh' state
+    (state'', b) <- fresh' state'
+    pure (state'', (a, b))
+  resolve state (a, b) = do
     a' <- resolve state a
     b' <- resolve state b
-    v' <- resolve state v
-    return (a', b', v')
+    return (a', b')
 
-instance
-  (Logical a, Logical b, Logical c, Fresh s v)
-  => Fresh s (Term s a, Term s b, Term s c, v)
-  where
-  fresh = do
-    (b, c, v) <- fresh
-    a <- fresh'
-    pure (a, b, c, v)
-  resolve state (a, b, c, v) = do
+instance (Fresh s a, Fresh s b, Fresh s c) => Fresh s (a, b, c) where
+  fresh' state = do
+    (state', a) <- fresh' state
+    (state'', (b, c)) <- fresh' state'
+    pure (state'', (a, b, c))
+  resolve state (a, b, c) = do
     a' <- resolve state a
-    b' <- resolve state b
-    c' <- resolve state c
-    v' <- resolve state v
-    return (a', b', c', v')
+    (b', c') <- resolve state (b, c)
+    return (a', b', c')
 
 instance
-  (Logical a, Logical b, Logical c, Logical d, Fresh s v)
-  => Fresh s (Term s a, Term s b, Term s c, Term s d, v)
+  (Fresh s a, Fresh s b, Fresh s c, Fresh s d)
+  => Fresh s (a, b, c, d)
   where
-  fresh = do
-    (b, c, d, v) <- fresh
-    a <- fresh'
-    pure (a, b, c, d, v)
-  resolve state (a, b, c, d, v) = do
+  fresh' state = do
+    (state', a) <- fresh' state
+    (state'', (b, c, d)) <- fresh' state'
+    pure (state'', (a, b, c, d))
+  resolve state (a, b, c, d) = do
     a' <- resolve state a
-    b' <- resolve state b
-    c' <- resolve state c
-    d' <- resolve state d
-    v' <- resolve state v
-    return (a', b', c', d', v')
+    (b', c', d') <- resolve state (b, c, d)
+    return (a', b', c', d')
 
 instance
-  (Logical a, Logical b, Logical c, Logical d, Logical e, Fresh s v)
-  => Fresh s (Term s a, Term s b, Term s c, Term s d, Term s e, v)
+  (Fresh s a, Fresh s b, Fresh s c, Fresh s d, Fresh s e)
+  => Fresh s (a, b, c, d, e)
   where
-  fresh = do
-    (b, c, d, e, v) <- fresh
-    a <- fresh'
-    pure (a, b, c, d, e, v)
-  resolve state (a, b, c, d, e, v) = do
+  fresh' state = do
+    (state', a) <- fresh' state
+    (state'', (b, c, d, e)) <- fresh' state'
+    pure (state'', (a, b, c, d, e))
+  resolve state (a, b, c, d, e) = do
     a' <- resolve state a
-    b' <- resolve state b
-    c' <- resolve state c
-    d' <- resolve state d
-    e' <- resolve state e
-    v' <- resolve state v
-    return (a', b', c', d', e', v')
+    (b', c', d', e') <- resolve state (b, c, d, e)
+    return (a', b', c', d', e')
+
+instance
+  (Fresh s a, Fresh s b, Fresh s c, Fresh s d, Fresh s e, Fresh s f)
+  => Fresh s (a, b, c, d, e, f)
+  where
+  fresh' state = do
+    (state', a) <- fresh' state
+    (state'', (b, c, d, e, f)) <- fresh' state'
+    pure (state'', (a, b, c, d, e, f))
+  resolve state (a, b, c, d, e, f) = do
+    a' <- resolve state a
+    (b', c', d', e', f') <- resolve state (b, c, d, e, f)
+    return (a', b', c', d', e', f')
