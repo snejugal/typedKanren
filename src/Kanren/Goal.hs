@@ -99,8 +99,8 @@ instance Monad (Goal s) where
 unsafeDisjunction :: Goal s x -> Goal s x -> Goal s x
 unsafeDisjunction (Goal g1) (Goal g2) = Goal (\state -> g1 state `interleave` g2 state)
 
-newGoalScope :: Goal s x -> Goal s x
-newGoalScope (Goal g) = Goal $ \state -> M (g <$> newScope state)
+delayWithNewScope :: Goal s x -> Goal s x
+delayWithNewScope (Goal g) = Goal $ \state -> Await (g <$> newScope state)
 
 delay :: Goal s a -> Goal s a
 delay (Goal g) = Goal (Await . pure . g)
@@ -229,14 +229,18 @@ conjMany = foldr conj (pure ())
 -- >>> run (\(x, y) -> x === Value (42 :: Int) `disj` y === Value True)
 -- [(42,_.0),(_.1,True)]
 disj :: Goal s x -> Goal s x -> Goal s x
-disj left right = delay (newGoalScope (unsafeDisjunction left right))
+disj left right = delayWithNewScope (unsafeDisjunction left right)
 
 -- | Perform disjunction of several goals, left to right.
 --
 -- >>> run (\x -> disjMany (map (\a -> x === Value a) [1, 3 .. 11 :: Int]))
 -- [1,3,5,7,9,11]
 disjMany :: [Goal s x] -> Goal s x
-disjMany = delay . newGoalScope . foldr unsafeDisjunction failo
+disjMany = delayWithNewScope . go
+ where
+  go [] = failo
+  go [x] = x
+  go (x : xs@(_ : _)) = unsafeDisjunction x (go xs)
 
 -- | Consider several possible cases, using syntax similar to @conde@ from
 -- @faster-minikanren@.
