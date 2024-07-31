@@ -225,11 +225,11 @@ initialScope :: Scope
 initialScope = Scope 1
 
 data Var s a = MkVar
-  { varId :: !(VarId a)
+  { varId :: {-# UNPACK #-} !(VarId a)
   -- ^ Variable ID
-  , varScope :: !Scope
+  , varScope :: {-# UNPACK #-} !Scope
   -- ^ Scope in which the variable was created
-  , varValue :: !(STRef s (Maybe (Term s a)))
+  , varValue :: {-# UNPACK #-} !(STRef s (Maybe (Term s a)))
   -- ^ Value of the variable, if set-var-val was applied
   }
   deriving (Generic, NFData)
@@ -592,7 +592,11 @@ shallowWalk _ (Value v) = return (Value v)
 shallowWalk state@State{knownSubst = Subst m} var@(Var MkVar{varId = VarId i, varValue}) = do
   varValue' <- readSTRef varValue
   case varValue' of
-    Just v -> shallowWalk state v
+    Just (Value v) -> return (Value v)
+    Just var'@Var{} -> do
+      result <- shallowWalk state var' 
+      writeSTRef varValue (Just result) -- path compression
+      return result
     Nothing -> case IntMap.lookup i m of
       Just v -> shallowWalk state (unsafeReconstructTerm v)
       Nothing -> return var
