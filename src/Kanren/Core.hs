@@ -589,17 +589,20 @@ makeVariable state@State{maxVarId, scope} = do
 
 shallowWalk :: (Logical a) => State s -> Term s a -> ST s (Term s a)
 shallowWalk _ (Value v) = return (Value v)
-shallowWalk state@State{knownSubst = Subst m} var@(Var MkVar{varId = VarId i, varValue}) = do
-  varValue' <- readSTRef varValue
-  case varValue' of
-    Just (Value v) -> return (Value v)
-    Just var'@Var{} -> do
-      result <- shallowWalk state var' 
-      writeSTRef varValue (Just result) -- path compression
-      return result
-    Nothing -> case IntMap.lookup i m of
-      Just v -> shallowWalk state (unsafeReconstructTerm v)
-      Nothing -> return var
+shallowWalk
+  state@State{knownSubst = Subst m, scope}
+  var@(Var MkVar{varId = VarId i, varValue, varScope}) =
+    readSTRef varValue >>= \case
+      Just v
+        | Var{} <- v
+        , varScope == scope -> do
+            result <- shallowWalk state v
+            writeSTRef varValue (Just result) -- path compression
+            return result
+        | otherwise -> shallowWalk state v
+      Nothing -> case IntMap.lookup i m of
+        Just v -> shallowWalk state (unsafeReconstructTerm v)
+        Nothing -> return var
 
 addSubst :: (Logical a) => Var s a -> Term s a -> State s -> ST s (Maybe (State s))
 addSubst var value state =
