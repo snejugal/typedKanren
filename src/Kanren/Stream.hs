@@ -9,6 +9,7 @@ module Kanren.Stream (
   maybeToStreamM,
   interleave,
   toList,
+  fuseAwaits,
   take,
 ) where
 
@@ -17,8 +18,7 @@ import Control.Applicative (Alternative(..))
 import Control.Monad.Logic (LogicT)
 import Control.Monad.Trans (MonadTrans(..))
 import qualified Control.Monad.Logic as Logic
-import Control.Monad (ap, join, MonadPlus(..))
-import Data.Functor ((<&>))
+import Control.Monad (ap)
 import Prelude hiding (take)
 
 newtype StreamT m a = StreamT { runStreamT :: LogicT m (Maybe a) }
@@ -33,8 +33,7 @@ await ys = StreamT $ pure Nothing <|> do
 
 instance Monad m => Applicative (StreamT m) where
   pure = StreamT . pure . Just
-  StreamT fs <*> StreamT xs = StreamT $
-    liftA2 (<*>) fs xs
+  (<*>) = ap
 
 instance Monad m => Alternative (StreamT m) where
   empty = StreamT empty
