@@ -21,8 +21,10 @@ dependencies:
   - containers
   - template-haskell
   - lens
+  - logict
   - bifunctors
   - tagged
+  - mtl
   - deepseq
 
 ghc-options:

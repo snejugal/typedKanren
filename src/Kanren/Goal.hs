@@ -37,7 +37,7 @@ import Control.Monad.ST (ST)
 
 import Kanren.Core
 import qualified Kanren.Core as Core
-import Kanren.Stream (StreamT (..), interleave, maybeToStream)
+import Kanren.Stream (StreamT (..), interleave, maybeToStreamM)
 import qualified Kanren.Stream as Stream
 
 infix 4 ===, =/=
@@ -100,10 +100,10 @@ unsafeDisjunction :: Goal s x -> Goal s x -> Goal s x
 unsafeDisjunction (Goal g1) (Goal g2) = Goal (\state -> g1 state `interleave` g2 state)
 
 delayWithNewScope :: Goal s x -> Goal s x
-delayWithNewScope (Goal g) = Goal $ \state -> Await (g <$> newScope state)
+delayWithNewScope (Goal g) = Goal $ \state -> Stream.await (g <$> newScope state)
 
 delay :: Goal s a -> Goal s a
-delay (Goal g) = Goal (Await . pure . g)
+delay (Goal g) = Goal (Stream.await . pure . g)
 
 instance Alternative (Goal s) where
   empty = failo
@@ -161,7 +161,7 @@ successo = pure
 -- >>> run (\() -> failo)
 -- []
 failo :: Goal s x
-failo = Goal (const Done)
+failo = Goal (const Stream.done)
 
 -- | Unify two terms.
 --
@@ -171,7 +171,7 @@ failo = Goal (const Done)
 -- []
 (===) :: (Logical a) => Term s a -> Term s a -> Goal s ()
 a === b = Goal $ \state ->
-  M (fmap (,()) . maybeToStream <$> unify' a b state)
+  fmap (,()) (maybeToStreamM (unify' a b state))
 
 -- (maybeToStream <$> fmap (,()) . unify' a b)
 --   where
@@ -187,7 +187,7 @@ a === b = Goal $ \state ->
 -- It is not yet possible to retrieve solutions along with remaining constraints.
 (=/=) :: (Logical a) => Term s a -> Term s a -> Goal s ()
 a =/= b = Goal $ \state ->
-  M (fmap (,()) . maybeToStream <$> disequality a b state)
+ fmap (,()) (maybeToStreamM (disequality a b state))
 
 -- | Perform conjnction of two goals. If the first goal succeeds, run the second
 -- goal on its results.
@@ -326,13 +326,13 @@ class Fresh s v where
   resolve :: State s -> v -> ST s v
 
 fresh :: (Fresh s v) => Goal s v
-fresh = Goal (Await . fmap pure . fresh')
+fresh = Goal (Stream.await . fmap pure . fresh')
 
 instance Fresh s () where
   fresh' state = pure (state, ())
   resolve _ () = return ()
 
--- -- | 'makeVariable' in the form of 'Goal'. Does not insert an 'Await' point,
+-- -- | 'makeVariable' in the form of 'Goal'. Does not insert an 'Stream.await' point,
 -- -- while 'fresh' inserts a single point before creating all its variables.
 -- fresh' :: Goal s (Term s a)
 -- fresh' = Goal $ \state -> M (pure <$> makeVariable state)
