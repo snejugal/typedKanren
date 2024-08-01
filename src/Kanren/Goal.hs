@@ -33,6 +33,7 @@ module Kanren.Goal (
 
 import Control.Applicative (Alternative (..))
 import Control.Monad (ap)
+import Control.Monad.Trans (lift)
 import Control.Monad.ST (ST)
 
 import Kanren.Core
@@ -137,17 +138,16 @@ instance Alternative (Goal s) where
 -- Note that the retrived solutions might be subject to constraints, but it is
 -- not yet possible to retrieve them.
 run :: (Fresh s v) => Int -> (v -> Goal s ()) -> ST s [v]
-run n = run'' (Stream.take n)
+run n = run'' (Stream.observeMany n)
 
 run' :: (Fresh s v) => (v -> Goal s ()) -> ST s [v]
-run' = run'' id
+run' = run'' Stream.observeAll
 
-run'' :: (Fresh s v) => (forall a. StreamT (ST s) a -> StreamT (ST s) a) -> (v -> Goal s ()) -> ST s [v]
-run'' cutStream f = do
+run'' :: (Fresh s v) => (forall a. StreamT (ST s) a -> ST s [a]) -> (v -> Goal s ()) -> ST s [v]
+run'' observe f = do
   initialState <- Core.empty
   let goal = fresh >>= (\vars -> f vars >> pure vars)
-  let states = cutStream (runGoal goal initialState)
-  Stream.toList (uncurry resolve) states
+  observe (runGoal goal initialState >>= StreamT . lift . fmap Just . uncurry resolve)
 
 -- | A goal that always succeeds.
 --
@@ -171,7 +171,7 @@ failo = Goal (const Stream.done)
 -- []
 (===) :: (Logical a) => Term s a -> Term s a -> Goal s ()
 a === b = Goal $ \state ->
-  fmap (,()) (maybeToStreamM (unify' a b state))
+  maybeToStreamM (fmap (,()) <$> unify' a b state)
 
 -- (maybeToStream <$> fmap (,()) . unify' a b)
 --   where
@@ -187,7 +187,7 @@ a === b = Goal $ \state ->
 -- It is not yet possible to retrieve solutions along with remaining constraints.
 (=/=) :: (Logical a) => Term s a -> Term s a -> Goal s ()
 a =/= b = Goal $ \state ->
- fmap (,()) (maybeToStreamM (disequality a b state))
+ maybeToStreamM (fmap (,()) <$> disequality a b state)
 
 -- | Perform conjnction of two goals. If the first goal succeeds, run the second
 -- goal on its results.

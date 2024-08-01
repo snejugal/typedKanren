@@ -10,7 +10,8 @@ module Kanren.Stream (
   interleave,
   toList,
   fuseAwaits,
-  take,
+  observeAll,
+  observeMany,
 ) where
 
 import Data.Maybe (catMaybes)
@@ -57,23 +58,19 @@ maybeToStreamM m = StreamT $ do
 interleave :: Monad m => StreamT m a -> StreamT m a -> StreamT m a
 interleave (StreamT xs) (StreamT ys) = StreamT (xs `Logic.interleave` ys)
 
+observeAll :: Applicative m => StreamT m a -> m [a]
+observeAll (StreamT xs) = catMaybes <$> Logic.observeAllT xs
+
+observeMany :: Monad m => Int -> StreamT m a -> m [a]
+observeMany n xs = Logic.observeManyT n (fuseAwaits xs)
+
 toList :: (Monad m) => (a -> m b) -> StreamT m a -> m [b]
 toList f (StreamT xs) = do
   ys <- catMaybes <$> Logic.observeAllT xs
   traverse f ys
 
-fuseAwaits :: (Monad m) => StreamT m a -> LogicT m a
+fuseAwaits :: StreamT m a -> LogicT m a
 fuseAwaits (StreamT xs) = do
-  Logic.msplit xs >>= \case
+  xs >>= \case
     Nothing -> empty
-    Just (Nothing, ys) -> fuseAwaits (StreamT ys)
-    Just (Just y, ys) -> pure y <|> fuseAwaits (StreamT ys)
-
-take :: (Monad m) => Int -> StreamT m a -> StreamT m a
-take n (StreamT xs)
-  | n <= 0 = empty
-  | otherwise = StreamT $ do
-      Logic.msplit xs >>= \case
-        Nothing -> empty
-        Just (Nothing, ys) -> runStreamT (take n (StreamT ys))
-        Just (Just y, ys) -> runStreamT (pure y <|> take (n - 1) (StreamT ys))
+    Just x -> pure x
