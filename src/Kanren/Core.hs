@@ -7,9 +7,10 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeFamilyDependencies #-}
@@ -23,7 +24,7 @@
 module Kanren.Core (
   -- * Values and terms
   Logical (..),
-  VarId,
+  Var,
   Term (..),
   Atomic (..),
 
@@ -44,16 +45,18 @@ module Kanren.Core (
   State,
   empty,
   makeVariable,
+  newScope,
 ) where
 
 import Control.DeepSeq
 import Control.Monad (ap)
+import Control.Monad.ST (ST)
 import Data.Bifunctor (first)
-import Data.Coerce (coerce)
-import Data.Foldable (foldrM)
 import Data.IntMap.Strict (IntMap)
 import qualified Data.IntMap.Strict as IntMap
 import Data.Maybe (fromMaybe)
+import Data.STRef (STRef, modifySTRef', newSTRef, readSTRef, writeSTRef)
+import Data.Tagged (Tagged (Tagged, unTagged))
 import GHC.Exts (IsList (..))
 import GHC.Generics (Generic)
 import Unsafe.Coerce (unsafeCoerce)
@@ -153,9 +156,9 @@ class Logical a where
   -- same type as their logical representation. If you want to provide an
   -- instance for @newtype NT = NT T@, then the logical representation should be
   -- a newtype as well: @newtype LogicNT = LogicNT (Logic T)@.
-  type Logic a = r | r -> a
+  type Logic s a = r | r -> s a
 
-  type Logic a = a
+  type Logic s a = Tagged s a
 
   -- | Perform unification of two values. If unification succeeds, return the
   -- possibly modified state. If unification leads to contradiction, return
@@ -164,11 +167,11 @@ class Logical a where
   -- The default implementation checks for equality, which works well for simple
   -- types. Complex types will provide their own implmentations which apply
   -- 'unify'' to each field.
-  unify :: Logic a -> Logic a -> State -> Maybe State
-  default unify :: (Eq (Logic a)) => Logic a -> Logic a -> State -> Maybe State
+  unify :: Logic s a -> Logic s a -> State s -> ST s (Maybe (State s))
+  default unify :: (Eq (Logic s a)) => Logic s a -> Logic s a -> State s -> ST s (Maybe (State s))
   unify x y state
-    | x == y = Just state
-    | otherwise = Nothing
+    | x == y = return (Just state)
+    | otherwise = return Nothing
 
   -- | Update the value with acquired knowledge. This method the current state
   -- to substitute variables with their obtained values.
@@ -176,13 +179,13 @@ class Logical a where
   -- The default implementation works for simple types and returns the value as
   -- is (since there's nothing to substitute inside). Complex types will provide
   -- their own implementations which apply 'walk'' to each field.
-  walk :: State -> Logic a -> Logic a
-  default walk :: (a ~ Logic a) => State -> Logic a -> Logic a
-  walk _ = id
+  walk :: State s -> Logic s a -> ST s (Logic s a)
+  default walk :: (Logic s a ~ Tagged s a) => State s -> Logic s a -> ST s (Logic s a)
+  walk _ = return
 
-  occursCheck :: VarId b -> Logic a -> State -> Bool
-  default occursCheck :: (a ~ Logic a) => VarId b -> Logic a -> State -> Bool
-  occursCheck _ _ _ = False
+  occursCheck :: Var s b -> Logic s a -> State s -> ST s Bool
+  default occursCheck :: (Logic s a ~ Tagged s a) => Var s b -> Logic s a -> State s -> ST s Bool
+  occursCheck _ _ _ = return False
 
   -- | Transform a value to its logical representation.
   --
@@ -190,9 +193,9 @@ class Logical a where
   -- is. Complex types will provide their own implementations which apply
   -- 'inject'' to each field. 'inject'' is also the function that you will use
   -- in your relational programs.
-  inject :: a -> Logic a
-  default inject :: (a ~ Logic a) => a -> Logic a
-  inject = id
+  inject :: a -> Logic s a
+  default inject :: (Logic s a ~ Tagged s a) => a -> Logic s a
+  inject = Tagged
 
   -- | Transform a logical representation of a value back to its normal
   -- representation. Note that this transformation can fail in the general case,
@@ -202,9 +205,9 @@ class Logical a where
   -- is. Complex types will provide their own implementations which apply
   -- 'extract'' to each field. 'extract'' is also the function that you will
   -- use in your code.
-  extract :: Logic a -> Maybe a
-  default extract :: (a ~ Logic a) => Logic a -> Maybe a
-  extract = Just
+  extract :: Logic s a -> Maybe a
+  default extract :: (Logic s a ~ Tagged s a) => Logic s a -> Maybe a
+  extract = Just . unTagged
 
 -- | A variable, which reserves a place for a logical value for type @a@.
 newtype VarId a = VarId Int
@@ -213,6 +216,30 @@ newtype VarId a = VarId Int
 instance Show (VarId a) where
   show (VarId varId) = "_." ++ show varId
 
+newtype Scope = Scope Int deriving newtype (Eq, Show, NFData)
+
+nonLocalScope :: Scope
+nonLocalScope = Scope 0
+
+initialScope :: Scope
+initialScope = Scope 1
+
+data Var s a = MkVar
+  { varId :: {-# UNPACK #-} !(VarId a)
+  -- ^ Variable ID
+  , varScope :: {-# UNPACK #-} !Scope
+  -- ^ Scope in which the variable was created
+  , varValue :: {-# UNPACK #-} !(STRef s (Maybe (Term s a)))
+  -- ^ Value of the variable, if set-var-val was applied
+  }
+  deriving (Generic, NFData)
+
+instance Eq (Var s a) where
+  MkVar i _ _ == MkVar j _ _ = i == j
+
+instance Show (Var s a) where
+  show (MkVar varId _ _) = show varId
+
 -- | A logical value for type @a@, or a variable.
 --
 -- Note that @a@ must be the “normal” type, not its logical representation,
@@ -220,29 +247,29 @@ instance Show (VarId a) where
 -- Int))@ will correctly use @LogicList Char@ and @LogicTree Int@ deep inside.
 -- This way, you do not need to know what the logic representation for a type is
 -- named, and deriving the logical representation for a type is trivial.
-data Term a
-  = Var !(VarId a)
-  | Value !(Logic a)
+data Term s a
+  = Var !(Var s a)
+  | Value !(Logic s a)
   deriving (Generic)
 
-deriving instance (NFData (Logic a)) => NFData (Term a)
+deriving instance (NFData (Logic s a)) => NFData (Term s a)
 
-deriving instance (Eq (Logic a)) => Eq (Term a)
+deriving instance (Eq (Logic s a)) => Eq (Term s a)
 
 -- | This instance doesn't print the 'Var' and 'Value' tags. While this reduces
 -- noise in the output, this may also be confusing since fully instantiated
 -- terms may look indistinguishable from regular values.
-instance (Show (Logic a)) => Show (Term a) where
+instance (Show (Logic s a)) => Show (Term s a) where
   showsPrec d (Var var) = showsPrec d var
   showsPrec d (Value value) = showsPrec d value
 
-instance (IsList (Logic a)) => IsList (Term a) where
-  type Item (Term a) = Item (Logic a)
+instance (IsList (Logic s a)) => IsList (Term s a) where
+  type Item (Term s a) = Item (Logic s a)
   fromList = Value . fromList
   toList (Value xs) = toList xs
   toList (Var x) = error ("cannot convert unification variable " <> show x <> " to list")
 
-instance (Num (Logic a)) => Num (Term a) where
+instance (Num (Logic s a)) => Num (Term s a) where
   fromInteger = Value . fromInteger
   (+) = unsafePromoteBinOp "(+)" (+)
   (-) = unsafePromoteBinOp "(-)" (-)
@@ -251,11 +278,11 @@ instance (Num (Logic a)) => Num (Term a) where
   signum = unsafePromoteUnaryOp "signum" signum
   negate = unsafePromoteUnaryOp "negate" negate
 
-unsafePromoteUnaryOp :: String -> (Logic a -> Logic b) -> Term a -> Term b
+unsafePromoteUnaryOp :: String -> (Logic s a -> Logic s b) -> Term s a -> Term s b
 unsafePromoteUnaryOp _name f (Value x) = Value (f x)
 unsafePromoteUnaryOp name _f (Var x) = error ("cannot apply " <> name <> " to the unification variable " <> show x)
 
-unsafePromoteBinOp :: String -> (Logic a -> Logic b -> Logic c) -> Term a -> Term b -> Term c
+unsafePromoteBinOp :: String -> (Logic s a -> Logic s b -> Logic s c) -> Term s a -> Term s b -> Term s c
 unsafePromoteBinOp _name f (Value x) (Value y) = Value (f x y)
 unsafePromoteBinOp name _f (Var x) _ = error ("cannot apply " <> name <> " to the unification variable " <> show x)
 unsafePromoteBinOp name _f _ (Var x) = error ("cannot apply " <> name <> " to the unification variable " <> show x)
@@ -275,40 +302,39 @@ instance (Eq a) => Normalizable (Atomic a)
 
 -- | 'unify', but on 'Term's instead of 'Logic' values. If new knowledge is
 -- obtained during unification, it is obtained here.
-unify' :: (Logical a) => Term a -> Term a -> State -> Maybe State
-unify' l r state =
-  case (shallowWalk state l, shallowWalk state r) of
+unify' :: (Logical a) => Term s a -> Term s a -> State s -> ST s (Maybe (State s))
+unify' left right state = do
+  left' <- shallowWalk state left
+  right' <- shallowWalk state right
+  case (left', right') of
     (Var x, Var y)
-      | x == y -> Just state
-    (Var x, r')
-      | occursCheck' x r' state -> Nothing
-      | otherwise -> addSubst x r' state
-    (l', Var y)
-      | occursCheck' y l' state -> Nothing
-      | otherwise -> addSubst y l' state
+      | x == y -> return (Just state)
+    (Var x, r') -> addSubst x r' state
+    (l', Var y) -> addSubst y l' state
     (Value l', Value r') -> unify l' r' state
 
-occursCheck' :: (Logical a) => VarId b -> Term a -> State -> Bool
-occursCheck' x t state =
-  case shallowWalk state t of
-    Var y -> coerce x == y
+occursCheck' :: (Logical a) => Var s b -> Term s a -> State s -> ST s Bool
+occursCheck' x@(MkVar (VarId i) _ _) term state =
+  shallowWalk state term >>= \case
+    Var (MkVar{varId = VarId j}) -> return (i == j)
     Value v -> occursCheck x v state
 
--- | 'walk', but on 'Term's instead of 'Logic' values. The actual substitution
+-- | 'walk', but on 'Term s's instead of 'Logic' values. The actual substitution
 -- of variables with values happens here.
-walk' :: (Logical a) => State -> Term a -> Term a
-walk' state x = case shallowWalk state x of
-  Var i -> Var i
-  Value v -> Value (walk state v)
+walk' :: (Logical a) => State s -> Term s a -> ST s (Term s a)
+walk' state term =
+  shallowWalk state term >>= \case
+    Var var -> return (Var var)
+    Value v -> Value <$> walk state v
 
--- | 'inject', but to a 'Term' instead of a 'Logic' value. You will use this
+-- | 'inject', but to a 'Term s' instead of a 'Logic' value. You will use this
 -- function in your relational programs to inject normal values.
 --
 -- > run (\x -> x === inject' [1, 2, 3])
-inject' :: (Logical a) => a -> Term a
+inject' :: (Logical a) => a -> Term s a
 inject' = Value . inject
 
--- | 'extract', but from a 'Term' instead of a 'Logic' value. Note that this
+-- | 'extract', but from a 'Term s' instead of a 'Logic' value. Note that this
 -- transformation can fail in the general case, because variables cannot be
 -- transformed to values.
 --
@@ -317,7 +343,7 @@ inject' = Value . inject
 --
 -- >>> extract' <$> run (\x -> x === inject' (Left 42 :: Either Int Bool))
 -- [Just (Left 42)]
-extract' :: (Logical a) => Term a -> Maybe a
+extract' :: (Logical a) => Term s a -> Maybe a
 extract' Var{} = Nothing
 extract' (Value x) = extract x
 
@@ -336,73 +362,94 @@ instance Monad Normalizer where
      in h state'
 
 class (Logical a) => Normalizable a where
-  normalize :: (forall i. VarId i -> Normalizer (VarId i)) -> Logic a -> Normalizer (Logic a)
-  default normalize :: (a ~ Logic a) => (forall i. VarId i -> Normalizer (VarId i)) -> Logic a -> Normalizer (Logic a)
+  normalize
+    :: (forall i. Var s i -> Normalizer (Var s i))
+    -> Logic s a
+    -> Normalizer (Logic s a)
+  default normalize
+    :: (Logic s a ~ Tagged s a)
+    => (forall i. Var s i -> Normalizer (Var s i))
+    -> Logic s a
+    -> Normalizer (Logic s a)
   normalize _ = pure
 
-normalize' :: (Normalizable a) => (forall i. VarId i -> Normalizer (VarId i)) -> Term a -> Normalizer (Term a)
-normalize' f (Var varId) = Var <$> f varId
+normalize'
+  :: (Normalizable a)
+  => (forall i. Var s i -> Normalizer (Var s i))
+  -> Term s a
+  -> Normalizer (Term s a)
+normalize' f (Var var) = Var <$> f var
 normalize' f (Value x) = Value <$> normalize f x
 
-runNormalize :: (Normalizable a) => Term a -> Term a
+runNormalize :: (Normalizable a) => Term s a -> Term s a
 runNormalize x = normalized
  where
   Normalizer g = normalize' addVar x
   (_, normalized) = g (Normalization IntMap.empty 0)
-  addVar (VarId varId) = Normalizer $ \n@(Normalization vars maxId) ->
+  addVar (MkVar (VarId varId) age value) = Normalizer $ \n@(Normalization vars maxId) ->
     case IntMap.lookup varId vars of
-      Just varId' -> (n, VarId varId')
-      Nothing -> (Normalization vars' maxId', VarId maxId)
+      Just varId' -> (n, MkVar (VarId varId') age value)
+      Nothing -> (Normalization vars' maxId', MkVar (VarId maxId) age value)
        where
         maxId' = maxId + 1
         vars' = IntMap.insert varId maxId vars
 
 -- | Add a constraint that two terms must not be equal.
-disequality :: (Logical a) => Term a -> Term a -> State -> Maybe State
-disequality left right state = case addedSubst left right state of
-  Nothing -> Just state
-  Just added -> stateInsertDisequality added state
+disequality :: (Logical a) => Term s a -> Term s a -> State s -> ST s (Maybe (State s))
+disequality left right state =
+  addedSubst left right state >>= \case
+    Nothing -> return (Just state)
+    Just added -> stateInsertDisequality added state
 
 -- | Since 'Term's are polymorphic, we cannot easily store them in the
 -- substitution map. 'ErasedTerm' is the way to erase the type before putting
 -- a 'Term' into the map.
-data ErasedTerm where
-  ErasedTerm :: (Logical a) => Term a -> ErasedTerm
+data ErasedTerm s where
+  ErasedTerm :: (Logical a) => Term s a -> ErasedTerm s
 
-instance Show ErasedTerm where
+instance Show (ErasedTerm s) where
   show (ErasedTerm (Var varId)) = "Var " ++ show varId
   show (ErasedTerm (Value _)) = "Value _"
 
 -- | Cast an 'ErasedTerm' back to a 'Term a'. Hopefully, you will cast it to the
 -- correct type, or bad things will happen.
-unsafeReconstructTerm :: ErasedTerm -> Term a
+unsafeReconstructTerm :: ErasedTerm s -> Term s a
 unsafeReconstructTerm (ErasedTerm x) = unsafeCoerce x
 
 -- | Current knowledge of variable values.
-newtype Subst = Subst (IntMap ErasedTerm) deriving (Show)
+newtype Subst s = Subst (IntMap (ErasedTerm s)) deriving (Show)
 
-substEmpty :: Subst
+substEmpty :: Subst s
 substEmpty = Subst IntMap.empty
 
-substNull :: Subst -> Bool
-substNull (Subst m) = IntMap.null m
+substInsert :: (Logical a) => VarId a -> Term s a -> Subst s -> Subst s
+substInsert (VarId i) value (Subst m) = Subst (IntMap.insert i (ErasedTerm value) m)
 
 -- | “Arbitrary” in the sense that this function decides which particular entry
 -- to look up, but for the caller it's just some entry from the map. This
 -- function must agree on this arbitrary entry with 'substExtractArbitrary'.
-substLookupArbitraryId :: Subst -> Maybe Int
+substLookupArbitraryId :: Subst s -> Maybe Int
 substLookupArbitraryId (Subst m) = fst <$> IntMap.lookupMin m
 
-substExtractArbitrary :: Subst -> Maybe ((Int, ErasedTerm), Subst)
+substExtractArbitrary :: Subst s -> Maybe ((Int, ErasedTerm s), Subst s)
 substExtractArbitrary (Subst m) = fmap Subst <$> IntMap.minViewWithKey m
 
-addedSubst :: (Logical a) => Term a -> Term a -> State -> Maybe Subst
-addedSubst left right state = knownSubst <$> unify' left' right' empty
+addedSubst :: (Logical a) => Term s a -> Term s a -> State s -> ST s (Maybe (Subst s))
+addedSubst left right state = do
+  left' <- walk' state left
+  right' <- walk' state right
+  fmap knownSubst <$> unify' left' right' emptied
  where
-  left' = walk' state left
-  right' = walk' state right
+  emptied =
+    State
+      { knownSubst = substEmpty
+      , scope = nonLocalScope
+      , globalScope = globalScope state
+      , disequalities = disequalitiesEmpty
+      , maxVarId = maxVarId state
+      }
 
-instance Semigroup Subst where
+instance Semigroup (Subst s) where
   Subst l <> Subst r = Subst (l <> r)
 
 -- | Disequality constraints.
@@ -429,10 +476,13 @@ instance Semigroup Subst where
 -- If @x@ turns out to be 1, there are still other disequalities to check,
 -- but if @x@ becomes 2, then we fail. If @x@ is anything else, we just drop
 -- all constraints attached to it.
-newtype Disequalities = Disequalities (IntMap [(ErasedTerm, Subst)])
+newtype Disequalities s = Disequalities (IntMap [(ErasedTerm s, Subst s)])
   deriving (Show)
 
-disequalitiesInsert :: Subst -> Disequalities -> Maybe Disequalities
+disequalitiesEmpty :: Disequalities s
+disequalitiesEmpty = Disequalities IntMap.empty
+
+disequalitiesInsert :: Subst s -> Disequalities s -> Maybe (Disequalities s)
 disequalitiesInsert subst (Disequalities d) = do
   ((varId, value), subst') <- substExtractArbitrary subst
   let entry' = (value, subst') : fromMaybe [] (IntMap.lookup varId d)
@@ -440,8 +490,8 @@ disequalitiesInsert subst (Disequalities d) = do
 
 disequalitiesExtract
   :: VarId a
-  -> Disequalities
-  -> Maybe ([(Term a, Subst)], Disequalities)
+  -> Disequalities s
+  -> Maybe ([(Term s a, Subst s)], Disequalities s)
 disequalitiesExtract (VarId varId) (Disequalities d) = do
   entry <- IntMap.lookup varId d
   let entry' = map (first unsafeReconstructTerm) entry
@@ -451,89 +501,144 @@ disequalitiesExtract (VarId varId) (Disequalities d) = do
 
 disequalitiesUpdate
   :: (Logical a)
-  => State
+  => State s
   -> VarId a
-  -> Term a
-  -> Disequalities
-  -> Maybe Disequalities
+  -> Term s a
+  -> Disequalities s
+  -> ST s (Maybe (Disequalities s))
 disequalitiesUpdate state varId value d =
   case disequalitiesExtract varId d of
-    Nothing -> Just d
-    Just (varDisequalities, d') ->
-      foldrM updateDisequality d' varDisequalities
+    Nothing -> return (Just d)
+    Just (varDisequalities, d') -> go varDisequalities d'
  where
-  value' = walk' state value
-  updateDisequality (disallowedValue, subst) d' =
-    case addedSubst value' disallowedValue state of
-      Nothing -> Just d'
-      Just added
-        | substNull subst' -> Nothing
-        | otherwise -> disequalitiesInsert subst' d'
-       where
-        subst' = updateComponents state (subst <> added)
+  go [] d' = return (Just d')
+  go ((disallowedValue, subst) : rest) d' = do
+    added <- addedSubst value disallowedValue state
+    case added of
+      Nothing -> return (Just d')
+      Just added' -> do
+        subst' <- updateComponents state (subst <> added')
+        -- TODO: remove comment if actually useless
+        -- if substNull subst'
+        --   then return Nothing
+        --   else
+        case disequalitiesInsert subst' d' of
+          Nothing -> return Nothing
+          Just d'' -> go rest d''
 
-updateComponents :: State -> Subst -> Subst
+updateComponents :: State s -> Subst s -> ST s (Subst s)
 updateComponents state subst = case substExtractArbitrary subst of
-  Nothing -> subst
-  Just ((varId, ErasedTerm value), subst') ->
+  Nothing -> return subst
+  Just ((varId, ErasedTerm value), subst') -> do
+    varValue <- newSTRef Nothing
+    let thisVar = Var (MkVar (VarId varId) initialScope varValue)
+    added <- fromMaybe substEmpty <$> addedSubst thisVar value state
+    let subst'' = subst' <> added
     case substLookupArbitraryId subst'' of
-      Just varId' | varId == varId' -> subst''
+      Just varId' | varId == varId' -> return subst''
       _ -> updateComponents state subst''
-   where
-    added = fromMaybe substEmpty (addedSubst (Var (VarId varId)) value state)
-    subst'' = subst' <> added
 
 -- | One branch in the search tree. Keeps track of known substitutions and
 -- variables.
-data State = State
-  { knownSubst :: !Subst
-  , disequalities :: !Disequalities
+data State s = State
+  { knownSubst :: !(Subst s)
+  , scope :: !Scope
+  , globalScope :: !(STRef s Scope)
+  , disequalities :: !(Disequalities s)
   , maxVarId :: !Int
   }
-  deriving (Show)
+
+instance Show (State s) where
+  show (State{knownSubst, scope, disequalities, maxVarId}) =
+    "State{knownSubst="
+      <> show knownSubst
+      <> ", scope="
+      <> show scope
+      <> ", globalScope=(STRef), disequalities="
+      <> show disequalities
+      <> ", maxVarId="
+      <> show maxVarId
+      <> " }"
 
 -- | The initial state without any knowledge and variables.
-empty :: State
-empty =
-  State
-    { knownSubst = substEmpty
-    , disequalities = Disequalities IntMap.empty
-    , maxVarId = 0
-    }
-
--- | Create a variable in the given state.
-makeVariable :: State -> (State, Term a)
-makeVariable State{maxVarId, ..} = (state', var)
- where
-  var = Var (VarId maxVarId)
-  state' = State{maxVarId = maxVarId + 1, ..}
-
-shallowWalk :: (Logical a) => State -> Term a -> Term a
-shallowWalk _ (Value v) = Value v
-shallowWalk state@State{knownSubst = Subst m} (Var (VarId i)) =
-  case IntMap.lookup i m of
-    Nothing -> Var (VarId i)
-    Just v -> shallowWalk state (unsafeReconstructTerm v)
-
-addSubst :: (Logical a) => VarId a -> Term a -> State -> Maybe State
-addSubst (VarId i) value State{knownSubst = Subst m, ..} =
-  stateUpdateDisequalities (VarId i) value $
+empty :: ST s (State s)
+empty = do
+  globalScope <- newSTRef initialScope
+  return $
     State
-      { knownSubst = Subst $ IntMap.insert i (ErasedTerm value) m
-      , ..
+      { knownSubst = substEmpty
+      , scope = initialScope
+      , globalScope
+      , disequalities = Disequalities IntMap.empty
+      , maxVarId = 0
       }
 
-stateInsertDisequality :: Subst -> State -> Maybe State
+newScope :: State s -> ST s (State s)
+newScope state@State{globalScope} = do
+  modifySTRef' globalScope (\(Scope x) -> Scope (x + 1))
+  scope' <- readSTRef globalScope
+  return state{scope = scope'}
+
+-- | Create a variable in the given state.
+makeVariable :: State s -> ST s (State s, Term s a)
+makeVariable state@State{maxVarId, scope} = do
+  value <- newSTRef Nothing
+  let var = Var (MkVar (VarId maxVarId) scope value)
+  let state' = state{maxVarId = maxVarId + 1}
+  return (state', var)
+
+shallowWalk :: (Logical a) => State s -> Term s a -> ST s (Term s a)
+shallowWalk _ (Value v) = return (Value v)
+shallowWalk
+  state@State{knownSubst = Subst m, scope}
+  var@(Var MkVar{varId = VarId i, varValue, varScope}) =
+    readSTRef varValue >>= \case
+      Just v
+        | Var{} <- v
+        , varScope == scope -> do
+            result <- shallowWalk state v
+            writeSTRef varValue (Just result) -- path compression
+            return result
+        | otherwise -> shallowWalk state v
+      Nothing -> case IntMap.lookup i m of
+        Just v -> shallowWalk state (unsafeReconstructTerm v)
+        Nothing -> return var
+
+addSubst :: (Logical a) => Var s a -> Term s a -> State s -> ST s (Maybe (State s))
+addSubst var value state =
+  occursCheck' var value state >>= \case
+    True -> return Nothing
+    False -> addSubst' var value state
+
+-- | Actually add the substitution
+addSubst' :: (Logical a) => Var s a -> Term s a -> State s -> ST s (Maybe (State s))
+addSubst' MkVar{varId, varScope, varValue} value state@State{knownSubst, scope}
+  | varScope == scope = do
+      -- NOTE: if the variable were to participate in a disequality, its
+      -- scope would be different and this branch would not be taken
+      writeSTRef varValue (Just value)
+      return (Just state)
+  | otherwise = stateUpdateDisequalities varId value state'
+ where
+  state' = state{knownSubst = substInsert varId value knownSubst}
+
+stateInsertDisequality :: Subst s -> State s -> ST s (Maybe (State s))
 stateInsertDisequality subst state@State{disequalities} = do
-  disequalities' <- disequalitiesInsert subst disequalities
-  return state{disequalities = disequalities'}
+  let state' = fmap (\d -> state{disequalities = d}) (disequalitiesInsert subst disequalities)
+  case state' of
+    Nothing -> return Nothing
+    -- TODO: incrementing the scope is necessary for now because the STRef is
+    -- not saved in disequalities, and it would be bad if we couldn't access
+    -- a variable's value assigned in-place
+    Just s -> Just <$> newScope s
 
 stateUpdateDisequalities
   :: (Logical a)
   => VarId a
-  -> Term a
-  -> State
-  -> Maybe State
+  -> Term s a
+  -> State s
+  -> ST s (Maybe (State s))
 stateUpdateDisequalities varId value state@State{disequalities} = do
-  disequalities' <- disequalitiesUpdate state varId value disequalities
-  return (state{disequalities = disequalities'})
+  disequalitiesUpdate state varId value disequalities >>= \case
+    Nothing -> return Nothing
+    Just disequalities' -> return (Just state{disequalities = disequalities'})

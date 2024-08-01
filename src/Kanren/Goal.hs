@@ -1,5 +1,8 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE QuantifiedConstraints #-}
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TupleSections #-}
 
 -- | Implement and execute relational programs.
@@ -7,6 +10,7 @@ module Kanren.Goal (
   -- * The Goal monad
   Goal,
   run,
+  run',
 
   -- * Primitive operations
   successo,
@@ -23,16 +27,18 @@ module Kanren.Goal (
   (=/=),
 
   -- * Fresh variables
-  Fresh (..),
+  Fresh,
+  fresh,
 ) where
 
 import Control.Applicative (Alternative (..))
 import Control.Monad (ap)
-import qualified Data.Foldable as Foldable
+import Control.Monad.ST (ST)
 
 import Kanren.Core
 import qualified Kanren.Core as Core
-import Kanren.Stream
+import Kanren.Stream (StreamT (..), interleave, maybeToStream)
+import qualified Kanren.Stream as Stream
 
 infix 4 ===, =/=
 infixr 3 `conj`
@@ -74,26 +80,34 @@ infixr 2 `disj`
 --
 -- >>> run (\x -> noto (Value False) x)
 -- [Value True]
-newtype Goal x = Goal {runGoal :: State -> Stream (State, x)}
+newtype Goal s x = Goal {runGoal :: State s -> StreamT (ST s) (State s, x)}
 
-instance Functor Goal where
+instance Functor (Goal s) where
   fmap f (Goal g) = Goal (fmap (fmap (fmap f)) g)
 
-instance Applicative Goal where
-  pure x = Goal (\s -> pure (s, x))
+instance Applicative (Goal s) where
+  pure x = Goal (pure . (,x))
   (<*>) = ap
 
-instance Monad Goal where
+instance Monad (Goal s) where
   return = pure
   (>>) = (*>)
   Goal g1 >>= f = Goal $ \s -> do
     (s', x) <- g1 s
     runGoal (f x) s'
 
-instance Alternative Goal where
+unsafeDisjunction :: Goal s x -> Goal s x -> Goal s x
+unsafeDisjunction (Goal g1) (Goal g2) = Goal (\state -> g1 state `interleave` g2 state)
+
+delayWithNewScope :: Goal s x -> Goal s x
+delayWithNewScope (Goal g) = Goal $ \state -> Await (g <$> newScope state)
+
+delay :: Goal s a -> Goal s a
+delay (Goal g) = Goal (Await . pure . g)
+
+instance Alternative (Goal s) where
   empty = failo
-  Goal g1 <|> Goal g2 =
-    Goal (\state -> g1 state `interleave` g2 state)
+  (<|>) = disj
 
 -- | Query for solutions of a goal.
 --
@@ -122,27 +136,31 @@ instance Alternative Goal where
 --
 -- Note that the retrived solutions might be subject to constraints, but it is
 -- not yet possible to retrieve them.
-run :: (Fresh v) => (v -> Goal ()) -> [v]
-run f = Foldable.toList solutions
- where
-  states = flip runGoal Core.empty $ do
-    vars <- fresh
-    f vars
-    pure vars
-  solutions = fmap (uncurry resolve) states
+run :: (Fresh s v) => Int -> (v -> Goal s ()) -> ST s [v]
+run n = run'' (Stream.take n)
+
+run' :: (Fresh s v) => (v -> Goal s ()) -> ST s [v]
+run' = run'' id
+
+run'' :: (Fresh s v) => (forall a. StreamT (ST s) a -> StreamT (ST s) a) -> (v -> Goal s ()) -> ST s [v]
+run'' cutStream f = do
+  initialState <- Core.empty
+  let goal = fresh >>= (\vars -> f vars >> pure vars)
+  let states = cutStream (runGoal goal initialState)
+  Stream.toList (uncurry resolve) states
 
 -- | A goal that always succeeds.
 --
 -- >>> run (\() -> successo ())
 -- [()]
-successo :: x -> Goal x
+successo :: x -> Goal s x
 successo = pure
 
 -- | A goal that always fails.
 --
 -- >>> run (\() -> failo)
 -- []
-failo :: Goal x
+failo :: Goal s x
 failo = Goal (const Done)
 
 -- | Unify two terms.
@@ -151,8 +169,13 @@ failo = Goal (const Done)
 -- [()]
 -- >>> run (\() -> Value 42 === Value (37 :: Int))
 -- []
-(===) :: (Logical a) => Term a -> Term a -> Goal ()
-a === b = Goal (maybeToStream . fmap (,()) . unify' a b)
+(===) :: (Logical a) => Term s a -> Term s a -> Goal s ()
+a === b = Goal $ \state ->
+  M (fmap (,()) . maybeToStream <$> unify' a b state)
+
+-- (maybeToStream <$> fmap (,()) . unify' a b)
+--   where
+--     k = fmap (,()) . unify' a b
 
 -- | Put a constraint that two terms must not be equal.
 --
@@ -162,8 +185,9 @@ a === b = Goal (maybeToStream . fmap (,()) . unify' a b)
 -- []
 --
 -- It is not yet possible to retrieve solutions along with remaining constraints.
-(=/=) :: (Logical a) => Term a -> Term a -> Goal ()
-a =/= b = Goal (maybeToStream . fmap (,()) . disequality a b)
+(=/=) :: (Logical a) => Term s a -> Term s a -> Goal s ()
+a =/= b = Goal $ \state ->
+  M (fmap (,()) . maybeToStream <$> disequality a b state)
 
 -- | Perform conjnction of two goals. If the first goal succeeds, run the second
 -- goal on its results.
@@ -185,14 +209,14 @@ a =/= b = Goal (maybeToStream . fmap (,()) . disequality a b)
 --  )
 -- :}
 -- [(42,True)]
-conj :: Goal x -> Goal y -> Goal y
+conj :: Goal s x -> Goal s y -> Goal s y
 conj = (>>)
 
 -- | Perform conjunction of several goals, left to right.
 --
 -- >>> run (\(x, y) -> conjMany [x === Value (42 :: Int), y === Value True])
 -- [(42,True)]
-conjMany :: [Goal ()] -> Goal ()
+conjMany :: [Goal s ()] -> Goal s ()
 conjMany = foldr conj (pure ())
 
 -- | Perform disjunction of two goals. Run the first goal, then the second, and
@@ -204,15 +228,19 @@ conjMany = foldr conj (pure ())
 -- [42,42]
 -- >>> run (\(x, y) -> x === Value (42 :: Int) `disj` y === Value True)
 -- [(42,_.0),(_.1,True)]
-disj :: Goal x -> Goal x -> Goal x
-disj = (<|>)
+disj :: Goal s x -> Goal s x -> Goal s x
+disj left right = delayWithNewScope (unsafeDisjunction left right)
 
 -- | Perform disjunction of several goals, left to right.
 --
 -- >>> run (\x -> disjMany (map (\a -> x === Value a) [1, 3 .. 11 :: Int]))
 -- [1,3,5,7,9,11]
-disjMany :: [Goal x] -> Goal x
-disjMany = delay . foldr disj failo
+disjMany :: [Goal s x] -> Goal s x
+disjMany = delayWithNewScope . go
+ where
+  go [] = failo
+  go [x] = x
+  go (x : xs@(_ : _)) = unsafeDisjunction x (go xs)
 
 -- | Consider several possible cases, using syntax similar to @conde@ from
 -- @faster-minikanren@.
@@ -249,7 +277,7 @@ disjMany = delay . foldr disj failo
 --     & on _True (\() -> y === Value 1)))
 -- :}
 -- [(False,0),(True,1)]
-conde :: [[Goal ()]] -> Goal ()
+conde :: [[Goal s ()]] -> Goal s ()
 conde = disjMany . map conjMany
 
 -- | The existential quantifier.
@@ -290,85 +318,84 @@ conde = disjMany . map conjMany
 -- is not useful inside relations, this is how the first two examples actually
 -- work. 'Fresh' is also used for pattern matching from the @"Match"@ module
 -- when the matched value is not known yet.
-class Fresh v where
+class Fresh s v where
   -- | Create fresh variables.
-  fresh :: Goal v
+  fresh' :: State s -> ST s (State s, v)
 
-  -- | Resolve each variable to its value in the given state. You won't need to
-  -- use this method yourself, but 'run' uses it to return solutions.
-  resolve :: State -> v -> v
+  -- | Resolve each variable to its value in the given state.
+  resolve :: State s -> v -> ST s v
 
-instance Fresh () where
-  fresh = delay (pure ())
-  resolve _ () = ()
+fresh :: (Fresh s v) => Goal s v
+fresh = Goal (Await . fmap pure . fresh')
 
--- | 'makeVariable' in the form of 'Goal'. Does not insert an 'Await' point,
--- while 'fresh' inserts a single point before creating all its variables.
-fresh' :: Goal (Term a)
-fresh' = Goal (pure . makeVariable)
+instance Fresh s () where
+  fresh' state = pure (state, ())
+  resolve _ () = return ()
 
-instance (Logical a) => Fresh (Term a) where
-  fresh = delay fresh'
+-- -- | 'makeVariable' in the form of 'Goal'. Does not insert an 'Await' point,
+-- -- while 'fresh' inserts a single point before creating all its variables.
+-- fresh' :: Goal s (Term s a)
+-- fresh' = Goal $ \state -> M (pure <$> makeVariable state)
+
+instance (Logical a) => Fresh s (Term s a) where
+  fresh' = makeVariable
   resolve = walk'
 
-instance (Logical a, Fresh v) => Fresh (Term a, v) where
-  fresh = do
-    v <- fresh
-    a <- fresh'
-    pure (a, v)
-  resolve state (a, v) = (a', v')
-   where
-    a' = resolve state a
-    v' = resolve state v
+instance (Fresh s a, Fresh s b) => Fresh s (a, b) where
+  fresh' state = do
+    (state', a) <- fresh' state
+    (state'', b) <- fresh' state'
+    pure (state'', (a, b))
+  resolve state (a, b) = do
+    a' <- resolve state a
+    b' <- resolve state b
+    return (a', b')
 
-instance (Logical a, Logical b, Fresh v) => Fresh (Term a, Term b, v) where
-  fresh = do
-    (b, v) <- fresh
-    a <- fresh'
-    pure (a, b, v)
-  resolve state (a, b, v) = (a', b', v')
-   where
-    a' = resolve state a
-    (b', v') = resolve state (b, v)
-
-instance
-  (Logical a, Logical b, Logical c, Fresh v)
-  => Fresh (Term a, Term b, Term c, v)
-  where
-  fresh = do
-    (b, c, v) <- fresh
-    a <- fresh'
-    pure (a, b, c, v)
-  resolve state (a, b, c, v) = (a', b', c', v')
-   where
-    a' = resolve state a
-    (b', c', v') = resolve state (b, c, v)
+instance (Fresh s a, Fresh s b, Fresh s c) => Fresh s (a, b, c) where
+  fresh' state = do
+    (state', a) <- fresh' state
+    (state'', (b, c)) <- fresh' state'
+    pure (state'', (a, b, c))
+  resolve state (a, b, c) = do
+    a' <- resolve state a
+    (b', c') <- resolve state (b, c)
+    return (a', b', c')
 
 instance
-  (Logical a, Logical b, Logical c, Logical d, Fresh v)
-  => Fresh (Term a, Term b, Term c, Term d, v)
+  (Fresh s a, Fresh s b, Fresh s c, Fresh s d)
+  => Fresh s (a, b, c, d)
   where
-  fresh = do
-    (b, c, d, v) <- fresh
-    a <- fresh'
-    pure (a, b, c, d, v)
-  resolve state (a, b, c, d, v) = (a', b', c', d', v')
-   where
-    a' = resolve state a
-    (b', c', d', v') = resolve state (b, c, d, v)
+  fresh' state = do
+    (state', a) <- fresh' state
+    (state'', (b, c, d)) <- fresh' state'
+    pure (state'', (a, b, c, d))
+  resolve state (a, b, c, d) = do
+    a' <- resolve state a
+    (b', c', d') <- resolve state (b, c, d)
+    return (a', b', c', d')
 
 instance
-  (Logical a, Logical b, Logical c, Logical d, Logical e, Fresh v)
-  => Fresh (Term a, Term b, Term c, Term d, Term e, v)
+  (Fresh s a, Fresh s b, Fresh s c, Fresh s d, Fresh s e)
+  => Fresh s (a, b, c, d, e)
   where
-  fresh = do
-    (b, c, d, e, v) <- fresh
-    a <- fresh'
-    pure (a, b, c, d, e, v)
-  resolve state (a, b, c, d, e, v) = (a', b', c', d', e', v')
-   where
-    a' = resolve state a
-    (b', c', d', e', v') = resolve state (b, c, d, e, v)
+  fresh' state = do
+    (state', a) <- fresh' state
+    (state'', (b, c, d, e)) <- fresh' state'
+    pure (state'', (a, b, c, d, e))
+  resolve state (a, b, c, d, e) = do
+    a' <- resolve state a
+    (b', c', d', e') <- resolve state (b, c, d, e)
+    return (a', b', c', d', e')
 
-delay :: Goal a -> Goal a
-delay (Goal g) = Goal (Await . g)
+instance
+  (Fresh s a, Fresh s b, Fresh s c, Fresh s d, Fresh s e, Fresh s f)
+  => Fresh s (a, b, c, d, e, f)
+  where
+  fresh' state = do
+    (state', a) <- fresh' state
+    (state'', (b, c, d, e, f)) <- fresh' state'
+    pure (state'', (a, b, c, d, e, f))
+  resolve state (a, b, c, d, e, f) = do
+    a' <- resolve state a
+    (b', c', d', e', f') <- resolve state (b, c, d, e, f)
+    return (a', b', c', d', e', f')

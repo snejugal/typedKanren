@@ -8,6 +8,7 @@
 module Kanren.Example.Tree (example) where
 
 import Control.Lens.TH (makePrisms)
+import Control.Monad.ST (runST)
 import Data.Function ((&))
 import GHC.Generics (Generic)
 
@@ -22,7 +23,7 @@ data Tree a = Empty | Node a (Tree a) (Tree a)
 makeLogical ''Tree
 makePrisms ''LogicTree
 
-treeo :: Term (Tree Int) -> Goal ()
+treeo :: Term s (Tree Int) -> Goal s ()
 treeo =
   matche
     & on _LogicEmpty return
@@ -34,7 +35,7 @@ treeo =
           treeo right
       )
 
-inverto :: (Logical a) => Term (Tree a) -> Term (Tree a) -> Goal ()
+inverto :: (Logical a) => Term s (Tree a) -> Term s (Tree a) -> Goal s ()
 inverto tree inverted =
   tree
     & ( matche
@@ -64,7 +65,7 @@ exampleTree =
 example :: IO ()
 example = do
   putStrLn "trees:"
-  mapM_ print $ extract' <$> take 10 (run treeo)
+  mapM_ print $ runST (fmap extract' <$> run 10 treeo)
 
   putStrLn "\ninverto example:"
-  mapM_ print $ extract' <$> run (inverto (inject' exampleTree))
+  mapM_ print $ runST (fmap extract' <$> run' (inverto (inject' exampleTree)))
