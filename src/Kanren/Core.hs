@@ -592,17 +592,9 @@ shallowWalk _ (Value v) = return (Value v)
 shallowWalk
   state@State{knownSubst = Subst m, scope}
   var@(Var MkVar{varId = VarId i, varValue, varScope}) =
-    readSTRef varValue >>= \case
-      Just v
-        | Var{} <- v
-        , varScope == scope -> do
-            result <- shallowWalk state v
-            writeSTRef varValue (Just result) -- path compression
-            return result
-        | otherwise -> shallowWalk state v
-      Nothing -> case IntMap.lookup i m of
-        Just v -> shallowWalk state (unsafeReconstructTerm v)
-        Nothing -> return var
+    case IntMap.lookup i m of
+      Just v -> shallowWalk state (unsafeReconstructTerm v)
+      Nothing -> return var
 
 addSubst :: (Logical a) => Var s a -> Term s a -> State s -> ST s (Maybe (State s))
 addSubst var value state =
@@ -612,13 +604,8 @@ addSubst var value state =
 
 -- | Actually add the substitution
 addSubst' :: (Logical a) => Var s a -> Term s a -> State s -> ST s (Maybe (State s))
-addSubst' MkVar{varId, varScope, varValue} value state@State{knownSubst, scope}
-  | varScope == scope = do
-      -- NOTE: if the variable were to participate in a disequality, its
-      -- scope would be different and this branch would not be taken
-      writeSTRef varValue (Just value)
-      return (Just state)
-  | otherwise = stateUpdateDisequalities varId value state'
+addSubst' MkVar{varId, varScope, varValue} value state@State{knownSubst, scope} =
+  stateUpdateDisequalities varId value state'
  where
   state' = state{knownSubst = substInsert varId value knownSubst}
 
