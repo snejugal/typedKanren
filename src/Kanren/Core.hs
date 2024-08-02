@@ -24,6 +24,7 @@ module Kanren.Core (
   -- * Values and terms
   Logical (..),
   VarId,
+  Var,
   Term (..),
   Atomic (..),
 
@@ -57,6 +58,8 @@ import Data.Maybe (fromMaybe)
 import GHC.Exts (IsList (..))
 import GHC.Generics (Generic)
 import Unsafe.Coerce (unsafeCoerce)
+import Data.IORef
+import System.IO.Unsafe (unsafePerformIO)
 
 -- $setup
 -- >>> :set -package typedKanren
@@ -180,8 +183,8 @@ class Logical a where
   default walk :: (a ~ Logic a) => State -> Logic a -> Logic a
   walk _ = id
 
-  occursCheck :: VarId b -> Logic a -> State -> Bool
-  default occursCheck :: (a ~ Logic a) => VarId b -> Logic a -> State -> Bool
+  occursCheck :: Var b -> Logic a -> State -> Bool
+  default occursCheck :: (a ~ Logic a) => Var b -> Logic a -> State -> Bool
   occursCheck _ _ _ = False
 
   -- | Transform a value to its logical representation.
@@ -213,6 +216,30 @@ newtype VarId a = VarId Int
 instance Show (VarId a) where
   show (VarId varId) = "_." ++ show varId
 
+newtype Scope = Scope Int deriving newtype (Eq, Show, NFData)
+
+nonLocalScope :: Scope
+nonLocalScope = Scope 0
+
+initialScope :: Scope
+initialScope = Scope 1
+
+data Var a = MkVar
+  { varId :: {-# UNPACK #-} !(VarId a)
+  -- ^ Variable ID
+  , varScope :: {-# UNPACK #-} !Scope
+  -- ^ Scope in which the variable was created
+  , varValue :: {-# UNPACK #-} !(IORef (Maybe (Term a)))
+  -- ^ Value of the variable, if set-var-val was applied
+  }
+  deriving (Generic, NFData)
+
+instance Eq (Var a) where
+  MkVar i _ _ == MkVar j _ _ = i == j
+
+instance Show (Var a) where
+  show (MkVar varId _ _) = show varId
+
 -- | A logical value for type @a@, or a variable.
 --
 -- Note that @a@ must be the “normal” type, not its logical representation,
@@ -221,7 +248,7 @@ instance Show (VarId a) where
 -- This way, you do not need to know what the logic representation for a type is
 -- named, and deriving the logical representation for a type is trivial.
 data Term a
-  = Var !(VarId a)
+  = Var {-# UNPACK #-} !(Var a)
   | Value !(Logic a)
   deriving (Generic)
 
@@ -288,10 +315,10 @@ unify' l r state =
       | otherwise -> addSubst y l' state
     (Value l', Value r') -> unify l' r' state
 
-occursCheck' :: (Logical a) => VarId b -> Term a -> State -> Bool
+occursCheck' :: (Logical a) => Var b -> Term a -> State -> Bool
 occursCheck' x t state =
   case shallowWalk state t of
-    Var y -> coerce x == y
+    Var y -> coerce (varId x) == varId y
     Value v -> occursCheck x v state
 
 -- | 'walk', but on 'Term's instead of 'Logic' values. The actual substitution
@@ -341,7 +368,9 @@ class (Logical a) => Normalizable a where
   normalize _ = pure
 
 normalize' :: (Normalizable a) => (forall i. VarId i -> Normalizer (VarId i)) -> Term a -> Normalizer (Term a)
-normalize' f (Var varId) = Var <$> f varId
+normalize' f (Var MkVar{..}) = do
+  normalizedVarId <- f varId
+  return (Var MkVar{varId = normalizedVarId, ..})
 normalize' f (Value x) = Value <$> normalize f x
 
 runNormalize :: (Normalizable a) => Term a -> Term a
@@ -480,17 +509,41 @@ updateComponents state subst = case substExtractArbitrary subst of
       Just varId' | varId == varId' -> subst''
       _ -> updateComponents state subst''
    where
-    added = fromMaybe substEmpty (addedSubst (Var (VarId varId)) value state)
+    thisVar = newVar (VarId varId) initialScope
+    added = fromMaybe substEmpty (addedSubst (Var thisVar) value state)
     subst'' = subst' <> added
+
+{-# NOINLINE newVar #-}
+newVar :: VarId a -> Scope -> Var a
+newVar varId scope = unsafePerformIO $ do
+  varValue <- newIORef Nothing
+  return MkVar
+    { varId = varId
+    , varScope = scope
+    , varValue = varValue
+    }
 
 -- | One branch in the search tree. Keeps track of known substitutions and
 -- variables.
 data State = State
   { knownSubst :: !Subst
   , disequalities :: !Disequalities
-  , maxVarId :: !Int
+  , maxVarId :: {-# UNPACK #-} !Int
+  , scope :: {-# UNPACK #-} !Scope
+  , globalScope :: {-# UNPACK #-} !(IORef Scope)
   }
-  deriving (Show)
+
+instance Show State where
+  show (State{knownSubst, scope, disequalities, maxVarId}) =
+    "State{knownSubst="
+      <> show knownSubst
+      <> ", scope="
+      <> show scope
+      <> ", globalScope=(STRef), disequalities="
+      <> show disequalities
+      <> ", maxVarId="
+      <> show maxVarId
+      <> " }"
 
 -- | The initial state without any knowledge and variables.
 empty :: State
@@ -499,24 +552,47 @@ empty =
     { knownSubst = substEmpty
     , disequalities = Disequalities IntMap.empty
     , maxVarId = 0
+    , scope = initialScope
+    , globalScope = newGlobalScope initialScope
     }
+
+{-# NOINLINE newGlobalScope #-}
+newGlobalScope :: Scope -> IORef Scope
+newGlobalScope scope = unsafePerformIO $ newIORef scope
 
 -- | Create a variable in the given state.
 makeVariable :: State -> (State, Term a)
-makeVariable State{maxVarId, ..} = (state', var)
+makeVariable State{maxVarId, scope, ..} = (state', var)
  where
-  var = Var (VarId maxVarId)
+  thisVar = newVar (VarId maxVarId) scope
+  var = Var thisVar
   state' = State{maxVarId = maxVarId + 1, ..}
+
+{-# NOINLINE extractVarValue #-}
+extractVarValue :: Var a -> Maybe (Term a)
+extractVarValue MkVar{..} = unsafePerformIO $ readIORef varValue
 
 shallowWalk :: (Logical a) => State -> Term a -> Term a
 shallowWalk _ (Value v) = Value v
-shallowWalk state@State{knownSubst = Subst m} (Var (VarId i)) =
-  case IntMap.lookup i m of
-    Nothing -> Var (VarId i)
-    Just v -> shallowWalk state (unsafeReconstructTerm v)
+shallowWalk state@State{knownSubst = Subst m, scope} t@(Var var@MkVar{varId = VarId i, ..}) =
+  case extractVarValue var of
+    Just v
+      | Var{} <- v
+      , varScope == scope -> compressPathShallowWalk state v varValue
+      | otherwise -> shallowWalk state v
+    Nothing -> case IntMap.lookup i m of
+      Nothing -> t
+      Just v -> shallowWalk state (unsafeReconstructTerm v)
 
-addSubst :: (Logical a) => VarId a -> Term a -> State -> Maybe State
-addSubst (VarId i) value State{knownSubst = Subst m, ..} =
+{-# NOINLINE compressPathShallowWalk #-}
+compressPathShallowWalk :: Logical a => State -> Term a -> IORef (Maybe (Term a)) -> Term a
+compressPathShallowWalk state v varValue = unsafePerformIO $ do
+  let result = shallowWalk state v
+  result `seq` writeIORef varValue (Just result)
+  return result
+
+addSubst :: (Logical a) => Var a -> Term a -> State -> Maybe State
+addSubst (MkVar{varId = VarId i}) value State{knownSubst = Subst m, ..} =
   stateUpdateDisequalities (VarId i) value $
     State
       { knownSubst = Subst $ IntMap.insert i (ErasedTerm value) m

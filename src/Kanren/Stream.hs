@@ -7,8 +7,8 @@ import           Prelude hiding (take)
 
 data Stream a
   = Done
-  | Only a
-  | Yield a (Stream a)
+  | Only !a
+  | Yield !a (Stream a)
   | Await (Stream a)
   deriving (Functor, Foldable)
 
