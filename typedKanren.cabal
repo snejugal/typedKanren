@@ -50,8 +50,8 @@ library
     , containers
     , deepseq
     , lens
-    , logict
     , mtl
+    , streamly-core
     , tagged
     , template-haskell
   default-language: Haskell2010
@@ -71,8 +71,8 @@ executable example
     , containers
     , deepseq
     , lens
-    , logict
     , mtl
+    , streamly-core
     , tagged
     , template-haskell
     , typedKanren
@@ -101,8 +101,8 @@ test-suite typedKanren-tests
     , deepseq
     , hspec
     , lens
-    , logict
     , mtl
+    , streamly-core
     , tagged
     , template-haskell
     , typedKanren
@@ -125,8 +125,8 @@ benchmark bench
     , criterion
     , deepseq
     , lens
-    , logict
     , mtl
+    , streamly-core
     , tagged
     , template-haskell
     , typedKanren

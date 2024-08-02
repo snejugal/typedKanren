@@ -7,6 +7,7 @@ module Kanren.Stream (
   await,
   maybeToStream,
   maybeToStreamM,
+  mapM,
   interleave,
   toList,
   fuseAwaits,
@@ -16,61 +17,62 @@ module Kanren.Stream (
 
 import Data.Maybe (catMaybes)
 import Control.Applicative (Alternative(..))
-import Control.Monad.Logic (LogicT)
-import Control.Monad.Trans (MonadTrans(..))
-import qualified Control.Monad.Logic as Logic
 import Control.Monad (ap)
-import Prelude hiding (take)
+import Prelude hiding (take, mapM)
 
-newtype StreamT m a = StreamT { runStreamT :: LogicT m (Maybe a) }
+import Streamly.Data.StreamK (StreamK)
+import qualified Streamly.Data.Stream as Stream
+import qualified Streamly.Data.StreamK as StreamK
+import qualified Streamly.Data.Fold as Fold
+
+newtype StreamT m a = StreamT { runStreamT :: StreamK m (Maybe a) }
   deriving (Functor)
 
 done :: Monad m => StreamT m a
 done = empty
 
 await :: Monad m => m (StreamT m a) -> StreamT m a
-await ys = StreamT $ pure Nothing <|> do
-  lift ys >>= runStreamT
+await ys = StreamT $ StreamK.fromPure Nothing `StreamK.append` StreamK.concatEffect (runStreamT <$> ys)
 
 instance Monad m => Applicative (StreamT m) where
-  pure = StreamT . pure . Just
+  pure = StreamT . StreamK.fromPure . Just
   (<*>) = ap
 
 instance Monad m => Alternative (StreamT m) where
-  empty = StreamT empty
-  StreamT xs <|> StreamT ys = StreamT (xs <|> ys)
+  empty = StreamT StreamK.nil
+  StreamT xs <|> StreamT ys = StreamT (xs `StreamK.append` ys)
 
 instance Monad m => Monad (StreamT m) where
-  StreamT xs >>= f = StreamT $ xs >>= \case
-    Nothing -> pure Nothing
+  StreamT xs >>= f = StreamT $ flip (StreamK.concatMapWith StreamK.interleave) xs $ \case
+    Nothing -> StreamK.fromPure Nothing
     Just x -> runStreamT (f x)
 
 maybeToStream :: Maybe a -> StreamT m a
-maybeToStream Nothing = StreamT empty
-maybeToStream (Just x) = StreamT (pure (Just x))
+maybeToStream Nothing = StreamT StreamK.nil
+maybeToStream (Just x) = StreamT (StreamK.fromPure (Just x))
 
 maybeToStreamM :: Monad m => m (Maybe a) -> StreamT m a
-maybeToStreamM m = StreamT $ do
-  lift m >>= \case
-    Nothing -> empty
-    Just x -> pure (Just x)
+maybeToStreamM = StreamT . StreamK.fromEffect
 
-interleave :: Monad m => StreamT m a -> StreamT m a -> StreamT m a
-interleave (StreamT xs) (StreamT ys) = StreamT (xs `Logic.interleave` ys)
+interleave :: StreamT m a -> StreamT m a -> StreamT m a
+interleave (StreamT xs) (StreamT ys) = StreamT (xs `StreamK.interleave` ys)
 
-observeAll :: Applicative m => StreamT m a -> m [a]
-observeAll (StreamT xs) = catMaybes <$> Logic.observeAllT xs
+observeAll :: Monad m => StreamT m a -> m [a]
+observeAll (StreamT xs) = catMaybes <$> Stream.fold Fold.toList (StreamK.toStream xs)
 
 observeMany :: Monad m => Int -> StreamT m a -> m [a]
-observeMany n xs = Logic.observeManyT n (fuseAwaits xs)
+observeMany n xs = Stream.fold Fold.toList (StreamK.toStream (StreamK.take n (fuseAwaits xs)))
 
 toList :: (Monad m) => (a -> m b) -> StreamT m a -> m [b]
-toList f (StreamT xs) = do
-  ys <- catMaybes <$> Logic.observeAllT xs
+toList f xs = do
+  ys <- observeAll xs
   traverse f ys
 
-fuseAwaits :: StreamT m a -> LogicT m a
-fuseAwaits (StreamT xs) = do
-  xs >>= \case
-    Nothing -> empty
-    Just x -> pure x
+fuseAwaits :: StreamT m a -> StreamK m a
+fuseAwaits (StreamT xs) = StreamK.concatMapWith StreamK.append k xs
+  where
+    k Nothing = StreamK.nil
+    k (Just x) = StreamK.fromPure x
+
+mapM :: Monad m => (a -> m b) -> StreamT m a -> StreamT m b
+mapM f (StreamT xs) = StreamT (StreamK.mapM (traverse f) xs)

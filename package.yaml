@@ -21,7 +21,7 @@ dependencies:
   - containers
   - template-haskell
   - lens
-  - logict
+  - streamly-core
   - bifunctors
   - tagged
   - mtl

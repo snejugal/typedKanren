@@ -33,7 +33,6 @@ module Kanren.Goal (
 
 import Control.Applicative (Alternative (..))
 import Control.Monad (ap)
-import Control.Monad.Trans (lift)
 import Control.Monad.ST (ST)
 
 import Kanren.Core
@@ -147,7 +146,7 @@ run'' :: (Fresh s v) => (forall a. StreamT (ST s) a -> ST s [a]) -> (v -> Goal s
 run'' observe f = do
   initialState <- Core.empty
   let goal = fresh >>= (\vars -> f vars >> pure vars)
-  observe (runGoal goal initialState >>= StreamT . lift . fmap Just . uncurry resolve)
+  observe (Stream.mapM (uncurry resolve) (runGoal goal initialState))
 
 -- | A goal that always succeeds.
 --
