@@ -24,6 +24,7 @@ module Kanren.Goal (
 
   -- * Fresh variables
   Fresh (..),
+  fresh,
 ) where
 
 import Control.Applicative (Alternative (..))
@@ -292,83 +293,80 @@ conde = disjMany . map conjMany
 -- when the matched value is not known yet.
 class Fresh v where
   -- | Create fresh variables.
-  fresh :: Goal v
+  fresh' :: Goal v
 
-  -- | Resolve each variable to its value in the given state. You won't need to
-  -- use this method yourself, but 'run' uses it to return solutions.
+  -- | Resolve each variable to its value in the given state.
   resolve :: State -> v -> v
 
+fresh :: (Fresh v) => Goal v
+fresh = delay fresh'
+
 instance Fresh () where
-  fresh = delay (pure ())
+  fresh' = pure ()
   resolve _ () = ()
 
--- | 'makeVariable' in the form of 'Goal'. Does not insert an 'Await' point,
--- while 'fresh' inserts a single point before creating all its variables.
-fresh' :: Goal (Term a)
-fresh' = Goal (pure . makeVariable)
-
 instance (Logical a) => Fresh (Term a) where
-  fresh = delay fresh'
+  fresh' = Goal (pure . makeVariable)
   resolve = walk'
 
-instance (Logical a, Fresh v) => Fresh (Term a, v) where
-  fresh = do
-    v <- fresh
+instance (Fresh a, Fresh b) => Fresh (a, b) where
+  fresh' = do
     a <- fresh'
-    pure (a, v)
-  resolve state (a, v) = (a', v')
+    b <- fresh'
+    pure (a, b)
+  resolve state (a, b) = (a', b')
    where
     a' = resolve state a
-    v' = resolve state v
+    b' = resolve state b
 
-instance (Logical a, Logical b, Fresh v) => Fresh (Term a, Term b, v) where
-  fresh = do
-    (b, v) <- fresh
+instance (Fresh a, Fresh b, Fresh c) => Fresh (a, b, c) where
+  fresh' = do
     a <- fresh'
-    pure (a, b, v)
-  resolve state (a, b, v) = (a', b', v')
+    (b, c) <- fresh'
+    pure (a, b, c)
+  resolve state (a, b, c) = (a', b', c')
    where
     a' = resolve state a
-    (b', v') = resolve state (b, v)
-
-instance
-  (Logical a, Logical b, Logical c, Fresh v)
-  => Fresh (Term a, Term b, Term c, v)
-  where
-  fresh = do
-    (b, c, v) <- fresh
-    a <- fresh'
-    pure (a, b, c, v)
-  resolve state (a, b, c, v) = (a', b', c', v')
-   where
-    a' = resolve state a
-    (b', c', v') = resolve state (b, c, v)
+    (b', c') = resolve state (b, c)
 
 instance
-  (Logical a, Logical b, Logical c, Logical d, Fresh v)
-  => Fresh (Term a, Term b, Term c, Term d, v)
+  (Fresh a, Fresh b, Fresh c, Fresh d)
+  => Fresh (a, b, c, d)
   where
-  fresh = do
-    (b, c, d, v) <- fresh
+  fresh' = do
     a <- fresh'
-    pure (a, b, c, d, v)
-  resolve state (a, b, c, d, v) = (a', b', c', d', v')
+    (b, c, d) <- fresh'
+    pure (a, b, c, d)
+  resolve state (a, b, c, d) = (a', b', c', d')
    where
     a' = resolve state a
-    (b', c', d', v') = resolve state (b, c, d, v)
+    (b', c', d') = resolve state (b, c, d)
 
 instance
-  (Logical a, Logical b, Logical c, Logical d, Logical e, Fresh v)
-  => Fresh (Term a, Term b, Term c, Term d, Term e, v)
+  (Fresh a, Fresh b, Fresh c, Fresh d, Fresh e)
+  => Fresh (a, b, c, d, e)
   where
-  fresh = do
-    (b, c, d, e, v) <- fresh
+  fresh' = do
     a <- fresh'
-    pure (a, b, c, d, e, v)
-  resolve state (a, b, c, d, e, v) = (a', b', c', d', e', v')
+    (b, c, d, e) <- fresh'
+    pure (a, b, c, d, e)
+  resolve state (a, b, c, d, e) = (a', b', c', d', e')
    where
     a' = resolve state a
-    (b', c', d', e', v') = resolve state (b, c, d, e, v)
+    (b', c', d', e') = resolve state (b, c, d, e)
+
+instance
+  (Fresh a, Fresh b, Fresh c, Fresh d, Fresh e, Fresh f)
+  => Fresh (a, b, c, d, e, f)
+  where
+  fresh' = do
+    a <- fresh'
+    (b, c, d, e, f) <- fresh'
+    pure (a, b, c, d, e, f)
+  resolve state (a, b, c, d, e, f) = (a', b', c', d', e', f')
+   where
+    a' = resolve state a
+    (b', c', d', e', f') = resolve state (b, c, d, e, f)
 
 delay :: Goal a -> Goal a
 delay (Goal g) = Goal (Await . g)
