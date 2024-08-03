@@ -19,11 +19,13 @@ import Kanren.LogicalBase
 import Kanren.Match
 import Kanren.TH
 
+import Debug.Trace (trace)
+
 eithero :: (Logical a, Logical b) => Term (Either a b) -> Goal ()
 eithero =
   matche
-    & on _LogicLeft (\_ -> return ())
-    & on _LogicRight (\_ -> return ())
+    & on _LogicLeft (\_ -> trace "handle left" $ return ())
+    & on _LogicRight (\_ -> trace "handle right" $ return ())
 
 nestedo :: Term (Either (Either Int Bool) Int) -> Goal ()
 nestedo =

@@ -57,7 +57,7 @@ import           Kanren.Core
 class GLogical f f' where
   gunify :: Proxy f -> f' p -> f' p -> State -> Maybe State
   gwalk :: Proxy f -> State -> f' p -> f' p
-  goccursCheck :: Proxy f -> VarId b -> f' p -> State -> Bool
+  goccursCheck :: Proxy f -> Var b -> f' p -> State -> Bool
   ginject :: f p -> f' p
   gextract :: f' p -> Maybe (f p)
 
@@ -142,7 +142,7 @@ genericWalk k term = to (gwalk (Proxy @(Rep a)) k (from term))
 genericOccursCheck
   :: forall a b
    . (Generic (Logic a), GLogical (Rep a) (Rep (Logic a)))
-  => VarId b
+  => Var b
   -> Logic a
   -> State
   -> Bool
