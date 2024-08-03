@@ -1,5 +1,5 @@
-{-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE DeriveGeneric #-}
@@ -54,14 +54,14 @@ import Control.Monad (ap)
 import Data.Bifunctor (first)
 import Data.Coerce (coerce)
 import Data.Foldable (foldrM)
+import Data.IORef
 import Data.IntMap.Strict (IntMap)
 import qualified Data.IntMap.Strict as IntMap
 import Data.Maybe (fromMaybe)
 import GHC.Exts (IsList (..))
 import GHC.Generics (Generic)
-import Unsafe.Coerce (unsafeCoerce)
-import Data.IORef
 import System.IO.Unsafe (unsafePerformIO)
+import Unsafe.Coerce (unsafeCoerce)
 
 -- $setup
 -- >>> :set -package typedKanren
@@ -227,9 +227,6 @@ initialScope :: Scope
 initialScope = Scope 1
 
 data Maybe' a = Nothing' | Just' !a
-
-data SomeVar where
-  SomeVar :: Var a -> SomeVar
 
 data Var a = MkVar
   { varId :: {-# UNPACK #-} !(VarId a)
@@ -439,11 +436,13 @@ addedSubst left right state = knownSubst <$> unify' left' right' (emptied state)
   right' = walk' state right
 
 emptied :: State -> State
-emptied State{..} = State
-  { knownSubst = substEmpty
-  , scope = nonLocalScope
-  , disequalities = disequalitiesEmpty
-  , .. }
+emptied State{..} =
+  State
+    { knownSubst = substEmpty
+    , scope = nonLocalScope
+    , disequalities = disequalitiesEmpty
+    , ..
+    }
 
 instance Semigroup Subst where
   Subst l <> Subst r = Subst (l <> r)
@@ -534,11 +533,12 @@ updateComponents state subst = case substExtractArbitrary subst of
 newVar :: VarId a -> Scope -> Var a
 newVar varId scope = unsafePerformIO $ do
   ref <- newIORef Nothing'
-  return MkVar
-    { varId = varId
-    , varScope = scope
-    , varValue = ref
-    }
+  return
+    MkVar
+      { varId = varId
+      , varScope = scope
+      , varValue = ref
+      }
 
 -- | One branch in the search tree. Keeps track of known substitutions and
 -- variables.
@@ -548,7 +548,6 @@ data State = State
   , maxVarId :: {-# UNPACK #-} !Int
   , scope :: {-# UNPACK #-} !Scope
   , globalScope :: {-# UNPACK #-} !(IORef Scope)
-  , stateVars :: [SomeVar]
   }
 
 instance Show State where
@@ -572,7 +571,6 @@ empty =
     , maxVarId = 0
     , scope = initialScope
     , globalScope = newGlobalScope initialScope
-    , stateVars = []
     }
 
 {-# NOINLINE newGlobalScope #-}
@@ -592,7 +590,7 @@ makeVariable State{..} = (state', var)
  where
   thisVar = newVar (VarId maxVarId) scope
   var = Var thisVar
-  state' = State{maxVarId = maxVarId + 1, stateVars = SomeVar thisVar : stateVars, ..}
+  state' = State{maxVarId = maxVarId + 1, ..}
 
 {-# NOINLINE extractVarValue #-}
 extractVarValue :: Var a -> Maybe' (Term a)
@@ -605,16 +603,17 @@ shallowWalk state@State{knownSubst = Subst m, scope} t@(Var var@MkVar{varId = Va
   case extractVarValue var of
     Just' v
       | Var{} <- v
-      , varScope == scope -> compressPathShallowWalk state v varValue
+      , varScope == scope ->
+          compressPathShallowWalk state v varValue
       | otherwise -> shallowWalk state v
     Nothing' -> case IntMap.lookup i m of
       Nothing -> t
       Just v -> shallowWalk state (unsafeReconstructTerm v)
 
-compressPathShallowWalk :: Logical a => State -> Term a -> IORef (Maybe' (Term a)) -> Term a
+compressPathShallowWalk :: (Logical a) => State -> Term a -> IORef (Maybe' (Term a)) -> Term a
 compressPathShallowWalk state v varValue =
   let result = shallowWalk state v
-  in setVarVal varValue result `seq` result
+   in setVarVal varValue result `seq` result
 
 addSubst :: (Logical a) => Var a -> Term a -> State -> Maybe State
 addSubst (MkVar{varId = VarId i, ..}) value state@State{knownSubst = Subst m, ..}
