@@ -93,8 +93,7 @@ instance Monad Goal where
 
 instance Alternative Goal where
   empty = failo
-  Goal g1 <|> Goal g2 =
-    Goal (\state -> g1 state `interleave` g2 state)
+  (<|>) = disj
 
 -- | Query for solutions of a goal.
 --
@@ -206,14 +205,18 @@ conjMany = foldr conj (pure ())
 -- >>> run (\(x, y) -> x === Value (42 :: Int) `disj` y === Value True)
 -- [(42,_.0),(_.1,True)]
 disj :: Goal x -> Goal x -> Goal x
-disj = (<|>)
+disj left right = delay (unsafeDisjunction left right)
 
 -- | Perform disjunction of several goals, left to right.
 --
 -- >>> run (\x -> disjMany (map (\a -> x === Value a) [1, 3 .. 11 :: Int]))
 -- [1,3,5,7,9,11]
 disjMany :: [Goal x] -> Goal x
-disjMany = delay . foldr disj failo
+disjMany = delay . go
+ where
+  go [] = failo
+  go [x] = x
+  go (x : xs@(_ : _)) = unsafeDisjunction x (go xs)
 
 -- | Consider several possible cases, using syntax similar to @conde@ from
 -- @faster-minikanren@.
@@ -370,3 +373,6 @@ instance
 
 delay :: Goal a -> Goal a
 delay (Goal g) = Goal (Await . g)
+
+unsafeDisjunction :: Goal x -> Goal x -> Goal x
+unsafeDisjunction (Goal g1) (Goal g2) = Goal (\state -> g1 state `interleave` g2 state)
