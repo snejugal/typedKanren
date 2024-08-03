@@ -1,5 +1,6 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# OPTIONS_GHC -fno-cse #-}  -- NOTE: this ensures that makeVariable is not factored out in tests
 
 module Kanren.CoreSpec (spec) where
 
@@ -16,10 +17,12 @@ is var expected (Just state) = walk' state var == expected
 spec :: Spec
 spec = do
   describe "unify'" $ do
-    it "unifies variables and values" $ do
+    it "unifies variables with values (x === 42)" $ do
       let (state, x :: Term Int) = makeVariable empty
-
       unify' x (Value 42) state `shouldSatisfy` (x `is` Value 42)
+
+    it "unifies values with variables (37 === x)" $ do
+      let (state, x :: Term Int) = makeVariable empty
       unify' (Value 37) x state `shouldSatisfy` (x `is` Value 37)
 
     it "handles transitivity" $ do
