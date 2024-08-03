@@ -597,21 +597,21 @@ extractVarValue MkVar{..} = unsafePerformIO $ do
 
 shallowWalk :: (Logical a) => State -> Term a -> Term a
 shallowWalk _ (Value v) = Value v
-shallowWalk state@State{knownSubst = Subst m, scope} t@(Var var@MkVar{varId = VarId i, ..}) =
+shallowWalk state@State{knownSubst = Subst m} t@(Var var@MkVar{varId = VarId i}) =
   case extractVarValue var of
-    Just v
-      | Var{} <- v
-      , varScope == scope ->
-          compressPathShallowWalk state v varValue
-      | otherwise -> shallowWalk state v
+    Just v -> shallowWalk state v
+      -- NOTE ::for path compression, we could use
+      --
+      -- | Var{} <- v
+      -- , varScope == scope ->
+      --     let result = shallowWalk state v
+      --      in setVarVal varValue result `seq` result
+      -- | otherwise -> shallowWalk state v
+      --
+      -- however, it does not seem to help with performance
     Nothing -> case IntMap.lookup i m of
       Nothing -> t
       Just v -> shallowWalk state (unsafeReconstructTerm v)
-
-compressPathShallowWalk :: (Logical a) => State -> Term a -> IORef (Maybe (Term a)) -> Term a
-compressPathShallowWalk state v varValue =
-  let result = shallowWalk state v
-   in setVarVal varValue result `seq` result
 
 addSubst :: (Logical a) => Var a -> Term a -> State -> Maybe State
 addSubst (MkVar{varId = VarId i, ..}) value state@State{knownSubst = Subst m, ..}
