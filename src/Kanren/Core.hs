@@ -226,14 +226,12 @@ nonLocalScope = Scope 0
 initialScope :: Scope
 initialScope = Scope 1
 
-data Maybe' a = Nothing' | Just' !a
-
 data Var a = MkVar
   { varId :: {-# UNPACK #-} !(VarId a)
   -- ^ Variable ID
   , varScope :: {-# UNPACK #-} !Scope
   -- ^ Scope in which the variable was created
-  , varValue :: {-# UNPACK #-} !(IORef (Maybe' (Term a)))
+  , varValue :: !(IORef (Maybe (Term a)))
   -- ^ Value of the variable, if set-var-val was applied
   }
   deriving (Generic, NFData)
@@ -532,7 +530,7 @@ updateComponents state subst = case substExtractArbitrary subst of
 {-# NOINLINE newVar #-}
 newVar :: VarId a -> Scope -> Var a
 newVar varId scope = unsafePerformIO $ do
-  ref <- newIORef Nothing'
+  ref <- newIORef Nothing
   return
     MkVar
       { varId = varId
@@ -593,7 +591,7 @@ makeVariable State{..} = (state', var)
   state' = State{maxVarId = maxVarId + 1, ..}
 
 {-# NOINLINE extractVarValue #-}
-extractVarValue :: Var a -> Maybe' (Term a)
+extractVarValue :: Var a -> Maybe (Term a)
 extractVarValue MkVar{..} = unsafePerformIO $ do
   readIORef varValue
 
@@ -601,16 +599,16 @@ shallowWalk :: (Logical a) => State -> Term a -> Term a
 shallowWalk _ (Value v) = Value v
 shallowWalk state@State{knownSubst = Subst m, scope} t@(Var var@MkVar{varId = VarId i, ..}) =
   case extractVarValue var of
-    Just' v
+    Just v
       | Var{} <- v
       , varScope == scope ->
           compressPathShallowWalk state v varValue
       | otherwise -> shallowWalk state v
-    Nothing' -> case IntMap.lookup i m of
+    Nothing -> case IntMap.lookup i m of
       Nothing -> t
       Just v -> shallowWalk state (unsafeReconstructTerm v)
 
-compressPathShallowWalk :: (Logical a) => State -> Term a -> IORef (Maybe' (Term a)) -> Term a
+compressPathShallowWalk :: (Logical a) => State -> Term a -> IORef (Maybe (Term a)) -> Term a
 compressPathShallowWalk state v varValue =
   let result = shallowWalk state v
    in setVarVal varValue result `seq` result
@@ -626,14 +624,14 @@ addSubst (MkVar{varId = VarId i, ..}) value state@State{knownSubst = Subst m, ..
           }
 
 {-# NOINLINE setVarVal #-}
-setVarVal :: IORef (Maybe' (Term a)) -> Term a -> ()
+setVarVal :: IORef (Maybe (Term a)) -> Term a -> ()
 setVarVal ref !value = unsafePerformIO $ do
-  atomicWriteIORef ref (Just' value)
+  atomicWriteIORef ref (Just value)
 
 stateInsertDisequality :: Subst -> State -> Maybe State
 stateInsertDisequality subst state@State{disequalities} = do
   disequalities' <- disequalitiesInsert subst disequalities
-  return state{disequalities = disequalities'}
+  return (newScope state{disequalities = disequalities'})
 
 stateUpdateDisequalities
   :: (Logical a)
