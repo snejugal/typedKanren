@@ -63,9 +63,6 @@ import Unsafe.Coerce (unsafeCoerce)
 import Data.IORef
 import System.IO.Unsafe (unsafePerformIO)
 
--- import Debug.Trace (trace)
-trace _ = id
-
 -- $setup
 -- >>> :set -package typedKanren
 -- >>> import Kanren.Goal
@@ -313,25 +310,20 @@ instance (Eq a) => Normalizable (Atomic a)
 -- | 'unify', but on 'Term's instead of 'Logic' values. If new knowledge is
 -- obtained during unification, it is obtained here.
 unify' :: (Logical a) => Term a -> Term a -> State -> Maybe State
-unify' l r state = trace "unify'" $
-  case go of
-    Nothing -> trace "unify' (fail)" go
-    Just{}  -> trace "unify' (success)" go
-  where
-    go =
-      case (shallowWalk state l, shallowWalk state r) of
-        (Var x, Var y)
-          | x == y -> Just state
-        (Var x, r')
-          | occursCheck' x r' state -> Nothing
-          | otherwise -> addSubst x r' state
-        (l', Var y)
-          | occursCheck' y l' state -> Nothing
-          | otherwise -> addSubst y l' state
-        (Value l', Value r') -> unify l' r' state
+unify' l r state =
+  case (shallowWalk state l, shallowWalk state r) of
+    (Var x, Var y)
+      | x == y -> Just state
+    (Var x, r')
+      | occursCheck' x r' state -> Nothing
+      | otherwise -> addSubst x r' state
+    (l', Var y)
+      | occursCheck' y l' state -> Nothing
+      | otherwise -> addSubst y l' state
+    (Value l', Value r') -> unify l' r' state
 
 occursCheck' :: (Logical a) => Var b -> Term a -> State -> Bool
-occursCheck' x t state = trace "occursCheck'" $
+occursCheck' x t state =
   case shallowWalk state t of
     Var y -> coerce (varId x) == varId y
     Value v -> occursCheck x v state
@@ -339,7 +331,7 @@ occursCheck' x t state = trace "occursCheck'" $
 -- | 'walk', but on 'Term's instead of 'Logic' values. The actual substitution
 -- of variables with values happens here.
 walk' :: (Logical a) => State -> Term a -> Term a
-walk' state x = trace "walk'" $ case shallowWalk state x of
+walk' state x = case shallowWalk state x of
   Var i -> Var i
   Value v -> Value (walk state v)
 
@@ -420,7 +412,7 @@ instance Show ErasedTerm where
 -- | Cast an 'ErasedTerm' back to a 'Term a'. Hopefully, you will cast it to the
 -- correct type, or bad things will happen.
 unsafeReconstructTerm :: ErasedTerm -> Term a
-unsafeReconstructTerm (ErasedTerm x) = trace "unsafeReconstructTerm" $ unsafeCoerce x
+unsafeReconstructTerm (ErasedTerm x) = unsafeCoerce x
 
 -- | Current knowledge of variable values.
 newtype Subst = Subst (IntMap ErasedTerm) deriving (Show)
@@ -548,10 +540,6 @@ newVar varId scope = unsafePerformIO $ do
     , varValue = ref
     }
 
-{-# NOINLINE unsafeNewIORef #-}
-unsafeNewIORef :: IORef (Maybe' a)
-unsafeNewIORef = trace "unsafeNewIORef" $ unsafePerformIO $ newIORef Nothing'
-
 -- | One branch in the search tree. Keeps track of known substitutions and
 -- variables.
 data State = State
@@ -589,11 +577,11 @@ empty =
 
 {-# NOINLINE newGlobalScope #-}
 newGlobalScope :: Scope -> IORef Scope
-newGlobalScope scope = trace "newGlobalScope" $ unsafePerformIO $ newIORef scope
+newGlobalScope scope = unsafePerformIO $ newIORef scope
 
 {-# NOINLINE newScope #-}
 newScope :: State -> State
-newScope state@State{globalScope} = trace "newScope" $ unsafePerformIO $ do
+newScope state@State{globalScope} = unsafePerformIO $ do
   modifyIORef' globalScope (\(Scope x) -> Scope (x + 1))
   scope' <- readIORef globalScope
   return state{scope = scope'}
@@ -608,7 +596,7 @@ makeVariable State{..} = (state', var)
 
 {-# NOINLINE extractVarValue #-}
 extractVarValue :: Var a -> Maybe' (Term a)
-extractVarValue MkVar{..} = trace ("extractVarValue " ++ show MkVar{..}) $ unsafePerformIO $ do
+extractVarValue MkVar{..} = unsafePerformIO $ do
   readIORef varValue
 
 shallowWalk :: (Logical a) => State -> Term a -> Term a
@@ -624,7 +612,7 @@ shallowWalk state@State{knownSubst = Subst m, scope} t@(Var var@MkVar{varId = Va
       Just v -> shallowWalk state (unsafeReconstructTerm v)
 
 compressPathShallowWalk :: Logical a => State -> Term a -> IORef (Maybe' (Term a)) -> Term a
-compressPathShallowWalk state v varValue = trace "compresPathShallowWalk" $
+compressPathShallowWalk state v varValue =
   let result = shallowWalk state v
   in setVarVal varValue result `seq` result
 
@@ -640,7 +628,7 @@ addSubst (MkVar{varId = VarId i, ..}) value state@State{knownSubst = Subst m, ..
 
 {-# NOINLINE setVarVal #-}
 setVarVal :: IORef (Maybe' (Term a)) -> Term a -> ()
-setVarVal ref !value = trace "setVarVal" $ unsafePerformIO $ do
+setVarVal ref !value = unsafePerformIO $ do
   atomicWriteIORef ref (Just' value)
 
 stateInsertDisequality :: Subst -> State -> Maybe State
