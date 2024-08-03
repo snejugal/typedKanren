@@ -63,8 +63,8 @@ import Unsafe.Coerce (unsafeCoerce)
 import Data.IORef
 import System.IO.Unsafe (unsafePerformIO)
 
-import Debug.Trace (trace)
--- trace _ = id
+-- import Debug.Trace (trace)
+trace _ = id
 
 -- $setup
 -- >>> :set -package typedKanren
@@ -538,11 +538,14 @@ updateComponents state subst = case substExtractArbitrary subst of
     added = fromMaybe substEmpty (addedSubst (Var thisVar) value state)
     subst'' = subst' <> added
 
+{-# NOINLINE newVar #-}
 newVar :: VarId a -> Scope -> Var a
-newVar varId scope = MkVar
+newVar varId scope = unsafePerformIO $ do
+  ref <- newIORef Nothing'
+  return MkVar
     { varId = varId
     , varScope = scope
-    , varValue = unsafeNewIORef
+    , varValue = ref
     }
 
 {-# NOINLINE unsafeNewIORef #-}
@@ -606,14 +609,7 @@ makeVariable State{..} = (state', var)
 {-# NOINLINE extractVarValue #-}
 extractVarValue :: Var a -> Maybe' (Term a)
 extractVarValue MkVar{..} = trace ("extractVarValue " ++ show MkVar{..}) $ unsafePerformIO $ do
-  putStrLn "ok"
-  x <- readIORef varValue
-  case x of
-    Nothing' -> putStrLn "nothing to extract"
-    Just' Var{} -> putStrLn "extracted Var"
-    Just' Value{} -> putStrLn "extracted Value"
-  putStrLn "ok still"
-  return x
+  readIORef varValue
 
 shallowWalk :: (Logical a) => State -> Term a -> Term a
 shallowWalk _ (Value v) = Value v

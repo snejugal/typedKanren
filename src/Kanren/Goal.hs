@@ -34,8 +34,6 @@ import Kanren.Core
 import qualified Kanren.Core as Core
 import Kanren.Stream
 
-import Debug.Trace
-
 infix 4 ===, =/=
 infixr 3 `conj`
 infixr 2 `disj`
@@ -126,11 +124,11 @@ instance Alternative Goal where
 run :: (Fresh v) => (v -> Goal ()) -> [v]
 run f = Foldable.toList solutions
  where
-  states = trace "states" $ flip runGoal Core.empty $ do
+  states = flip runGoal Core.empty $ do
     vars <- fresh
     f vars
     pure vars
-  solutions = trace "solutions" $ fmap (uncurry resolve) states
+  solutions = fmap (uncurry resolve) states
 
 -- | A goal that always succeeds.
 --
@@ -314,7 +312,7 @@ fresh' = Goal (pure . makeVariable)
 
 instance (Logical a) => Fresh (Term a) where
   fresh = fresh'
-  resolve = trace "resolve" walk'
+  resolve = walk'
 
 instance (Logical a, Fresh v) => Fresh (Term a, v) where
   fresh = do
