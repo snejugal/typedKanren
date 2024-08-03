@@ -34,6 +34,8 @@ import Kanren.Core
 import qualified Kanren.Core as Core
 import Kanren.Stream
 
+import Debug.Trace
+
 infix 4 ===, =/=
 infixr 3 `conj`
 infixr 2 `disj`
@@ -92,8 +94,7 @@ instance Monad Goal where
 
 instance Alternative Goal where
   empty = failo
-  Goal g1 <|> Goal g2 =
-    Goal (\state -> g1 state `interleave` g2 state)
+  (<|>) = disj
 
 -- | Query for solutions of a goal.
 --
@@ -125,11 +126,11 @@ instance Alternative Goal where
 run :: (Fresh v) => (v -> Goal ()) -> [v]
 run f = Foldable.toList solutions
  where
-  states = flip runGoal Core.empty $ do
+  states = trace "states" $ flip runGoal Core.empty $ do
     vars <- fresh
     f vars
     pure vars
-  solutions = fmap (uncurry resolve) states
+  solutions = trace "solutions" $ fmap (uncurry resolve) states
 
 -- | A goal that always succeeds.
 --
@@ -205,14 +206,18 @@ conjMany = foldr conj (pure ())
 -- >>> run (\(x, y) -> x === Value (42 :: Int) `disj` y === Value True)
 -- [(42,_.0),(_.1,True)]
 disj :: Goal x -> Goal x -> Goal x
-disj = (<|>)
+disj left right = delayWithNewScope (unsafeDisjunction left right)
 
 -- | Perform disjunction of several goals, left to right.
 --
 -- >>> run (\x -> disjMany (map (\a -> x === Value a) [1, 3 .. 11 :: Int]))
 -- [1,3,5,7,9,11]
 disjMany :: [Goal x] -> Goal x
-disjMany = delay . foldr disj failo
+disjMany = delayWithNewScope . go
+ where
+  go [] = failo
+  go [x] = x
+  go (x : xs@(_ : _)) = unsafeDisjunction x (go xs)
 
 -- | Consider several possible cases, using syntax similar to @conde@ from
 -- @faster-minikanren@.
@@ -299,7 +304,7 @@ class Fresh v where
   resolve :: State -> v -> v
 
 instance Fresh () where
-  fresh = delay (pure ())
+  fresh = pure ()
   resolve _ () = ()
 
 -- | 'makeVariable' in the form of 'Goal'. Does not insert an 'Await' point,
@@ -308,8 +313,8 @@ fresh' :: Goal (Term a)
 fresh' = Goal (pure . makeVariable)
 
 instance (Logical a) => Fresh (Term a) where
-  fresh = delay fresh'
-  resolve = walk'
+  fresh = fresh'
+  resolve = trace "resolve" walk'
 
 instance (Logical a, Fresh v) => Fresh (Term a, v) where
   fresh = do
@@ -372,3 +377,9 @@ instance
 
 delay :: Goal a -> Goal a
 delay (Goal g) = Goal (Await . g)
+
+unsafeDisjunction :: Goal x -> Goal x -> Goal x
+unsafeDisjunction (Goal g1) (Goal g2) = Goal (\state -> g1 state `interleave` g2 state)
+
+delayWithNewScope :: Goal x -> Goal x
+delayWithNewScope (Goal g) = Goal (Await . g . newScope)
