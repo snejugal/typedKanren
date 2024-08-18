@@ -97,43 +97,43 @@ showLogicSList other = " . " ++ show other ++ ")"
 applyo :: Term SExpr -> Term SExpr -> Term SExpr -> Goal ()
 applyo f x expr = expr === Value (LogicSCons f (Value (LogicSCons x (Value LogicSNil))))
 
-lambda :: Term Symbol
-lambda = inject' (Atomic "lambda")
+lambda :: Symbol
+lambda = Atomic "lambda"
 
-quote :: Term Symbol
-quote = inject' (Atomic "quote")
+quote :: Symbol
+quote = Atomic "quote"
 
-list :: Term Symbol
-list = inject' (Atomic "list")
+list :: Symbol
+list = Atomic "list"
 
 lambdao :: Term Symbol -> Term SExpr -> Term SExpr -> Goal ()
 lambdao x body expr =
   expr
     === Value
       ( LogicSCons
-          (Value (LogicSSymbol lambda))
+          (inject' (SSymbol lambda))
           ( Value
               ( LogicSCons
                   parameter
-                  (Value (LogicSCons body (Value LogicSNil)))
+                  (Value (LogicSCons body (inject' SNil)))
               )
           )
       )
  where
-  parameter = Value (LogicSCons (Value (LogicSSymbol x)) (Value LogicSNil))
+  parameter = Value (LogicSCons (Value (LogicSSymbol x)) (inject' SNil))
 
 quoteo :: Term SExpr -> Term SExpr -> Goal ()
 quoteo value expr =
   expr
     === Value
       ( LogicSCons
-          (Value (LogicSSymbol quote))
-          (Value (LogicSCons value (Value LogicSNil)))
+          (inject' (SSymbol quote))
+          (Value (LogicSCons value (inject' SNil)))
       )
 
 listo :: Term SExpr -> Term SExpr -> Goal ()
 listo exprs expr =
-  expr === Value (LogicSCons (Value (LogicSSymbol list)) exprs)
+  expr === Value (LogicSCons (inject' (SSymbol list)) exprs)
 
 lookupo :: Term Symbol -> Term Env -> Term Value -> Goal ()
 lookupo expectedVar env returnValue = do
@@ -180,7 +180,7 @@ evalo expr env value =
     [ do
         arg <- fresh
         quoteo arg expr
-        notInEnvo quote env
+        notInEnvo (inject' quote) env
         value === Value (LogicSExpr arg)
     , do
         (exprs, value') <- fresh
@@ -201,5 +201,5 @@ evalo expr env value =
         (x, body) <- fresh
         lambdao x body expr
         value === Value (LogicClosure x body env)
-        notInEnvo lambda env
+        notInEnvo (inject' lambda) env
     ]

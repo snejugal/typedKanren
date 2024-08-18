@@ -387,30 +387,30 @@ mulo a b c =
         a === c
     , do
         (x, z) <- fresh
-        a === Value (LogicCons (Value O) x)
+        a === Value (LogicCons (inject' O) x)
         poso x
-        c === Value (LogicCons (Value O) z)
+        c === Value (LogicCons (inject' O) z)
         poso z
         gtlo b
         mulo x b z
     , do
         (x, y) <- fresh
-        a === Value (LogicCons (Value I) x)
+        a === Value (LogicCons (inject' I) x)
         poso x
-        b === Value (LogicCons (Value O) y)
+        b === Value (LogicCons (inject' O) y)
         poso y
         mulo b a c
     , do
         (x, y) <- fresh
-        a === Value (LogicCons (Value I) x)
+        a === Value (LogicCons (inject' I) x)
         poso x
-        b === Value (LogicCons (Value I) y)
+        b === Value (LogicCons (inject' I) y)
         poso y
 
         q <- fresh
         lessl3o q c a b
         mulo x b q
-        addo (Value (LogicCons (Value O) q)) b c
+        addo (Value (LogicCons (inject' O) q)) b c
     ]
 
 -- | Calculate the quotient @q@ and remainder @r@ of dividing @n@ by @m@.
@@ -479,25 +479,25 @@ splito n r n1 n2 =
         zeroo n2
     , do
         (b, n') <- fresh
-        n === Value (LogicCons (Value O) (Value (LogicCons b n')))
+        n === Value (LogicCons (inject' O) (Value (LogicCons b n')))
         zeroo r
         n1 === Value (LogicCons b n')
         zeroo n2
     , do
         n' <- fresh
-        n === Value (LogicCons (Value I) n')
+        n === Value (LogicCons (inject' I) n')
         zeroo r
         n1 === n'
         n2 === inject' 1
     , do
         (b, n', a, r') <- fresh
-        n === Value (LogicCons (Value O) (Value (LogicCons b n')))
+        n === Value (LogicCons (inject' O) (Value (LogicCons b n')))
         r === Value (LogicCons a r')
         zeroo n2
         splito (Value (LogicCons b n')) r' n1 (inject' 0)
     , do
         (n', a, r') <- fresh
-        n === Value (LogicCons (Value I) n')
+        n === Value (LogicCons (inject' I) n')
         r === Value (LogicCons a r')
         n2 === inject' 1
         splito n' r' n1 (inject' 0)
@@ -524,18 +524,18 @@ exp2o n b q =
         splito n b (inject' 1) _n2
     , do
         (q1, b2) <- fresh
-        q === Value (LogicCons (Value O) q1)
+        q === Value (LogicCons (inject' O) q1)
         poso q1
         lesslo b n
-        appendo b (Value (LogicCons (Value I) b)) b2
+        appendo b (Value (LogicCons (inject' I) b)) b2
         exp2o n b2 q1
     , do
         (q1, n1, b2, _n2) <- fresh
-        q === Value (LogicCons (Value I) q1)
+        q === Value (LogicCons (inject' I) q1)
         poso q1
         poso n1
         splito n b n1 _n2
-        appendo b (Value (LogicCons (Value I) b)) b2
+        appendo b (Value (LogicCons (inject' I) b)) b2
         exp2o n1 b2 q1
     ]
 

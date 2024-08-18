@@ -32,22 +32,22 @@ data Record a = Record
   { spam :: String
   , ham :: a
   }
-  deriving (Generic)
+  deriving (Eq, Generic)
 
 data GADTLike where
   GADTLike :: Int -> GADTLike
-  deriving (Generic)
+  deriving (Eq, Generic)
 
 data RecordGADTLike a where
   RecordGADTLike :: {gadtSpam :: a} -> RecordGADTLike a
-  deriving (Generic)
+  deriving (Eq, Generic)
 
-data a ^ b = (:^) a b | b `Caret` a deriving (Generic)
+data a ^ b = (:^) a b | b `Caret` a deriving (Eq, Generic)
 
-newtype Newtype a = Newtype {runNewtype :: (a, a)} deriving (Generic)
+newtype Newtype a = Newtype {runNewtype :: (a, a)} deriving (Eq, Generic)
 
-data RecursiveA = RecursiveA Int RecursiveB deriving (Generic)
-data RecursiveB = RecursiveB Bool RecursiveA deriving (Generic)
+data RecursiveA = RecursiveA Int RecursiveB deriving (Eq, Generic)
+data RecursiveB = RecursiveB Bool RecursiveA deriving (Eq, Generic)
 
 makeLogical ''Constructors
 makeLogical ''Record

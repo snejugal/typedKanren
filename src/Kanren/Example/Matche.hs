@@ -1,23 +1,23 @@
-{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveGeneric      #-}
 {-# LANGUAGE StandaloneDeriving #-}
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TemplateHaskell    #-}
+{-# LANGUAGE TypeApplications   #-}
+{-# LANGUAGE TypeFamilies       #-}
 
 module Kanren.Example.Matche (example, eithero') where
 
-import Control.Lens (Prism, from)
-import Control.Lens.TH
-import Data.Bifunctor (bimap)
-import Data.Function ((&))
-import Data.Tagged (Tagged)
-import GHC.Generics (Generic)
+import           Control.Lens       (Prism, from)
+import           Control.Lens.TH
+import           Data.Bifunctor     (bimap)
+import           Data.Function      ((&))
+import           Data.Tagged        (Tagged)
+import           GHC.Generics       (Generic)
 
-import Kanren.Core
-import Kanren.Goal
-import Kanren.LogicalBase
-import Kanren.Match
-import Kanren.TH
+import           Kanren.Core
+import           Kanren.Goal
+import           Kanren.LogicalBase
+import           Kanren.Match
+import           Kanren.TH
 
 eithero :: (Logical a, Logical b) => Term (Either a b) -> Goal ()
 eithero =
@@ -52,7 +52,7 @@ nestedo' =
 data Nat
   = Z
   | S Nat
-  deriving (Show, Generic)
+  deriving (Eq, Show, Generic)
 
 makeLogical ''Nat
 makePrisms ''LogicNat

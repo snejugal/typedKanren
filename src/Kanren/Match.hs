@@ -250,20 +250,12 @@ module Kanren.Match (
   _Value',
 ) where
 
-import Control.Lens (
-  Iso,
-  Prism,
-  Prism',
-  from,
-  iso,
-  prism',
-  review,
-  reviewing,
- )
-import Data.Tagged (Tagged (Tagged, unTagged))
+import           Control.Lens (Iso, Prism, Prism', from, iso, prism', review,
+                               reviewing)
+import           Data.Tagged  (Tagged (Tagged, unTagged))
 
-import Kanren.Core
-import Kanren.Goal
+import           Kanren.Core
+import           Kanren.Goal
 
 -- | One case for non-exhaustive pattern matching.
 --
@@ -307,10 +299,11 @@ matche = const failo
 --
 -- Hence, we need one more prism between 'LogicalBase._LogicJust' and
 -- 'LogicalBase._LogicLeft' for the types to match. This prism is '_Value'.
-_Value :: Prism' (Term a) (Logic a)
+_Value :: Logical a => Prism' (Term a) (Logic a)
 _Value = prism' Value $ \case
   Value x -> Just x
   Var _ -> Nothing
+  Injected x -> Just (inject x) -- FIXME: unnecessary inject?
 
 type Matched m a = Tagged m (Term a)
 
@@ -388,5 +381,5 @@ _Tagged = iso Tagged unTagged
 --
 -- This prism serves the same purpose as '_Value', but is adapted for exhaustive
 -- pattern matching.
-_Value' :: ExhaustivePrism (Term a) m m' (Logic a) m m'
+_Value' :: Logical a => ExhaustivePrism (Term a) m m' (Logic a) m m'
 _Value' = from _Tagged . _Value . _Tagged

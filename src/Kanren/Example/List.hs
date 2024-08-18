@@ -3,13 +3,14 @@
 
 module Kanren.Example.List (example) where
 
-import Data.Function ((&))
-import Data.Maybe (fromJust)
+import           Data.Function      ((&))
+import           Data.Maybe         (fromJust)
 
-import Kanren.Core
-import Kanren.Goal
-import Kanren.LogicalBase
-import Kanren.Match
+import           Data.List          (intercalate)
+import           Kanren.Core
+import           Kanren.Goal
+import           Kanren.LogicalBase
+import           Kanren.Match
 
 listo :: (Logical a) => Term [a] -> Goal ()
 listo =
@@ -36,16 +37,17 @@ partitions xs = reifyBoth <$> partitioned
   reifyBoth (a, b) = (reify a, reify b)
   reify = fromJust . extract'
 
-showLogicList :: (Show (Logic a)) => Term [a] -> String
+showLogicList :: (Show a, Show (Logic a)) => Term [a] -> String
 showLogicList list = "[" ++ go list ++ "]"
  where
   go (Var _) = "..?"
+  go (Injected xs) = intercalate ", " (map show xs)
   go (Value LogicNil) = ""
   go (Value (LogicCons x xs)) = show x ++ sep ++ go xs
    where
     sep = case xs of
       Value LogicNil -> ""
-      _ -> ", "
+      _              -> ", "
 
 example :: IO ()
 example = do

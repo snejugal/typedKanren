@@ -1,20 +1,20 @@
-{-# LANGUAGE DefaultSignatures #-}
-{-# LANGUAGE DeriveAnyClass #-}
-{-# LANGUAGE DeriveFunctor #-}
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE DerivingStrategies #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE GADTs #-}
+{-# LANGUAGE DefaultSignatures          #-}
+{-# LANGUAGE DeriveAnyClass             #-}
+{-# LANGUAGE DeriveFunctor              #-}
+{-# LANGUAGE DeriveGeneric              #-}
+{-# LANGUAGE DerivingStrategies         #-}
+{-# LANGUAGE FlexibleContexts           #-}
+{-# LANGUAGE GADTs                      #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE KindSignatures #-}
-{-# LANGUAGE NamedFieldPuns #-}
-{-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE StandaloneDeriving #-}
-{-# LANGUAGE TupleSections #-}
-{-# LANGUAGE TypeFamilyDependencies #-}
-{-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE KindSignatures             #-}
+{-# LANGUAGE NamedFieldPuns             #-}
+{-# LANGUAGE RankNTypes                 #-}
+{-# LANGUAGE RecordWildCards            #-}
+{-# LANGUAGE StandaloneDeriving         #-}
+{-# LANGUAGE TupleSections              #-}
+{-# LANGUAGE TypeFamilyDependencies     #-}
+{-# LANGUAGE TypeOperators              #-}
+{-# LANGUAGE UndecidableInstances       #-}
 {-# OPTIONS_GHC -Wno-redundant-constraints #-}
 
 -- | The very core of miniKanren. So core that it basically deals with
@@ -46,17 +46,17 @@ module Kanren.Core (
   makeVariable,
 ) where
 
-import Control.DeepSeq
-import Control.Monad (ap)
-import Data.Bifunctor (first)
-import Data.Coerce (coerce)
-import Data.Foldable (foldrM)
-import Data.IntMap.Strict (IntMap)
+import           Control.DeepSeq
+import           Control.Monad      (ap)
+import           Data.Bifunctor     (first)
+import           Data.Coerce        (coerce)
+import           Data.Foldable      (foldrM)
+import           Data.IntMap.Strict (IntMap)
 import qualified Data.IntMap.Strict as IntMap
-import Data.Maybe (fromMaybe)
-import GHC.Exts (IsList (..))
-import GHC.Generics (Generic)
-import Unsafe.Coerce (unsafeCoerce)
+import           Data.Maybe         (fromMaybe)
+import           GHC.Exts           (IsList (..))
+import           GHC.Generics       (Generic)
+import           Unsafe.Coerce      (unsafeCoerce)
 
 -- $setup
 -- >>> :set -package typedKanren
@@ -145,7 +145,7 @@ import Unsafe.Coerce (unsafeCoerce)
 --
 -- Although you'll see instances for @base@ types below, keep in mind that
 -- they're only available from the @"LogicalBase"@ module.
-class Logical a where
+class Eq a => Logical a where
   -- | The logical representation of this type. This defaults to the type
   -- itself, but complex types will usually have a separate logic type.
   --
@@ -223,42 +223,55 @@ instance Show (VarId a) where
 data Term a
   = Var !(VarId a)
   | Value !(Logic a)
+  | Injected !a
   deriving (Generic)
 
-deriving instance (NFData (Logic a)) => NFData (Term a)
+deriving instance (NFData a, NFData (Logic a)) => NFData (Term a)
 
-deriving instance (Eq (Logic a)) => Eq (Term a)
+instance (Eq a, Eq (Logic a), Logical a) => Eq (Term a) where
+  Var x == Var y = x == y
+  Value x == Value y = x == y
+  Injected x == Injected y = x == y
+  Injected x == Value y = inject x == y
+  Value x == Injected y = x == inject y
+  _ == _ = False
 
 -- | This instance doesn't print the 'Var' and 'Value' tags. While this reduces
 -- noise in the output, this may also be confusing since fully instantiated
 -- terms may look indistinguishable from regular values.
-instance (Show (Logic a)) => Show (Term a) where
-  showsPrec d (Var var) = showsPrec d var
+instance (Show a, Show (Logic a)) => Show (Term a) where
+  showsPrec d (Var var)     = showsPrec d var
   showsPrec d (Value value) = showsPrec d value
+  showsPrec d (Injected x)  = showsPrec d x
 
-instance (IsList (Logic a)) => IsList (Term a) where
+instance (Logical a, IsList a, IsList (Logic a)) => IsList (Term a) where
   type Item (Term a) = Item (Logic a)
   fromList = Value . fromList
   toList (Value xs) = toList xs
   toList (Var x) = error ("cannot convert unification variable " <> show x <> " to list")
+  toList (Injected x) = toList (inject x)
 
-instance (Num (Logic a)) => Num (Term a) where
+instance (Num a, Num (Logic a), Logical a) => Num (Term a) where
   fromInteger = Value . fromInteger
-  (+) = unsafePromoteBinOp "(+)" (+)
-  (-) = unsafePromoteBinOp "(-)" (-)
-  (*) = unsafePromoteBinOp "(*)" (*)
-  abs = unsafePromoteUnaryOp "abs" abs
-  signum = unsafePromoteUnaryOp "signum" signum
-  negate = unsafePromoteUnaryOp "negate" negate
+  (+) = unsafePromoteBinOp "(+)" (+) (+)
+  (-) = unsafePromoteBinOp "(-)" (-) (-)
+  (*) = unsafePromoteBinOp "(*)" (*) (*)
+  abs = unsafePromoteUnaryOp "abs" abs abs
+  signum = unsafePromoteUnaryOp "signum" signum signum
+  negate = unsafePromoteUnaryOp "negate" negate negate
 
-unsafePromoteUnaryOp :: String -> (Logic a -> Logic b) -> Term a -> Term b
-unsafePromoteUnaryOp _name f (Value x) = Value (f x)
-unsafePromoteUnaryOp name _f (Var x) = error ("cannot apply " <> name <> " to the unification variable " <> show x)
+unsafePromoteUnaryOp :: String -> (a -> b) -> (Logic a -> Logic b) -> Term a -> Term b
+unsafePromoteUnaryOp _name _f' f (Value x) = Value (f x)
+unsafePromoteUnaryOp name _f' _f (Var x) = error ("cannot apply " <> name <> " to the unification variable " <> show x)
+unsafePromoteUnaryOp _name f' _f (Injected x) = Injected (f' x)
 
-unsafePromoteBinOp :: String -> (Logic a -> Logic b -> Logic c) -> Term a -> Term b -> Term c
-unsafePromoteBinOp _name f (Value x) (Value y) = Value (f x y)
-unsafePromoteBinOp name _f (Var x) _ = error ("cannot apply " <> name <> " to the unification variable " <> show x)
-unsafePromoteBinOp name _f _ (Var x) = error ("cannot apply " <> name <> " to the unification variable " <> show x)
+unsafePromoteBinOp :: (Logical a, Logical b) => String -> (a -> b -> c) -> (Logic a -> Logic b -> Logic c) -> Term a -> Term b -> Term c
+unsafePromoteBinOp _name _f' f (Value x) (Value y) = Value (f x y)
+unsafePromoteBinOp _name f' _f (Injected x) (Injected y) = Injected (f' x y)
+unsafePromoteBinOp _name _f' f (Injected x) (Value y) = Value (f (inject x) y)
+unsafePromoteBinOp _name _f' f (Value x) (Injected y) = Value (f x (inject y))
+unsafePromoteBinOp name _f' _f (Var x) _ = error ("cannot apply " <> name <> " to the unification variable " <> show x)
+unsafePromoteBinOp name _f' _f _ (Var x) = error ("cannot apply " <> name <> " to the unification variable " <> show x)
 
 -- | Treat a type as atomic, i.e. containing no variables inside. This requires
 -- @a@ only to have an 'Eq' instance, thus ignoring its logical representation
@@ -287,26 +300,33 @@ unify' l r state =
       | occursCheck' y l' state -> Nothing
       | otherwise -> addSubst y l' state
     (Value l', Value r') -> unify l' r' state
+    (Injected l', Injected r')
+      | l' == r' -> Just state
+      | otherwise -> Nothing
+    (Injected l', Value r') -> unify (inject l') r' state
+    (Value l', Injected r') -> unify l' (inject r') state
 
 occursCheck' :: (Logical a) => VarId b -> Term a -> State -> Bool
 occursCheck' x t state =
   case shallowWalk state t of
-    Var y -> coerce x == y
-    Value v -> occursCheck x v state
+    Var y      -> coerce x == y
+    Value v    -> occursCheck x v state
+    Injected _ -> False -- there are no unification variables in injected values
 
 -- | 'walk', but on 'Term's instead of 'Logic' values. The actual substitution
 -- of variables with values happens here.
 walk' :: (Logical a) => State -> Term a -> Term a
 walk' state x = case shallowWalk state x of
-  Var i -> Var i
-  Value v -> Value (walk state v)
+  Var i        -> Var i
+  Value v      -> Value (walk state v)
+  t@Injected{} -> t -- there are no unification variables in injected values
 
 -- | 'inject', but to a 'Term' instead of a 'Logic' value. You will use this
 -- function in your relational programs to inject normal values.
 --
 -- > run (\x -> x === inject' [1, 2, 3])
 inject' :: (Logical a) => a -> Term a
-inject' = Value . inject
+inject' = Injected
 
 -- | 'extract', but from a 'Term' instead of a 'Logic' value. Note that this
 -- transformation can fail in the general case, because variables cannot be
@@ -318,8 +338,9 @@ inject' = Value . inject
 -- >>> extract' <$> run (\x -> x === inject' (Left 42 :: Either Int Bool))
 -- [Just (Left 42)]
 extract' :: (Logical a) => Term a -> Maybe a
-extract' Var{} = Nothing
-extract' (Value x) = extract x
+extract' Var{}        = Nothing
+extract' (Value x)    = extract x
+extract' (Injected x) = Just x
 
 data Normalization = Normalization (IntMap Int) Int
 newtype Normalizer a = Normalizer (Normalization -> (Normalization, a)) deriving (Functor)
@@ -341,8 +362,9 @@ class (Logical a) => Normalizable a where
   normalize _ = pure
 
 normalize' :: (Normalizable a) => (forall i. VarId i -> Normalizer (VarId i)) -> Term a -> Normalizer (Term a)
-normalize' f (Var varId) = Var <$> f varId
-normalize' f (Value x) = Value <$> normalize f x
+normalize' f (Var varId)  = Var <$> f varId
+normalize' f (Value x)    = Value <$> normalize f x
+normalize' _ t@Injected{} = pure t
 
 runNormalize :: (Normalizable a) => Term a -> Term a
 runNormalize x = normalized
@@ -360,7 +382,7 @@ runNormalize x = normalized
 -- | Add a constraint that two terms must not be equal.
 disequality :: (Logical a) => Term a -> Term a -> State -> Maybe State
 disequality left right state = case addedSubst left right state of
-  Nothing -> Just state
+  Nothing    -> Just state
   Just added -> stateInsertDisequality added state
 
 -- | Since 'Term's are polymorphic, we cannot easily store them in the
@@ -370,8 +392,9 @@ data ErasedTerm where
   ErasedTerm :: (Logical a) => Term a -> ErasedTerm
 
 instance Show ErasedTerm where
-  show (ErasedTerm (Var varId)) = "Var " ++ show varId
-  show (ErasedTerm (Value _)) = "Value _"
+  show (ErasedTerm (Var varId))  = "Var " ++ show varId
+  show (ErasedTerm (Value _))    = "Value _"
+  show (ErasedTerm (Injected _)) = "Injected _"
 
 -- | Cast an 'ErasedTerm' back to a 'Term a'. Hopefully, you will cast it to the
 -- correct type, or bad things will happen.
@@ -478,7 +501,7 @@ updateComponents state subst = case substExtractArbitrary subst of
   Just ((varId, ErasedTerm value), subst') ->
     case substLookupArbitraryId subst'' of
       Just varId' | varId == varId' -> subst''
-      _ -> updateComponents state subst''
+      _                             -> updateComponents state subst''
    where
     added = fromMaybe substEmpty (addedSubst (Var (VarId varId)) value state)
     subst'' = subst' <> added
@@ -486,9 +509,9 @@ updateComponents state subst = case substExtractArbitrary subst of
 -- | One branch in the search tree. Keeps track of known substitutions and
 -- variables.
 data State = State
-  { knownSubst :: !Subst
+  { knownSubst    :: !Subst
   , disequalities :: !Disequalities
-  , maxVarId :: !Int
+  , maxVarId      :: !Int
   }
   deriving (Show)
 
@@ -509,11 +532,12 @@ makeVariable State{maxVarId, ..} = (state', var)
   state' = State{maxVarId = maxVarId + 1, ..}
 
 shallowWalk :: (Logical a) => State -> Term a -> Term a
-shallowWalk _ (Value v) = Value v
+shallowWalk _ t@Value{} = t
+shallowWalk _ t@Injected{} = t
 shallowWalk state@State{knownSubst = Subst m} (Var (VarId i)) =
   case IntMap.lookup i m of
     Nothing -> Var (VarId i)
-    Just v -> shallowWalk state (unsafeReconstructTerm v)
+    Just v  -> shallowWalk state (unsafeReconstructTerm v)
 
 addSubst :: (Logical a) => VarId a -> Term a -> State -> Maybe State
 addSubst (VarId i) value State{knownSubst = Subst m, ..} =

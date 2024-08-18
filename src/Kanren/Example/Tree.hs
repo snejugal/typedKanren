@@ -1,24 +1,24 @@
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE DeriveGeneric        #-}
+{-# LANGUAGE FlexibleContexts     #-}
+{-# LANGUAGE ScopedTypeVariables  #-}
+{-# LANGUAGE TemplateHaskell      #-}
+{-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 module Kanren.Example.Tree (example) where
 
-import Control.Lens.TH (makePrisms)
-import Data.Function ((&))
-import GHC.Generics (Generic)
+import           Control.Lens.TH    (makePrisms)
+import           Data.Function      ((&))
+import           GHC.Generics       (Generic)
 
-import Kanren.Core
-import Kanren.Goal
-import Kanren.LogicalBase ()
-import Kanren.Match
-import Kanren.TH
+import           Kanren.Core
+import           Kanren.Goal
+import           Kanren.LogicalBase ()
+import           Kanren.Match
+import           Kanren.TH
 
 data Tree a = Empty | Node a (Tree a) (Tree a)
-  deriving (Show, Generic)
+  deriving (Eq, Show, Generic)
 makeLogical ''Tree
 makePrisms ''LogicTree
 
