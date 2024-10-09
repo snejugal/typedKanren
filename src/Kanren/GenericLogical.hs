@@ -5,6 +5,7 @@
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TypeApplications      #-}
 {-# LANGUAGE TypeOperators         #-}
+{-# OPTIONS_GHC -Wno-redundant-constraints #-}
 
 -- | 'Generic' implementations of 'Logical' methods.
 --
@@ -53,6 +54,7 @@ import           Data.Proxy    (Proxy (..))
 import           GHC.Generics
 
 import           Kanren.Core
+import           Unsafe.Coerce (unsafeCoerce)
 
 class GLogical f f' where
   gunify :: Proxy f -> f' p -> f' p -> State -> Maybe State
@@ -153,7 +155,7 @@ genericInject
   :: (Generic a, Generic (Logic a), GLogical (Rep a) (Rep (Logic a)))
   => a
   -> Logic a
-genericInject x = to (ginject (from x))
+genericInject = unsafeCoerce -- to (ginject (from x))
 
 -- | The generic implementation of 'extract'.
 genericExtract

@@ -1,21 +1,23 @@
-{-# LANGUAGE DefaultSignatures #-}
-{-# LANGUAGE DeriveAnyClass #-}
-{-# LANGUAGE DeriveFunctor #-}
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE DerivingStrategies #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE GADTs #-}
+{-# LANGUAGE DefaultSignatures          #-}
+{-# LANGUAGE DeriveAnyClass             #-}
+{-# LANGUAGE DeriveFunctor              #-}
+{-# LANGUAGE DeriveGeneric              #-}
+{-# LANGUAGE DerivingStrategies         #-}
+{-# LANGUAGE FlexibleContexts           #-}
+{-# LANGUAGE GADTs                      #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE KindSignatures #-}
-{-# LANGUAGE NamedFieldPuns #-}
-{-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE StandaloneDeriving #-}
-{-# LANGUAGE TupleSections #-}
-{-# LANGUAGE TypeFamilyDependencies #-}
-{-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE KindSignatures             #-}
+{-# LANGUAGE NamedFieldPuns             #-}
+{-# LANGUAGE RankNTypes                 #-}
+{-# LANGUAGE RecordWildCards            #-}
+{-# LANGUAGE StandaloneDeriving         #-}
+{-# LANGUAGE TupleSections              #-}
+{-# LANGUAGE TypeFamilyDependencies     #-}
+{-# LANGUAGE TypeOperators              #-}
+{-# LANGUAGE UndecidableInstances       #-}
 {-# OPTIONS_GHC -Wno-redundant-constraints #-}
+{-# LANGUAGE PatternSynonyms            #-}
+{-# LANGUAGE ViewPatterns               #-}
 
 -- | The very core of miniKanren. So core that it basically deals with
 -- unification only. For writing relational programs, you will need @"Goal"@ as
@@ -24,7 +26,9 @@ module Kanren.Core (
   -- * Values and terms
   Logical (..),
   VarId,
-  Term (..),
+  Term,
+  pattern Var,
+  pattern Value,
   Atomic (..),
 
   -- ** Operations on terms
@@ -46,17 +50,17 @@ module Kanren.Core (
   makeVariable,
 ) where
 
-import Control.DeepSeq
-import Control.Monad (ap)
-import Data.Bifunctor (first)
-import Data.Coerce (coerce)
-import Data.Foldable (foldrM)
-import Data.IntMap.Strict (IntMap)
+import           Control.DeepSeq
+import           Control.Monad      (ap)
+import           Data.Bifunctor     (first)
+import           Data.Coerce        (coerce)
+import           Data.Foldable      (foldrM)
+import           Data.IntMap.Strict (IntMap)
 import qualified Data.IntMap.Strict as IntMap
-import Data.Maybe (fromMaybe)
-import GHC.Exts (IsList (..))
-import GHC.Generics (Generic)
-import Unsafe.Coerce (unsafeCoerce)
+import           Data.Maybe         (fromMaybe)
+import           GHC.Exts           (IsList (..))
+import           Kanren.Tagless     (Tagless, extra, inspectTagless, tagless)
+import           Unsafe.Coerce      (unsafeCoerce)
 
 -- $setup
 -- >>> :set -package typedKanren
@@ -220,20 +224,26 @@ instance Show (VarId a) where
 -- Int))@ will correctly use @LogicList Char@ and @LogicTree Int@ deep inside.
 -- This way, you do not need to know what the logic representation for a type is
 -- named, and deriving the logical representation for a type is trivial.
-data Term a
-  = Var !(VarId a)
-  | Value !(Logic a)
-  deriving (Generic)
+newtype Term a = Term { getTerm :: Tagless (VarId a) (Logic a) }
 
-deriving instance (NFData (Logic a)) => NFData (Term a)
+deriving newtype instance Eq (Logic a) => Eq (Term a)
+deriving newtype instance NFData (Logic a) => NFData (Term a)
 
-deriving instance (Eq (Logic a)) => Eq (Term a)
+pattern Var :: VarId a -> Term a
+pattern Var varId <- Term (inspectTagless -> Left varId)
+  where Var varId = Term (extra varId)
+
+pattern Value :: Logic a -> Term a
+pattern Value value <- Term (inspectTagless -> Right value)
+  where Value value = Term (tagless value)
+
+{-# COMPLETE Var, Value #-}
 
 -- | This instance doesn't print the 'Var' and 'Value' tags. While this reduces
 -- noise in the output, this may also be confusing since fully instantiated
 -- terms may look indistinguishable from regular values.
 instance (Show (Logic a)) => Show (Term a) where
-  showsPrec d (Var var) = showsPrec d var
+  showsPrec d (Var var)     = showsPrec d var
   showsPrec d (Value value) = showsPrec d value
 
 instance (IsList (Logic a)) => IsList (Term a) where
@@ -291,14 +301,14 @@ unify' l r state =
 occursCheck' :: (Logical a) => VarId b -> Term a -> State -> Bool
 occursCheck' x t state =
   case shallowWalk state t of
-    Var y -> coerce x == y
+    Var y   -> coerce x == y
     Value v -> occursCheck x v state
 
 -- | 'walk', but on 'Term's instead of 'Logic' values. The actual substitution
 -- of variables with values happens here.
 walk' :: (Logical a) => State -> Term a -> Term a
 walk' state x = case shallowWalk state x of
-  Var i -> Var i
+  Var i   -> Var i
   Value v -> Value (walk state v)
 
 -- | 'inject', but to a 'Term' instead of a 'Logic' value. You will use this
@@ -318,7 +328,7 @@ inject' = Value . inject
 -- >>> extract' <$> run (\x -> x === inject' (Left 42 :: Either Int Bool))
 -- [Just (Left 42)]
 extract' :: (Logical a) => Term a -> Maybe a
-extract' Var{} = Nothing
+extract' Var{}     = Nothing
 extract' (Value x) = extract x
 
 data Normalization = Normalization (IntMap Int) Int
@@ -342,7 +352,7 @@ class (Logical a) => Normalizable a where
 
 normalize' :: (Normalizable a) => (forall i. VarId i -> Normalizer (VarId i)) -> Term a -> Normalizer (Term a)
 normalize' f (Var varId) = Var <$> f varId
-normalize' f (Value x) = Value <$> normalize f x
+normalize' f (Value x)   = Value <$> normalize f x
 
 runNormalize :: (Normalizable a) => Term a -> Term a
 runNormalize x = normalized
@@ -360,7 +370,7 @@ runNormalize x = normalized
 -- | Add a constraint that two terms must not be equal.
 disequality :: (Logical a) => Term a -> Term a -> State -> Maybe State
 disequality left right state = case addedSubst left right state of
-  Nothing -> Just state
+  Nothing    -> Just state
   Just added -> stateInsertDisequality added state
 
 -- | Since 'Term's are polymorphic, we cannot easily store them in the
@@ -371,7 +381,7 @@ data ErasedTerm where
 
 instance Show ErasedTerm where
   show (ErasedTerm (Var varId)) = "Var " ++ show varId
-  show (ErasedTerm (Value _)) = "Value _"
+  show (ErasedTerm (Value _))   = "Value _"
 
 -- | Cast an 'ErasedTerm' back to a 'Term a'. Hopefully, you will cast it to the
 -- correct type, or bad things will happen.
@@ -478,7 +488,7 @@ updateComponents state subst = case substExtractArbitrary subst of
   Just ((varId, ErasedTerm value), subst') ->
     case substLookupArbitraryId subst'' of
       Just varId' | varId == varId' -> subst''
-      _ -> updateComponents state subst''
+      _                             -> updateComponents state subst''
    where
     added = fromMaybe substEmpty (addedSubst (Var (VarId varId)) value state)
     subst'' = subst' <> added
@@ -486,9 +496,9 @@ updateComponents state subst = case substExtractArbitrary subst of
 -- | One branch in the search tree. Keeps track of known substitutions and
 -- variables.
 data State = State
-  { knownSubst :: !Subst
+  { knownSubst    :: !Subst
   , disequalities :: !Disequalities
-  , maxVarId :: !Int
+  , maxVarId      :: !Int
   }
   deriving (Show)
 
@@ -513,7 +523,7 @@ shallowWalk _ (Value v) = Value v
 shallowWalk state@State{knownSubst = Subst m} (Var (VarId i)) =
   case IntMap.lookup i m of
     Nothing -> Var (VarId i)
-    Just v -> shallowWalk state (unsafeReconstructTerm v)
+    Just v  -> shallowWalk state (unsafeReconstructTerm v)
 
 addSubst :: (Logical a) => VarId a -> Term a -> State -> Maybe State
 addSubst (VarId i) value State{knownSubst = Subst m, ..} =

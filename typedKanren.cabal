@@ -36,6 +36,7 @@ library
       Kanren.LogicalBase
       Kanren.Match
       Kanren.Stream
+      Kanren.Tagless
       Kanren.TH
   other-modules:
       Paths_typedKanren
