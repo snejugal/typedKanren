@@ -224,7 +224,7 @@ instance Show (VarId a) where
 -- Int))@ will correctly use @LogicList Char@ and @LogicTree Int@ deep inside.
 -- This way, you do not need to know what the logic representation for a type is
 -- named, and deriving the logical representation for a type is trivial.
-newtype Term a = Term { getTerm :: Tagless (VarId a) (Logic a) }
+newtype Term a = Term { _getTerm :: Tagless (VarId a) (Logic a) }
 
 deriving newtype instance Eq (Logic a) => Eq (Term a)
 deriving newtype instance NFData (Logic a) => NFData (Term a)

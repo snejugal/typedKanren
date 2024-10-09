@@ -24,7 +24,7 @@
 -- [1] Dmitrii Kosarev, Dmitry Boulytchev. Typed Embedding of a Relational Language in OCaml <https://arxiv.org/abs/1805.11006>
 -- [2] Nicolas Chataing, Stephen Dolan, Gabriel Scherer, and Jeremy Yallop. 2024. Unboxed Data Constructors: Or, How cpp Decides a Halting Problem. Proc. ACM Program. Lang. 8, POPL, Article 51 (January 2024), 31 pages. https://doi.org/10.1145/3632893
 -- [3] Bartell-Mangel, N. L. (2022). Filling a Niche: Using Spare Bits to Optimize Data Representations.
-module Kanren.Tagless where
+module Kanren.Tagless (Tagless, tagless, extra, inspectTagless, inspectAsTagless) where
 
 import           Control.DeepSeq   (NFData (rnf))
 import qualified Foreign.Ptr       as Foreign
@@ -75,29 +75,14 @@ instance (NFData extra, NFData a) => NFData (Tagless extra a) where
 --
 -- >>> closureSize ([] :: [Int])
 -- 4
+-- >>> closureSize $! ([] :: [Int])
+-- 2
 -- >>> closureSize (Nothing :: Maybe Int)
 -- 2
---
--- See 'closureSize'' for the stricter version.
+-- >>> >>> closureSize $! (Nothing :: Maybe Int)
+-- 2
 closureSize :: a -> Int
 closureSize x = I# (closureSize# x)
-
--- | A strict version of 'closureSize'.
---
--- >>> closureSize' ([] :: [Int])
--- 2
--- >>> closureSize' (Nothing :: Maybe Int)
--- 2
--- >>> closureSize' ()
--- 2
--- >>> closureSize' (extra False :: Tagless Bool [Int])
--- 3
--- >>> closureSize' (tagless [1,2,3] :: Tagless Bool [Int])
--- 3
--- >>> closureSize' (tagless [] :: Tagless Bool [Int])
--- 2
-closureSize' :: a -> Int
-closureSize' !x = closureSize x
 
 -- | Inspect a value of type @a@ to see if it contains @extra@ data
 -- via 'Tagless' representation.
@@ -132,43 +117,3 @@ tagless = Tagless
 -- This operation adds a runtime tag which is inspectable via 'inspectTagless'.
 extra :: extra -> Tagless extra a
 extra x = unsafeCoerce (Extra theAnchor x)
-
--- * Some simple examples/tests
-
-test :: String -> [Either Int (Either Bool String)]
-test s =
-  [ inspectTagless (tagless (Right "Hello"))
-  , inspectTagless (tagless (Left True))
-  , inspectTagless (tagless (Left False))
-  , inspectTagless (tagless (Right "world"))
-  , inspectTagless (extra 1)
-  , inspectTagless (extra 123)
-  , inspectTagless (extra 0)
-  , inspectTagless (tagless (Right s))
-  , inspectTagless (tagless (Left (null s)))]
-
-data Undefined = Undefined
-
-taglessCaseList :: [a] -> (extra -> r) -> r -> ((a, Tagless extra [a]) -> r) -> r
-taglessCaseList zs handleExtra handleEmpty handleNonEmpty =
-  case inspectAsTagless zs of
-    Left extra_  -> handleExtra extra_
-    Right []     -> handleEmpty
-    Right (x:xs) -> handleNonEmpty (x, tagless xs)
-
-sampleList1 :: Tagless Undefined [Int]
-sampleList1 = tagless [1..10]
-
-cons :: a -> Tagless extra [a] -> Tagless extra [a]
-cons x xs = tagless (x : unsafeCoerce xs)
-
-sampleList2 :: Tagless Undefined [Int]
-sampleList2 = 1 `cons` (2 `cons` extra Undefined)
-
-ppListAsTagless :: Show a => [a] -> String
-ppListAsTagless t =
-  case inspectAsTagless t of
-    Left _       -> "EXTRA"
-    Right []     -> "END OF LIST"
-    -- Right [x]    -> show x
-    Right (x:xs) -> show x ++ ", " ++ ppListAsTagless xs
