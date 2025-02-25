@@ -18,16 +18,20 @@ log3o n log3n = do
   r <- fresh
   Binary.logo (inject' n) (inject' 3) log3n r
 
-quineo :: () -> Term Scheme.SExpr -> Goal ()
-quineo _ x = Scheme.evalo x (inject' []) (Value (Scheme.LogicSExpr x))
+quineo :: a -> Term Scheme.SExpr -> Goal ()
+quineo a x = do
+  _ <- return a -- useless, but prevents GHC from optimizing too much
+  Scheme.evalo x (inject' []) (Value (Scheme.LogicSExpr x))
 
-twineo :: () -> (Term Scheme.SExpr, Term Scheme.SExpr) -> Goal ()
-twineo _ (x, y) = do
+twineo :: a -> (Term Scheme.SExpr, Term Scheme.SExpr) -> Goal ()
+twineo a (x, y) = do
+  _ <- return a
   Scheme.evalo x (inject' []) (Value (Scheme.LogicSExpr y))
   Scheme.evalo y (inject' []) (Value (Scheme.LogicSExpr x))
 
-thrineo :: () -> (Term Scheme.SExpr, Term Scheme.SExpr, Term Scheme.SExpr) -> Goal ()
-thrineo _ (x, y, z) = do
+thrineo :: a -> (Term Scheme.SExpr, Term Scheme.SExpr, Term Scheme.SExpr) -> Goal ()
+thrineo a (x, y, z) = do
+  _ <- return a
   Scheme.evalo x (inject' []) (Value (Scheme.LogicSExpr y))
   Scheme.evalo y (inject' []) (Value (Scheme.LogicSExpr z))
   Scheme.evalo z (inject' []) (Value (Scheme.LogicSExpr x))
@@ -55,16 +59,16 @@ main =
     , bgroup
         "N quines "
         [ bench (" N=" <> show n) $ whnfGoalN n quineo ()
-        | n <- [1, 100 :: Int]
+        | n <- [100 :: Int]
         ]
     , bgroup
         "N twines "
         [ bench (" N=" <> show n) $ whnfGoalN n twineo ()
-        | n <- [1, 15 :: Int]
+        | n <- [15 :: Int]
         ]
     , bgroup
         "N thrines "
         [ bench (" N=" <> show n) $ whnfGoalN n thrineo ()
-        | n <- [1, 2 :: Int]
+        | n <- [2 :: Int]
         ]
     ]
