@@ -1,3 +1,4 @@
+{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveFunctor #-}
@@ -48,7 +49,6 @@ module Kanren.Core (
 
 import Control.DeepSeq
 import Control.Monad (ap)
-import Data.Bifunctor (first)
 import Data.Coerce (coerce)
 import Data.Foldable (foldrM)
 import Data.IntMap.Strict (IntMap)
@@ -56,6 +56,7 @@ import qualified Data.IntMap.Strict as IntMap
 import Data.Maybe (fromMaybe)
 import GHC.Exts (IsList (..))
 import GHC.Generics (Generic)
+import StrictList (List (Cons, Nil), mapReversed)
 import Unsafe.Coerce (unsafeCoerce)
 
 -- $setup
@@ -429,22 +430,27 @@ instance Semigroup Subst where
 -- If @x@ turns out to be 1, there are still other disequalities to check,
 -- but if @x@ becomes 2, then we fail. If @x@ is anything else, we just drop
 -- all constraints attached to it.
-newtype Disequalities = Disequalities (IntMap [(ErasedTerm, Subst)])
+newtype Disequalities = Disequalities (IntMap (List (DisequalityHead ErasedTerm)))
   deriving (Show)
+
+data DisequalityHead term = DisequalityHead !term !Subst deriving (Show)
+
+unsafeReconstructDisequalityHead :: DisequalityHead ErasedTerm -> DisequalityHead (Term a)
+unsafeReconstructDisequalityHead (DisequalityHead term subst) = DisequalityHead (unsafeReconstructTerm term) subst
 
 disequalitiesInsert :: Subst -> Disequalities -> Maybe Disequalities
 disequalitiesInsert subst (Disequalities d) = do
   ((varId, value), subst') <- substExtractArbitrary subst
-  let entry' = (value, subst') : fromMaybe [] (IntMap.lookup varId d)
+  let entry' = Cons (DisequalityHead value subst') (fromMaybe Nil (IntMap.lookup varId d))
   return (Disequalities (IntMap.insert varId entry' d))
 
 disequalitiesExtract
   :: VarId a
   -> Disequalities
-  -> Maybe ([(Term a, Subst)], Disequalities)
+  -> Maybe (List (DisequalityHead (Term a)), Disequalities)
 disequalitiesExtract (VarId varId) (Disequalities d) = do
   entry <- IntMap.lookup varId d
-  let entry' = map (first unsafeReconstructTerm) entry
+  let entry' = mapReversed unsafeReconstructDisequalityHead entry
 
   let withoutEntry = Disequalities (IntMap.delete varId d)
   return (entry', withoutEntry)
@@ -463,7 +469,7 @@ disequalitiesUpdate state varId value d =
       foldrM updateDisequality d' varDisequalities
  where
   value' = walk' state value
-  updateDisequality (disallowedValue, subst) d' =
+  updateDisequality (DisequalityHead disallowedValue subst) d' =
     case addedSubst value' disallowedValue state of
       Nothing -> Just d'
       Just added
