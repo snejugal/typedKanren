@@ -77,3 +77,63 @@ benchmarks:
       - typedKanren
       - criterion
       - deepseq
+  exp3o-mem:
+    main: Main.hs
+    source-dirs: bench/exp3o-mem
+    ghc-options:
+      - -threaded
+      - -O2
+      - -rtsopts
+      - '"-with-rtsopts=-N -T"'
+    dependencies:
+      - typedKanren
+      - criterion
+      - deepseq
+  log3o-mem:
+    main: Main.hs
+    source-dirs: bench/log3o-mem
+    ghc-options:
+      - -threaded
+      - -O2
+      - -rtsopts
+      - '"-with-rtsopts=-N -T"'
+    dependencies:
+      - typedKanren
+      - criterion
+      - deepseq
+  quines-mem:
+    main: Main.hs
+    source-dirs: bench/quines-mem
+    ghc-options:
+      - -threaded
+      - -O2
+      - -rtsopts
+      - '"-with-rtsopts=-N -T"'
+    dependencies:
+      - typedKanren
+      - criterion
+      - deepseq
+  twines-mem:
+    main: Main.hs
+    source-dirs: bench/twines-mem
+    ghc-options:
+      - -threaded
+      - -O2
+      - -rtsopts
+      - '"-with-rtsopts=-N -T"'
+    dependencies:
+      - typedKanren
+      - criterion
+      - deepseq
+  thrines-mem:
+    main: Main.hs
+    source-dirs: bench/thrines-mem
+    ghc-options:
+      - -threaded
+      - -O2
+      - -rtsopts
+      - '"-with-rtsopts=-N -T"'
+    dependencies:
+      - typedKanren
+      - criterion
+      - deepseq

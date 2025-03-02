@@ -127,3 +127,118 @@ benchmark bench
     , template-haskell
     , typedKanren
   default-language: Haskell2010
+
+benchmark exp3o-mem
+  type: exitcode-stdio-1.0
+  main-is: Main.hs
+  other-modules:
+      Paths_typedKanren
+  autogen-modules:
+      Paths_typedKanren
+  hs-source-dirs:
+      bench/exp3o-mem
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -O2 -rtsopts "-with-rtsopts=-N -T"
+  build-depends:
+      base >=4.7 && <5
+    , bifunctors
+    , containers
+    , criterion
+    , deepseq
+    , lens
+    , strict-list
+    , tagged
+    , template-haskell
+    , typedKanren
+  default-language: Haskell2010
+
+benchmark log3o-mem
+  type: exitcode-stdio-1.0
+  main-is: Main.hs
+  other-modules:
+      Paths_typedKanren
+  autogen-modules:
+      Paths_typedKanren
+  hs-source-dirs:
+      bench/log3o-mem
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -O2 -rtsopts "-with-rtsopts=-N -T"
+  build-depends:
+      base >=4.7 && <5
+    , bifunctors
+    , containers
+    , criterion
+    , deepseq
+    , lens
+    , strict-list
+    , tagged
+    , template-haskell
+    , typedKanren
+  default-language: Haskell2010
+
+benchmark quines-mem
+  type: exitcode-stdio-1.0
+  main-is: Main.hs
+  other-modules:
+      Paths_typedKanren
+  autogen-modules:
+      Paths_typedKanren
+  hs-source-dirs:
+      bench/quines-mem
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -O2 -rtsopts "-with-rtsopts=-N -T"
+  build-depends:
+      base >=4.7 && <5
+    , bifunctors
+    , containers
+    , criterion
+    , deepseq
+    , lens
+    , strict-list
+    , tagged
+    , template-haskell
+    , typedKanren
+  default-language: Haskell2010
+
+benchmark thrines-mem
+  type: exitcode-stdio-1.0
+  main-is: Main.hs
+  other-modules:
+      Paths_typedKanren
+  autogen-modules:
+      Paths_typedKanren
+  hs-source-dirs:
+      bench/thrines-mem
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -O2 -rtsopts "-with-rtsopts=-N -T"
+  build-depends:
+      base >=4.7 && <5
+    , bifunctors
+    , containers
+    , criterion
+    , deepseq
+    , lens
+    , strict-list
+    , tagged
+    , template-haskell
+    , typedKanren
+  default-language: Haskell2010
+
+benchmark twines-mem
+  type: exitcode-stdio-1.0
+  main-is: Main.hs
+  other-modules:
+      Paths_typedKanren
+  autogen-modules:
+      Paths_typedKanren
+  hs-source-dirs:
+      bench/twines-mem
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -O2 -rtsopts "-with-rtsopts=-N -T"
+  build-depends:
+      base >=4.7 && <5
+    , bifunctors
+    , containers
+    , criterion
+    , deepseq
+    , lens
+    , strict-list
+    , tagged
+    , template-haskell
+    , typedKanren
+  default-language: Haskell2010
