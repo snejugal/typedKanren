@@ -69,6 +69,7 @@ import Kanren.TH (makeExhaustivePrisms, makeLogical)
 instance Logical Int
 instance Logical Char
 instance Logical Void
+instance Logical ()
 
 instance Logical Bool
 makePrisms ''Bool
