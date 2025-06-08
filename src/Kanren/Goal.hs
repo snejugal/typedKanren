@@ -1,6 +1,13 @@
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE EmptyCase #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE IncoherentInstances #-}
 {-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TupleSections #-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 -- | Implement and execute relational programs.
 module Kanren.Goal (
@@ -20,6 +27,8 @@ module Kanren.Goal (
   disjMany,
   conde,
   delay,
+  constructo,
+  absento,
 
   -- * Constraints
   (=/=),
@@ -33,6 +42,7 @@ import Control.Applicative (Alternative (..))
 import Control.Monad (ap)
 import qualified Data.Foldable as Foldable
 
+import GHC.Generics
 import Kanren.Core
 import qualified Kanren.Core as Core
 import Kanren.Stream
@@ -411,3 +421,94 @@ delay (Goal g) = Goal (Await . g)
 
 unsafeDisjunction :: Goal x -> Goal x -> Goal x
 unsafeDisjunction (Goal g1) (Goal g2) = Goal (\state -> g1 state `interleave` g2 state)
+
+constructo :: (Generic (Logic a), GConstruct (Rep (Logic a))) => Goal (Term a)
+constructo = Value . to <$> delay gconstruct
+
+class GConstruct f where
+  gconstruct :: Goal (f p)
+
+instance GConstruct V1 where
+  gconstruct = failo
+
+instance GConstruct U1 where
+  gconstruct = pure U1
+
+instance (GConstruct l, GConstruct r) => GConstruct (l :+: r) where
+  gconstruct = (L1 <$> gconstruct) `unsafeDisjunction` (R1 <$> gconstruct)
+
+instance (GConstruct l, GConstruct r) => GConstruct (l :*: r) where
+  gconstruct = (:*:) <$> gconstruct <*> gconstruct
+
+instance (Logical a) => GConstruct (K1 i (Term a)) where
+  gconstruct = K1 <$> fresh'
+
+instance (GConstruct f) => GConstruct (M1 i c f) where
+  gconstruct = M1 <$> gconstruct
+
+-- >>> run (\() -> absento (Value True) (inject' ([] :: [Bool])))
+-- [()]
+-- >>> run (\() -> absento (Value True) (inject' ([False] :: [Bool])))
+-- [()]
+-- >>> run (\() -> absento (Value True) (inject' ([True] :: [Bool])))
+-- []
+-- >>> run (\() -> absento (inject' ([True] :: [Bool])) (inject' ([False] :: [Bool])))
+-- [()]
+-- >>> run (\() -> absento (inject' ([True] :: [Bool])) (inject' ([False, True] :: [Bool])))
+-- []
+absento
+  :: ( Logical b
+     , Generic (Logic b)
+     , GConstruct (Rep (Logic b))
+     , GAbsent a (Rep (Logic b))
+     )
+  => Term a
+  -> Term b
+  -> Goal ()
+absento x term = delay $ do
+  construction <- gconstruct
+  term === Value (to construction)
+  gabsent x construction
+
+newtype Single a = Single a deriving (Generic)
+
+class GAbsent a f where
+  gabsent :: Term a -> f p -> Goal ()
+
+instance GAbsent a V1 where
+  gabsent _ void = case void of {}
+
+instance GAbsent a U1 where
+  gabsent _ U1 = successo ()
+
+instance (GAbsent a l, GAbsent a r) => GAbsent a (l :+: r) where
+  gabsent x (L1 l) = gabsent x l
+  gabsent x (R1 r) = gabsent x r
+
+instance (GAbsent a l, GAbsent a r) => GAbsent a (l :*: r) where
+  gabsent x (l :*: r) = gabsent x l >> gabsent x r
+
+instance
+  {-# OVERLAPPABLE #-}
+  ( Logical b
+  , Generic (Logic b)
+  , GConstruct (Rep (Logic b))
+  , GAbsent a (Rep (Logic b))
+  )
+  => GAbsent a (K1 i (Term b))
+  where
+  gabsent x (K1 term) = absento x term
+
+instance
+  {-# OVERLAPS #-}
+  ( Logical a
+  , Generic (Logic a)
+  , GConstruct (Rep (Logic a))
+  , GAbsent a (Rep (Logic a))
+  )
+  => GAbsent a (K1 i (Term a))
+  where
+  gabsent x (K1 term) = x =/= term >> absento x term
+
+instance (GAbsent a f) => GAbsent a (M1 i c f) where
+  gabsent x (M1 term) = gabsent x term
