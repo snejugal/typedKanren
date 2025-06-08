@@ -7,6 +7,8 @@ module Kanren.Goal (
   -- * The Goal monad
   Goal,
   run,
+  run',
+  Solution (..),
 
   -- * Primitive operations
   successo,
@@ -120,16 +122,48 @@ instance Alternative Goal where
 -- >>> extract' <$> run (\x -> x === inject' [True])
 -- [Just [True]]
 --
--- Note that the retrived solutions might be subject to constraints, but it is
--- not yet possible to retrieve them.
+-- Note that solutions may be subject to disequality constraints. @run@ does not
+-- return them in the solution list—see 'run'' which does.
 run :: (Fresh v) => (v -> Goal ()) -> [v]
-run f = Foldable.toList solutions
+run = fmap (\(Solution vars _) -> vars) . run'
+
+-- | @run'@ is a version of 'run' that returns disequality constraints alongside
+-- solutions.
+--
+-- >>> run' (\(x, y) -> x =/= (y :: Term Bool))
+-- [Solution (_.0,_.1) { _.0 /= _.1 }]
+--
+-- Since 'Disequalities' has to erase types of terms it stores, @run'@ will be
+-- mostly useless to you:
+--
+-- >>> run' (\x -> x =/= Value True)
+-- [Solution _.0 { _.0 /= <term of erased type> }]
+--
+-- but at least it's something.
+--
+-- 'Disequalities' is shown as a conjunction of disjunctions:
+--
+-- >>> run' (\(x, y) -> Value (x, y) =/= inject' (True, True) `conj` x =/= Value False)
+-- [Solution (_.0,_.1) { (_.0 /= <term of erased type> || _.1 /= <term of erased type>) && (_.0 /= <term of erased type>) }]
+--
+-- Inside a disjunction, there may be outdated disequalities (e.g. if we put a
+-- constraint on @(x, y)@ and then unify @y@ with some value). It's not a
+-- problem since the disjunction still remains a valid constraint. See
+-- the docs on 'Disequalities' to read about the optimizations implemented for
+-- disequality constraints.
+run' :: (Fresh v) => (v -> Goal ()) -> [Solution v]
+run' f = Foldable.toList solutions
  where
   states = flip runGoal Core.empty $ do
     vars <- fresh
     f vars
     pure vars
-  solutions = fmap (uncurry resolve) states
+  solutions = extractSolution <$> states
+  extractSolution (state, vars) = Solution (resolve state vars) (disequalities state)
+
+-- | A single solution to a goal, including the unknowns @v@ from 'run''
+-- and a list of disequality constraints.
+data Solution v = Solution v Disequalities deriving (Show)
 
 -- | A goal that always succeeds.
 --
@@ -154,14 +188,15 @@ failo = Goal (const Done)
 (===) :: (Logical a) => Term a -> Term a -> Goal ()
 a === b = Goal (maybeToStream . fmap (,()) . unify' a b)
 
--- | Put a constraint that two terms must not be equal.
+-- | Put a constraint that two terms must never become equal.
 --
 -- >>> run (\x -> x =/= Value 42 `conj` x === Value (37 :: Int))
 -- [37]
 -- >>> run (\x -> x =/= Value 42 `conj` x === Value (42 :: Int))
 -- []
 --
--- It is not yet possible to retrieve solutions along with remaining constraints.
+-- To retrieve non-resolved disequality constraints alongside solutions, use
+-- @run'@ instead of @run@.
 (=/=) :: (Logical a) => Term a -> Term a -> Goal ()
 a =/= b = Goal (maybeToStream . fmap (,()) . disequality a b)
 

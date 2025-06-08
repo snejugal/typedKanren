@@ -39,10 +39,12 @@ module Kanren.Core (
   runNormalize,
 
   -- ** Constraints
+  Disequalities,
   disequality,
 
   -- * The search state
   State,
+  disequalities,
   empty,
   makeVariable,
 ) where
@@ -53,10 +55,11 @@ import Data.Coerce (coerce)
 import Data.Foldable (foldrM)
 import Data.IntMap.Strict (IntMap)
 import qualified Data.IntMap.Strict as IntMap
+import Data.List (intercalate)
 import Data.Maybe (fromMaybe)
 import GHC.Exts (IsList (..))
 import GHC.Generics (Generic)
-import StrictList (List (Cons, Nil), mapReversed)
+import StrictList (List (Cons, Nil), mapReversed, toListReversed)
 import Unsafe.Coerce (unsafeCoerce)
 
 -- $setup
@@ -371,8 +374,8 @@ data ErasedTerm where
   ErasedTerm :: (Logical a) => Term a -> ErasedTerm
 
 instance Show ErasedTerm where
-  show (ErasedTerm (Var varId)) = "Var " ++ show varId
-  show (ErasedTerm (Value _)) = "Value _"
+  show (ErasedTerm (Var varId)) = show varId
+  show (ErasedTerm (Value _)) = "<term of erased type>"
 
 -- | Cast an 'ErasedTerm' back to a 'Term a'. Hopefully, you will cast it to the
 -- correct type, or bad things will happen.
@@ -431,7 +434,28 @@ instance Semigroup Subst where
 -- but if @x@ becomes 2, then we fail. If @x@ is anything else, we just drop
 -- all constraints attached to it.
 newtype Disequalities = Disequalities (IntMap (List (DisequalityHead ErasedTerm)))
-  deriving (Show)
+
+-- TODO: provide a nice API to inspect the disequalities
+
+instance Show Disequalities where
+  show (Disequalities disequalities)
+    | IntMap.null disequalities = "∅"
+    | [disjunction] <- disjunctions = "{ " <> show disjunction <> " }"
+    | otherwise = "{ " <> intercalate " && " shownDisjunctions <> " }"
+   where
+    shownDisjunctions = fmap (\disjunction -> "(" <> show disjunction <> ")") disjunctions
+    disjunctions = showHeads =<< IntMap.toList disequalities
+    showHeads (varId, heads) =
+      ShowDisjunction <$> (headToList varId <$> toListReversed heads)
+
+    headToList varId (DisequalityHead term (Subst rest)) = (varId, term) : IntMap.toList rest
+
+newtype ShowDisjunction = ShowDisjunction [(Int, ErasedTerm)]
+
+instance Show ShowDisjunction where
+  show (ShowDisjunction parts) = intercalate " || " (fmap showPart parts)
+   where
+    showPart (varId, term) = "_." <> show varId <> " /= " <> show term
 
 data DisequalityHead term = DisequalityHead !term !Subst deriving (Show)
 
@@ -494,6 +518,7 @@ updateComponents state subst = case substExtractArbitrary subst of
 data State = State
   { knownSubst :: !Subst
   , disequalities :: !Disequalities
+  -- ^ Retrieve disequality constraints.
   , maxVarId :: !Int
   }
   deriving (Show)
