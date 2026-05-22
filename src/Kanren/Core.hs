@@ -302,7 +302,7 @@ occursCheck' x t state =
 -- of variables with values happens here.
 walk' :: (Logical a) => State -> Term a -> Term a
 walk' state x = case shallowWalk state x of
-  Var i -> Var i
+  t@Var{} -> t
   Value v -> Value (walk state v)
 
 -- | 'inject', but to a 'Term' instead of a 'Logic' value. You will use this
@@ -435,6 +435,9 @@ instance Semigroup Subst where
 -- all constraints attached to it.
 newtype Disequalities = Disequalities (IntMap (StrictList (DisequalityHead ErasedTerm)))
 
+nullDisequalities :: Disequalities -> Bool
+nullDisequalities (Disequalities d) = IntMap.null d
+
 -- TODO: provide a nice API to inspect the disequalities
 
 instance Show Disequalities where
@@ -540,19 +543,18 @@ makeVariable State{maxVarId, ..} = (state', var)
   state' = State{maxVarId = maxVarId + 1, ..}
 
 shallowWalk :: (Logical a) => State -> Term a -> Term a
-shallowWalk _ (Value v) = Value v
-shallowWalk state@State{knownSubst = Subst m} (Var (VarId i)) =
+shallowWalk _ t@Value{} = t
+shallowWalk state@State{knownSubst = Subst m} t@(Var (VarId i)) =
   case IntMap.lookup i m of
-    Nothing -> Var (VarId i)
+    Nothing -> t
     Just v -> shallowWalk state (unsafeReconstructTerm v)
 
 addSubst :: (Logical a) => VarId a -> Term a -> State -> Maybe State
-addSubst (VarId i) value State{knownSubst = Subst m, ..} =
-  stateUpdateDisequalities (VarId i) value $
-    State
-      { knownSubst = Subst $ IntMap.insert i (ErasedTerm value) m
-      , ..
-      }
+addSubst (VarId i) value state@State{knownSubst = Subst m, disequalities = d}
+  | nullDisequalities d = Just state'
+  | otherwise = stateUpdateDisequalities (VarId i) value state'
+ where
+  state' = state{knownSubst = Subst (IntMap.insert i (ErasedTerm value) m)}
 
 stateInsertDisequality :: Subst -> State -> Maybe State
 stateInsertDisequality subst state@State{disequalities} = do
