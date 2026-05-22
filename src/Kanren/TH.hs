@@ -26,7 +26,6 @@ module Kanren.TH (
 
 import Control.Lens (from)
 import Data.Char (isLower, isUpper, toLower, toUpper)
-import Data.Foldable (foldl')
 import GHC.Generics (Generic)
 import Language.Haskell.TH hiding (bang)
 
