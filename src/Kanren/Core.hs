@@ -59,7 +59,7 @@ import Data.List (intercalate)
 import Data.Maybe (fromMaybe)
 import GHC.Exts (IsList (..))
 import GHC.Generics (Generic)
-import StrictList (List (Cons, Nil), mapReversed, toListReversed)
+import StrictList (StrictList (Cons, Nil), mapReversed, toListReversed)
 import Unsafe.Coerce (unsafeCoerce)
 
 -- $setup
@@ -433,7 +433,7 @@ instance Semigroup Subst where
 -- If @x@ turns out to be 1, there are still other disequalities to check,
 -- but if @x@ becomes 2, then we fail. If @x@ is anything else, we just drop
 -- all constraints attached to it.
-newtype Disequalities = Disequalities (IntMap (List (DisequalityHead ErasedTerm)))
+newtype Disequalities = Disequalities (IntMap (StrictList (DisequalityHead ErasedTerm)))
 
 -- TODO: provide a nice API to inspect the disequalities
 
@@ -471,7 +471,7 @@ disequalitiesInsert subst (Disequalities d) = do
 disequalitiesExtract
   :: VarId a
   -> Disequalities
-  -> Maybe (List (DisequalityHead (Term a)), Disequalities)
+  -> Maybe (StrictList (DisequalityHead (Term a)), Disequalities)
 disequalitiesExtract (VarId varId) (Disequalities d) = do
   entry <- IntMap.lookup varId d
   let entry' = mapReversed unsafeReconstructDisequalityHead entry

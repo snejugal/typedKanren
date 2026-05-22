@@ -17,7 +17,7 @@
 #
 # resolver: ./custom-snapshot.yaml
 # resolver: https://example.com/snapshots/2023-01-01.yaml
-resolver: lts-22.21
+resolver: nightly-2026-05-22
 
 # User packages to be built.
 # Various formats can be used as shown in the example below.
