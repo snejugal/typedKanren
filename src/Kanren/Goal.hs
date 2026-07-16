@@ -86,6 +86,14 @@ instance Applicative Goal where
   pure x = Goal (\s -> pure (s, x))
   (<*>) = ap
 
+  -- Without this definition, @(*>)@ (and hence @(>>)@ and the do-notation)
+  -- would default to @(id <$ g1) <*> g2@, which rebuilds the entire stream
+  -- of intermediate states produced by @g1@ and performs two binds per
+  -- element instead of one.
+  Goal g1 *> Goal g2 = Goal $ \s -> do
+    (s', _) <- g1 s
+    g2 s'
+
 instance Monad Goal where
   return = pure
   (>>) = (*>)
