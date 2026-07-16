@@ -72,7 +72,7 @@ benchmarks:
       - -threaded
       - -O2
       - -rtsopts
-      - -with-rtsopts=-N
+      - '"-with-rtsopts=-N -A64m"'
     dependencies:
       - typedKanren
       - criterion
@@ -84,7 +84,7 @@ benchmarks:
       - -threaded
       - -O2
       - -rtsopts
-      - '"-with-rtsopts=-N -T"'
+      - '"-with-rtsopts=-N -T -A64m"'
     dependencies:
       - typedKanren
       - criterion
@@ -96,7 +96,7 @@ benchmarks:
       - -threaded
       - -O2
       - -rtsopts
-      - '"-with-rtsopts=-N -T"'
+      - '"-with-rtsopts=-N -T -A64m"'
     dependencies:
       - typedKanren
       - criterion
@@ -108,7 +108,7 @@ benchmarks:
       - -threaded
       - -O2
       - -rtsopts
-      - '"-with-rtsopts=-N -T"'
+      - '"-with-rtsopts=-N -T -A64m"'
     dependencies:
       - typedKanren
       - criterion
@@ -120,7 +120,7 @@ benchmarks:
       - -threaded
       - -O2
       - -rtsopts
-      - '"-with-rtsopts=-N -T"'
+      - '"-with-rtsopts=-N -T -A64m"'
     dependencies:
       - typedKanren
       - criterion
@@ -132,7 +132,7 @@ benchmarks:
       - -threaded
       - -O2
       - -rtsopts
-      - '"-with-rtsopts=-N -T"'
+      - '"-with-rtsopts=-N -T -A64m"'
     dependencies:
       - typedKanren
       - criterion
