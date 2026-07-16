@@ -94,6 +94,18 @@ instance Applicative Goal where
     (s', _) <- g1 s
     g2 s'
 
+  -- The default definitions of @(<*)@ and @liftA2@ pay for the same
+  -- unnecessary 'fmap' over the whole stream.
+  Goal g1 <* Goal g2 = Goal $ \s -> do
+    (s', x) <- g1 s
+    (s'', _) <- g2 s'
+    pure (s'', x)
+
+  liftA2 f (Goal g1) (Goal g2) = Goal $ \s -> do
+    (s', x) <- g1 s
+    (s'', y) <- g2 s'
+    pure (s'', f x y)
+
 instance Monad Goal where
   return = pure
   (>>) = (*>)
