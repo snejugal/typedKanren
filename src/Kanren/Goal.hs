@@ -350,38 +350,47 @@ conde = disjMany . map conjMany
 -- work. 'Fresh' is also used for pattern matching from the @"Match"@ module
 -- when the matched value is not known yet.
 class Fresh v where
-  -- | Create fresh variables.
-  fresh' :: Goal v
+  -- | Create fresh variables, given the first free variable id. Returns the
+  -- next free id. Instances compose left to right, so variables get the same
+  -- ids as if they were created one by one.
+  makeFresh :: Int -> (Int, v)
 
   -- | Resolve each variable to its value in the given state.
   resolve :: State -> v -> v
+
+-- | Create fresh variables. Unlike 'fresh', this does not 'delay' the goal.
+--
+-- No matter how many variables are asked for, this performs a single state
+-- update and produces a single element in the stream.
+fresh' :: (Fresh v) => Goal v
+fresh' = Goal (pure . makeVariables makeFresh)
 
 fresh :: (Fresh v) => Goal v
 fresh = delay fresh'
 
 instance Fresh () where
-  fresh' = pure ()
+  makeFresh i = (i, ())
   resolve _ () = ()
 
 instance (Logical a) => Fresh (Term a) where
-  fresh' = Goal (pure . makeVariable)
+  makeFresh = freshVarId
   resolve = walk'
 
 instance (Fresh a, Fresh b) => Fresh (a, b) where
-  fresh' = do
-    a <- fresh'
-    b <- fresh'
-    pure (a, b)
+  makeFresh i0 = (i2, (a, b))
+   where
+    (i1, a) = makeFresh i0
+    (i2, b) = makeFresh i1
   resolve state (a, b) = (a', b')
    where
     a' = resolve state a
     b' = resolve state b
 
 instance (Fresh a, Fresh b, Fresh c) => Fresh (a, b, c) where
-  fresh' = do
-    a <- fresh'
-    (b, c) <- fresh'
-    pure (a, b, c)
+  makeFresh i0 = (i2, (a, b, c))
+   where
+    (i1, a) = makeFresh i0
+    (i2, (b, c)) = makeFresh i1
   resolve state (a, b, c) = (a', b', c')
    where
     a' = resolve state a
@@ -391,10 +400,10 @@ instance
   (Fresh a, Fresh b, Fresh c, Fresh d)
   => Fresh (a, b, c, d)
   where
-  fresh' = do
-    a <- fresh'
-    (b, c, d) <- fresh'
-    pure (a, b, c, d)
+  makeFresh i0 = (i2, (a, b, c, d))
+   where
+    (i1, a) = makeFresh i0
+    (i2, (b, c, d)) = makeFresh i1
   resolve state (a, b, c, d) = (a', b', c', d')
    where
     a' = resolve state a
@@ -404,10 +413,10 @@ instance
   (Fresh a, Fresh b, Fresh c, Fresh d, Fresh e)
   => Fresh (a, b, c, d, e)
   where
-  fresh' = do
-    a <- fresh'
-    (b, c, d, e) <- fresh'
-    pure (a, b, c, d, e)
+  makeFresh i0 = (i2, (a, b, c, d, e))
+   where
+    (i1, a) = makeFresh i0
+    (i2, (b, c, d, e)) = makeFresh i1
   resolve state (a, b, c, d, e) = (a', b', c', d', e')
    where
     a' = resolve state a
@@ -417,10 +426,10 @@ instance
   (Fresh a, Fresh b, Fresh c, Fresh d, Fresh e, Fresh f)
   => Fresh (a, b, c, d, e, f)
   where
-  fresh' = do
-    a <- fresh'
-    (b, c, d, e, f) <- fresh'
-    pure (a, b, c, d, e, f)
+  makeFresh i0 = (i2, (a, b, c, d, e, f))
+   where
+    (i1, a) = makeFresh i0
+    (i2, (b, c, d, e, f)) = makeFresh i1
   resolve state (a, b, c, d, e, f) = (a', b', c', d', e', f')
    where
     a' = resolve state a
