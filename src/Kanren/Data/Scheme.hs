@@ -174,18 +174,25 @@ properListo exprs env value =
         properListo cdr env cdr'
     ]
 
+-- Note that the structure of this relation — the order of clauses, the
+-- order of conjuncts within each clause, and the order in which an
+-- application evaluates its operand and operator — exactly follows the
+-- reference implementations from the klogic benchmark suite
+-- (faster-miniKanren, OCanren, and klogic agree on all of these), since
+-- the search order, and thus benchmark results, depend on it.
 evalo :: Term SExpr -> Term Env -> Term Value -> Goal ()
 evalo expr env value =
   disjMany
     [ do
         arg <- fresh
         quoteo arg expr
-        notInEnvo quote env
         value === Value (LogicSExpr arg)
+        notInEnvo quote env
     , do
         (exprs, value') <- fresh
         listo exprs expr
         value === Value (LogicSExpr value')
+        notInEnvo list env
         properListo exprs env value'
     , do
         x <- fresh
@@ -194,12 +201,12 @@ evalo expr env value =
     , do
         (rator, rand, x, body, ratorEnv, rand') <- fresh
         applyo rator rand expr
-        evalo rator env (Value (LogicClosure x body ratorEnv))
         evalo rand env rand'
+        evalo rator env (Value (LogicClosure x body ratorEnv))
         evalo body (Value (LogicCons (Value (x, rand')) ratorEnv)) value
     , do
         (x, body) <- fresh
         lambdao x body expr
-        value === Value (LogicClosure x body env)
         notInEnvo lambda env
+        value === Value (LogicClosure x body env)
     ]

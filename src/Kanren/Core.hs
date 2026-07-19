@@ -47,6 +47,8 @@ module Kanren.Core (
   disequalities,
   empty,
   makeVariable,
+  makeVariables,
+  freshVarId,
 ) where
 
 import Control.DeepSeq
@@ -537,10 +539,20 @@ empty =
 
 -- | Create a variable in the given state.
 makeVariable :: State -> (State, Term a)
-makeVariable State{maxVarId, ..} = (state', var)
+makeVariable = makeVariables freshVarId
+
+-- | Create several variables at once, with a single state update. The given
+-- function takes the first free variable id and returns the next free one,
+-- along with the created variables (typically built from 'freshVarId'); see
+-- the @Fresh@ class in @"Kanren.Goal"@.
+makeVariables :: (Int -> (Int, v)) -> State -> (State, v)
+makeVariables mk state@State{maxVarId} = (state{maxVarId = maxVarId'}, vars)
  where
-  var = Var (VarId maxVarId)
-  state' = State{maxVarId = maxVarId + 1, ..}
+  (maxVarId', vars) = mk maxVarId
+
+-- | Turn the given free variable id into a variable, advancing the id.
+freshVarId :: Int -> (Int, Term a)
+freshVarId i = (i + 1, Var (VarId i))
 
 shallowWalk :: (Logical a) => State -> Term a -> Term a
 shallowWalk _ t@Value{} = t

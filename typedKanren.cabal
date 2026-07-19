@@ -1,6 +1,6 @@
 cabal-version: 2.2
 
--- This file has been generated from package.yaml by hpack version 0.36.0.
+-- This file has been generated from package.yaml by hpack version 0.39.1.
 --
 -- see: https://github.com/sol/hpack
 
@@ -114,7 +114,7 @@ benchmark bench
       Paths_typedKanren
   hs-source-dirs:
       bench
-  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -O2 -rtsopts -with-rtsopts=-N
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -O2 -rtsopts "-with-rtsopts=-N -A64m"
   build-depends:
       base >=4.7 && <5
     , bifunctors
@@ -137,7 +137,7 @@ benchmark exp3o-mem
       Paths_typedKanren
   hs-source-dirs:
       bench/exp3o-mem
-  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -O2 -rtsopts "-with-rtsopts=-N -T"
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -O2 -rtsopts "-with-rtsopts=-N -T -A64m"
   build-depends:
       base >=4.7 && <5
     , bifunctors
@@ -160,7 +160,7 @@ benchmark log3o-mem
       Paths_typedKanren
   hs-source-dirs:
       bench/log3o-mem
-  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -O2 -rtsopts "-with-rtsopts=-N -T"
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -O2 -rtsopts "-with-rtsopts=-N -T -A64m"
   build-depends:
       base >=4.7 && <5
     , bifunctors
@@ -183,7 +183,7 @@ benchmark quines-mem
       Paths_typedKanren
   hs-source-dirs:
       bench/quines-mem
-  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -O2 -rtsopts "-with-rtsopts=-N -T"
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -O2 -rtsopts "-with-rtsopts=-N -T -A64m"
   build-depends:
       base >=4.7 && <5
     , bifunctors
@@ -206,7 +206,7 @@ benchmark thrines-mem
       Paths_typedKanren
   hs-source-dirs:
       bench/thrines-mem
-  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -O2 -rtsopts "-with-rtsopts=-N -T"
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -O2 -rtsopts "-with-rtsopts=-N -T -A64m"
   build-depends:
       base >=4.7 && <5
     , bifunctors
@@ -229,7 +229,7 @@ benchmark twines-mem
       Paths_typedKanren
   hs-source-dirs:
       bench/twines-mem
-  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -O2 -rtsopts "-with-rtsopts=-N -T"
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -O2 -rtsopts "-with-rtsopts=-N -T -A64m"
   build-depends:
       base >=4.7 && <5
     , bifunctors
