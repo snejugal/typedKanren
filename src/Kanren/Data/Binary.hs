@@ -321,10 +321,16 @@ subo a b c = addo b c a
 -- One can turn this relation around to generate numbers less or greater than a
 -- given one.
 --
--- >>> extract' <$> run (\x -> lesso x (inject' 4))
--- [Just [],Just [I],Just [I,I],Just [O,I]]
--- >>> take 5 $ extract' <$> run (\x -> lesso (inject' 4) x)
--- [Just [I,O,I],Just [O,I,I],Just [I,I,I],Just [O,O,O,I],Just [I,O,O,I]]
+-- >>> run (\x -> lesso x (inject' 4))
+-- [[],[I],[_.1,I]]
+--
+-- The last solution, @[_.1,I]@, stands for both 2 and 3.
+--
+-- >>> run (\x -> lesso (inject' 4) x)
+-- [[_.3,_.11,_.17,_.18|_.19],[I,O,I],[O,I,I],[I,I,I]]
+--
+-- The first solution stands for every number with at least four bits, that
+-- is, every number from 8 on.
 lesso
   :: Term Binary
   -- ^ @a@, the lesser number
@@ -352,7 +358,7 @@ lesso a b =
 -- >>> extract' <$> run (\a -> mulo a (inject' 2) (inject' 12))
 -- [Just [O,I,I]]
 -- >>> bimap extract' extract' <$> run (\(a, b) -> mulo a b (inject' 4))
--- [(Just [I],Just [O,O,I]),(Just [O,I],Just [O,I]),(Just [O,O,I],Just [I])]
+-- [(Just [I],Just [O,O,I]),(Just [O,O,I],Just [I]),(Just [O,I],Just [O,I])]
 --
 -- The goal will fail if any multiplier is not a factor of the product.
 --
@@ -421,7 +427,7 @@ mulo a b c =
 -- One can turn this around to find divisors of a number.
 --
 -- >>> extract' <$> run (\m -> fresh >>= \q -> divo (inject' 12) m q (inject' 0))
--- [Just [O,O,I,I],Just [I],Just [I,I],Just [O,I,I],Just [O,I],Just [O,O,I]]
+-- [Just [O,O,I,I],Just [I],Just [O,I,I],Just [O,O,I],Just [I,I],Just [O,I]]
 --
 -- The implementation of @div@ is discussed in section 6 of the paper.
 divo
@@ -564,7 +570,7 @@ repeatedMulo n q nq =
 -- >>> bimap extract' extract' <$> run (\(q, r) -> logo (inject' 9) (inject' 3) q r)
 -- [(Just [O,I],Just [])]
 -- >>> bimap extract' extract' <$> run (\(q, r) -> logo (inject' 15) (inject' 3) q r)
--- [(Just [O,I],Just [0,I,I])]
+-- [(Just [O,I],Just [O,I,I])]
 --
 -- One can turn this around to find the number @b@ raised to some power @q@:
 --
