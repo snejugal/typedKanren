@@ -141,7 +141,7 @@ import Unsafe.Coerce (unsafeCoerce)
 -- of replacing variables with values is done by 'walk'', and you only need to
 -- apply it to each field.
 --
--- > walk f (LogicPoint x y) = LogicPoint (walk' f x) (walk' f x)
+-- > walk state (LogicPoint x y) = LogicPoint (walk' state x) (walk' state y)
 --
 -- You may notice that the logical representation of the type and the 'Logical'
 -- instance are suitable for automatic generation. Indeed, the

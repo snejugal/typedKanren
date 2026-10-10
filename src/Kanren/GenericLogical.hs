@@ -36,7 +36,8 @@
 -- > instance (Logical a) => Logical (Tree a) where
 -- >   type Logic (Tree a) = LogicTree a
 -- >   unify = genericUnify
--- >   subst = genericSubst
+-- >   walk = genericWalk
+-- >   occursCheck = genericOccursCheck
 -- >   inject = genericInject
 -- >   extract = genericExtract
 module Kanren.GenericLogical (
@@ -138,7 +139,7 @@ genericWalk
   -> Logic a
 genericWalk k term = to (gwalk (Proxy @(Rep a)) k (from term))
 
--- | The generic implementation of 'walk'.
+-- | The generic implementation of 'occursCheck'.
 genericOccursCheck
   :: forall a b
    . (Generic (Logic a), GLogical (Rep a) (Rep (Logic a)))
