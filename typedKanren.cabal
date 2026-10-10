@@ -76,6 +76,29 @@ executable example
     , typedKanren
   default-language: Haskell2010
 
+test-suite doctests
+  type: exitcode-stdio-1.0
+  main-is: Main.hs
+  other-modules:
+      Paths_typedKanren
+  autogen-modules:
+      Paths_typedKanren
+  hs-source-dirs:
+      doctest
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints
+  build-depends:
+      base >=4.7 && <5
+    , bifunctors
+    , containers
+    , deepseq
+    , doctest
+    , lens
+    , strict-list
+    , tagged
+    , template-haskell
+    , typedKanren
+  default-language: Haskell2010
+
 test-suite typedKanren-tests
   type: exitcode-stdio-1.0
   main-is: Spec.hs

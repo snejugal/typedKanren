@@ -63,6 +63,12 @@ tests:
       - typedKanren
       - hspec
       - QuickCheck
+  doctests:
+    main: Main.hs
+    source-dirs: doctest
+    dependencies:
+      - typedKanren
+      - doctest
 
 benchmarks:
   bench:
