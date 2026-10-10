@@ -299,8 +299,8 @@ disjMany = delay . go
 -- :}
 -- [(False,0),(True,1)]
 --
--- In addition, the "Match" module provides pattern matching over variants,
--- which might better express your intent.
+-- In addition, the "Kanren.Match" module provides pattern matching over
+-- variants, which might better express your intent.
 --
 -- >>> :{
 --   run (\(x, y) -> x & (matche
@@ -347,8 +347,8 @@ conde = disjMany . map conjMany
 --
 -- As an edge case, you can ask for no variables at all using @()@. While this
 -- is not useful inside relations, this is how the first two examples actually
--- work. 'Fresh' is also used for pattern matching from the @"Match"@ module
--- when the matched value is not known yet.
+-- work. 'Fresh' is also used for pattern matching from the @"Kanren.Match"@
+-- module when the matched value is not known yet.
 class Fresh v where
   -- | Create fresh variables, given the first free variable id. Returns the
   -- next free id. Instances compose left to right, so variables get the same

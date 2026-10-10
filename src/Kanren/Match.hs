@@ -16,7 +16,7 @@ module Kanren.Match (
   -- >   | Abstraction String Expr
   -- >   | Apply Expr Expr
   -- >   deriving (Generic)
-  -- > makeLogic ''Expr
+  -- > makeLogical ''Expr
   -- > makePrisms ''LogicExpr
   -- >
   -- > expro :: Term Expr -> Goal ()
@@ -25,7 +25,7 @@ module Kanren.Match (
   -- >   & on _LogicAbstraction (\(_var, body) -> expro body)
   --
   -- After defining our data type, we derived its logic type using
-  -- 'TH.makeLogic', and then generated prisms for the logic type using
+  -- 'Kanren.TH.makeLogical', and then generated prisms for the logic type using
   -- 'Control.Lens.TH.makePrisms' from the @lens@ package. The prisms are
   -- crucial to enable pattern matching.
   --
@@ -114,9 +114,9 @@ module Kanren.Match (
   -- > x & (matche
   -- >   & on ...)
   --
-  -- Finally, the @"LogicalBase"@ module, which provides 'Logical' instances for
-  -- @base@ types, also provides prisms for their logical representations for
-  -- the purposes of pattern matching.
+  -- Finally, the @"Kanren.LogicalBase"@ module, which provides 'Logical'
+  -- instances for @base@ types, also provides prisms for their logical
+  -- representations for the purposes of pattern matching.
   on,
   matche,
   _Value,
@@ -241,7 +241,8 @@ module Kanren.Match (
   -- disallows visiting the same variant twice. Although checking an already
   -- checked case wouldn't hurt, it doesn't play nicely with nested patterns.
   --
-  -- The @"LogicalBase"@ provides prisms for exhaustive pattern matching too.
+  -- The @"Kanren.LogicalBase"@ provides prisms for exhaustive pattern matching
+  -- too.
   enter',
   on',
   matche',
@@ -299,14 +300,16 @@ matche = const failo
 -- This prism aids nested pattern matching. You might expect that, since
 -- regular prisms can be easily composed, say
 -- @'Control.Lens.Prism._Just' . 'Control.Lens.Prism._Left'@, then
--- @'LogicalBase._LogicJust' . 'Logicalbase._LogicLeft'@ should also work.
--- However, this is not the case since the types are slightly different:
+-- @'Kanren.LogicalBase._LogicJust' . 'Kanren.LogicalBase._LogicLeft'@ should
+-- also work. However, this is not the case since the types are slightly
+-- different:
 --
 -- > _LogicJust :: Prism' (Logic (Maybe (Either a b))) (Term (Either a b))
 -- > _LogicLeft :: Prism'                             (Logic (Either a b)) (Term a)
 --
--- Hence, we need one more prism between 'LogicalBase._LogicJust' and
--- 'LogicalBase._LogicLeft' for the types to match. This prism is '_Value'.
+-- Hence, we need one more prism between 'Kanren.LogicalBase._LogicJust' and
+-- 'Kanren.LogicalBase._LogicLeft' for the types to match. This prism is
+-- '_Value'.
 _Value :: Prism' (Term a) (Logic a)
 _Value = prism' Value $ \case
   Value x -> Just x
@@ -366,8 +369,8 @@ on' p f g (Tagged x) = disj (g (Tagged x)) $ do
 -- The @Exhausted m@ constraint checks that @m@ is composed only of @Checked@
 -- tags.
 --
--- > instance Exhaustive Checked
--- > instance (Exhaustive a, Exhaustive b) => Exhaustive (a, b)
+-- > instance Exhausted Checked
+-- > instance (Exhausted a, Exhausted b) => Exhausted (a, b)
 -- > ...
 matche' :: (Exhausted m) => Matched m a -> Goal x
 matche' = const failo

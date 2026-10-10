@@ -19,8 +19,8 @@
 {-# OPTIONS_GHC -Wno-redundant-constraints #-}
 
 -- | The very core of miniKanren. So core that it basically deals with
--- unification only. For writing relational programs, you will need @"Goal"@ as
--- well.
+-- unification only. For writing relational programs, you will need
+-- @"Kanren.Goal"@ as well.
 module Kanren.Core (
   -- * Values and terms
   Logical (..),
@@ -145,12 +145,12 @@ import Unsafe.Coerce (unsafeCoerce)
 --
 -- You may notice that the logical representation of the type and the 'Logical'
 -- instance are suitable for automatic generation. Indeed, the
--- @"GenericLogical"@ module provides generic versions of `Logical`'s methods.
--- The @"TH"@ module goes further and provides 'TH.makeLogic' to generate
--- logical representations for your types.
+-- @"Kanren.GenericLogical"@ module provides generic versions of `Logical`'s
+-- methods. The @"Kanren.TH"@ module goes further and provides
+-- 'Kanren.TH.makeLogical' to generate logical representations for your types.
 --
 -- Although you'll see instances for @base@ types below, keep in mind that
--- they're only available from the @"LogicalBase"@ module.
+-- they're only available from the @"Kanren.LogicalBase"@ module.
 class Logical a where
   -- | The logical representation of this type. This defaults to the type
   -- itself, but complex types will usually have a separate logic type.

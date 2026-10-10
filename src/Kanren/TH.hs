@@ -246,8 +246,8 @@ data LogicalInstanceTypeInfo
 
 -- | Generate a 'Logical' instance, given a type and its logical representation.
 --
--- Currently, the instance relies on @"GenericLogical"@, so both types need to
--- have a 'Generic' instance. When using 'makeLogical', the logical
+-- Currently, the instance relies on @"Kanren.GenericLogical"@, so both types
+-- need to have a 'Generic' instance. When using 'makeLogical', the logical
 -- representation will have a derived 'Generic' instance.
 --
 -- For each type variable, there will be a 'Logical' constraint.
