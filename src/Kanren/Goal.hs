@@ -149,7 +149,7 @@ instance Alternative Goal where
 -- [Just [True]]
 --
 -- Note that solutions may be subject to disequality constraints. @run@ does not
--- return them in the solution list—see 'run'' which does.
+-- return them in the solution list. See 'run'' for a version that does.
 run :: (Fresh v) => (v -> Goal ()) -> [v]
 run = fmap (\(Solution vars _) -> vars) . run'
 
