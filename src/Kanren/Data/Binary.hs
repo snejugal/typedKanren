@@ -138,7 +138,7 @@ samelo n m =
     ]
 
 -- | Check that the first list is shorter than the second one and at least of
--- the same length as the third list combined with the forth one.
+-- the same length as the third list combined with the fourth one.
 --
 -- Meaningfully, the part @[a]@ must be shorter than the whole @[b]@ and must
 -- fit the result of multiplying @[c]@ with @[d]@, but here we're just concerned

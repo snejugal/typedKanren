@@ -134,7 +134,7 @@ makeLogicTypeWith' (LogicTypeRules{derives}) name declaration = do
       let name' = logicName name
       let constructors' = logicConstructors ''Term constructors
       return (DataD constraints name' variables kind constructors' deriv)
-    -- newtype T = A B = newtype LogicT = LogicA (Logic B)
+    -- newtype T = A B ==> newtype LogicT = LogicA (Logic B)
     NewtypeD constraints _ variables kind constructor _ -> do
       let name' = logicName name
       let constructor' = logicConstructor ''Logic constructor

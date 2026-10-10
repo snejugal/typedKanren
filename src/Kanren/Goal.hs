@@ -226,8 +226,8 @@ a === b = Goal (maybeToStream . fmap (,()) . unify' a b)
 (=/=) :: (Logical a) => Term a -> Term a -> Goal ()
 a =/= b = Goal (maybeToStream . fmap (,()) . disequality a b)
 
--- | Perform conjnction of two goals. If the first goal succeeds, run the second
--- goal on its results.
+-- | Perform conjunction of two goals. If the first goal succeeds, run the
+-- second goal on its results.
 --
 -- >>> run (\x -> x === Value 42 `conj` x === Value (42 :: Int))
 -- [42]

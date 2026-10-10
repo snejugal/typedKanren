@@ -127,7 +127,7 @@ import Unsafe.Coerce (unsafeCoerce)
 -- >   unify' leftX rightX state >>= unify' leftY rightY
 --
 -- 'unify' takes two values being unified and the current state. If unification
--- succeeds, a new state with acquired knowledge is returned. if unification
+-- succeeds, a new state with acquired knowledge is returned. If unification
 -- leads to contradiction (the two values cannot be unified), 'unify' returns
 -- 'Nothing'. You do not modify the state yourself — this is handled by
 -- 'unify'', a version of 'unify' which works on 'Term's instead of logic
@@ -167,7 +167,7 @@ class Logical a where
   -- 'Nothing'.
   --
   -- The default implementation checks for equality, which works well for simple
-  -- types. Complex types will provide their own implmentations which apply
+  -- types. Complex types will provide their own implementations which apply
   -- 'unify'' to each field.
   unify :: Logic a -> Logic a -> State -> Maybe State
   default unify :: (Eq (Logic a)) => Logic a -> Logic a -> State -> Maybe State
@@ -175,8 +175,8 @@ class Logical a where
     | x == y = Just state
     | otherwise = Nothing
 
-  -- | Update the value with acquired knowledge. This method the current state
-  -- to substitute variables with their obtained values.
+  -- | Update the value with acquired knowledge. This method uses the current
+  -- state to substitute variables with their obtained values.
   --
   -- The default implementation works for simple types and returns the value as
   -- is (since there's nothing to substitute inside). Complex types will provide

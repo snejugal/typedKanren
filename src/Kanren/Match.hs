@@ -7,7 +7,7 @@
 module Kanren.Match (
   -- * Non-exhaustive pattern matching
 
-  -- | Pattern matching in this library syntactially looks similar to the one
+  -- | Pattern matching in this library syntactically looks similar to the one
   -- from the @total@ package and is based on 'Prism's, though the mechanics
   -- differ. Let's take a look at an example.
   --
@@ -63,10 +63,10 @@ module Kanren.Match (
   -- >        matche)
   --
   -- One can now clearly see that 'on' takes a third argument in which other
-  -- cases are considered. It takes a forth argument too — the value to match
+  -- cases are considered. It takes a fourth argument too — the value to match
   -- on. When you provide that value, 'on' will try to match it with the given
   -- pattern, and apply the given function if possible. 'on' will also apply
-  -- this value to the remaning cases and take a 'disj'unction. The 'matche'
+  -- this value to the remaining cases and take a 'disj'unction. The 'matche'
   -- at the end is just @const failo@.
   --
   -- Since 'on' is expected to be used with 'Data.Function.&', it will take
@@ -195,9 +195,9 @@ module Kanren.Match (
   --
   -- In its type signature, 'on'' instantiates the type variable @c@ to
   -- @Remaining@ and @c'@ to @Checked@. The @Checked@ tag will be passed on to
-  -- the remaining cases (and @Remaining will propagate back to previous cases).
-  -- Therefore, the type checker will infer the following tags for each case
-  -- (remember that 'Data.Function.&' is reverse application, so the
+  -- the remaining cases (and @Remaining@ will propagate back to previous
+  -- cases). Therefore, the type checker will infer the following tags for each
+  -- case (remember that 'Data.Function.&' is reverse application, so the
   -- exhaustiveness check happens bottom-up):
   --
   -- > matche'
@@ -206,7 +206,7 @@ module Kanren.Match (
   -- >   & on' _LogicApply' …       -- (Remaining, Remaining, Checked)
   -- >   & enter'
   --
-  -- Now, the job of 'matche'' now is to check that the tags it receives are all
+  -- Now, the job of 'matche'' is to check that the tags it receives are all
   -- @Checked@. This is done using the private @Exhausted@ type class. It has
   -- instances for @Checked@ and tuples consisting of @Exhausted@ types.
   --
@@ -227,9 +227,9 @@ module Kanren.Match (
   -- >   & on' _LogicAbstraction' … -- (Remaining,   Checked, ap)
   -- >   & enter'                   -- (Remaining, Remaining, ap)
   --
-  -- The exhaustive version of pattern matching also support nested patterns.
-  -- Just like with non-exhaustive pattern matching, two prisms need to composed
-  -- with '_Value'' in between.
+  -- The exhaustive version of pattern matching also supports nested patterns.
+  -- Just like with non-exhaustive pattern matching, two prisms need to be
+  -- composed with '_Value'' in between.
   --
   -- > matche'
   -- >   & on' _LogicLeft' (\x -> x === Value False)
@@ -307,10 +307,10 @@ import Kanren.Goal
 
 -- | One case for non-exhaustive pattern matching.
 --
--- Although we try to match on a 'Term', the prism only need to operate on
+-- Although we try to match on a 'Term', the prism only needs to operate on
 -- a 'Logic' type.
 --
--- In case when the value being match is unknown yet, 'on' must be able to
+-- In case when the value being matched is unknown yet, 'on' must be able to
 -- construct this value from the pattern — hence the @'Fresh' v@ constraint. It
 -- should just work though since 'Fresh' has instances for tuples, and prisms'
 -- foci are tuples too.
@@ -370,7 +370,7 @@ instance
 -- | A prism which is suitable for exhaustive pattern matching.
 --
 -- Although the type definition might allow changing the type of the focus, this
--- is not neccesary for exhaustive pattern matching and so not covered here.
+-- is not necessary for exhaustive pattern matching and so not covered here.
 type ExhaustivePrism s m m' a t t' =
   Prism (Tagged m s) (Tagged m' s) (Tagged t a) (Tagged t' a)
 
