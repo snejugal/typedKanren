@@ -329,9 +329,9 @@ conde = disjMany . map conjMany
 -- [()]
 --
 -- Creating a lot of variables one-by-one might be tiresome though. This is why
--- 'fresh' is not a standalone function but a method on a type class. 'Fresh'
--- is implemented not only for @'Term' a@ but for tuples too, so you can ask for
--- several fresh variables at once.
+-- 'fresh' is overloaded with the 'Fresh' class, which is implemented not only
+-- for @'Term' a@ but for tuples too, so you can ask for several fresh variables
+-- at once.
 --
 -- >>> :{
 --   run (\() -> do
@@ -371,6 +371,8 @@ class Fresh v where
 fresh' :: (Fresh v) => Goal v
 fresh' = Goal (pure . makeVariables makeFresh)
 
+-- | Create fresh variables, as many as the type @v@ asks for (see 'Fresh' for
+-- examples). The goal is delayed, see 'delay'.
 fresh :: (Fresh v) => Goal v
 fresh = delay fresh'
 
@@ -441,6 +443,9 @@ instance
     a' = resolve state a
     (b', c', d', e', f') = resolve state (b, c, d, e, f)
 
+-- | Suspend a goal for one step. At a suspension, the search switches to the
+-- other branch of a disjunction, so a recursive goal that produces no results
+-- does not block the other branches.
 delay :: Goal a -> Goal a
 delay (Goal g) = Goal (Await . g)
 
