@@ -18,9 +18,8 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -Wno-redundant-constraints #-}
 
--- | The very core of miniKanren. So core that it basically deals with
--- unification only. For writing relational programs, you will need
--- @"Kanren.Goal"@ as well.
+-- | Terms, unification and the search state. Relational programs are written
+-- with "Kanren.Goal", which builds on this module.
 module Kanren.Core (
   -- * Values and terms
   Logical (..),
@@ -68,88 +67,47 @@ import Unsafe.Coerce (unsafeCoerce)
 -- >>> import Kanren.Goal
 -- >>> import Kanren.LogicalBase
 
--- | Types that can enter the relational world.
+-- | Types that can be used in relational programs.
 --
--- Simple types without fields, such as 'Bool' and 'Int', can be used in
--- relational programs as is. Instances for such types are as simple as
+-- A type without fields, such as 'Bool' or 'Int', needs only an empty instance,
+-- provided that it has an 'Eq' instance:
 --
--- > data Ternary = True | False | Maybe deriving (Eq)
--- > instance Logical Ternary
+-- > data Colour = Red | Green | Blue deriving (Eq)
+-- > instance Logical Colour
 --
 -- >>> run (\x -> x === Value True)
 -- [True]
 --
--- When a type contains other types, this becomes more tricky. Consider the
--- following type:
+-- A field of a value may be unknown during the search. Hence a type with
+-- fields has a separate logical representation, in which every field is a
+-- 'Term', that is, either a 'Var' or a 'Value':
 --
--- > data Point = Point { x :: Int, y :: Int }
+-- > data Point = Point {x :: Int, y :: Int}
+-- > data LogicPoint = LogicPoint {logicX :: Term Int, logicY :: Term Int}
 --
--- In the relational world, values may be known only partially. For example, we
--- may find out that some equation is true only for a particular value of @x@,
--- but once that holds, @y@ can be anything. The definition above cannot express
--- this, since @Point@ has to be instantiated with some particular pair of
--- @Int@s.
---
--- To account for this, we'd like to modify the definition slightly, so that
--- each field can possibly contain a variable:
---
--- > data LogicPoint = LogicPoint { logicX :: Term Int, logicY :: Term Int }
---
--- @'Term' a@ here can either be a 'Var' or a 'Value' for type @a@.
---
--- Now we can specify that a @Point@ becomes a @LogicPoint@ in the relational
--- world:
+-- The instance relates the two types with 'Logic', converts between them with
+-- 'inject' and 'extract', and applies 'unify'', 'walk'' and 'occursCheck'' to
+-- each field:
 --
 -- > instance Logical Point where
 -- >   type Logic Point = LogicPoint
+-- >   inject (Point x y) = LogicPoint (Value x) (Value y)
+-- >   extract (LogicPoint (Value x) (Value y)) = Just (Point x y)
+-- >   extract _ = Nothing
+-- >   unify (LogicPoint x1 y1) (LogicPoint x2 y2) state =
+-- >     unify' x1 x2 state >>= unify' y1 y2
+-- >   walk state (LogicPoint x y) = LogicPoint (walk' state x) (walk' state y)
+-- >   occursCheck var (LogicPoint x y) state =
+-- >     occursCheck' var x state || occursCheck' var y state
 --
--- However, we are not finished here yet. When a type has a different
--- representation in the logical world, we need to show how we can go from
--- a @Point@ to a @LogicPoint@ with 'inject' and go back with 'extract':
+-- Note that 'extract' fails if a field is still a variable. The instance does
+-- not change the state itself: 'unify'' records what is learnt about
+-- variables, and 'walk'' replaces variables with their known values.
 --
--- > inject (Point x y) = LogicPoint (Value x) (Value y)
--- > extract (LogicPoint (Value x) (Value y)) = Just (Point x y)
--- > extract _ = Nothing
---
--- Note that while we can always transform a @Point@ to a @LogicPoint@, going
--- back to a @Point@ can fail if any field contains a variable.
---
--- We also need to show how @LogicPoint@s can be unified. For simple types,
--- unification of terms works in the following way. If both terms are already
--- known, we just check that they are equal. Otherwise, one of the terms is a
--- variable, and we record that it must be equal to the other term.
---
--- With complex types, a third case is possible: we can refine an existing value
--- if one of its fields is a variable. We can achieve this by unifying each
--- field separately.
---
--- > unify (LogicPoint leftX leftY) (LogicPoint rightX rightY) state =
--- >   unify' leftX rightX state >>= unify' leftY rightY
---
--- 'unify' takes two values being unified and the current state. If unification
--- succeeds, a new state with acquired knowledge is returned. If unification
--- leads to contradiction (the two values cannot be unified), 'unify' returns
--- 'Nothing'. You do not modify the state yourself — this is handled by
--- 'unify'', a version of 'unify' which works on 'Term's instead of logic
--- values.
---
--- When we find out that a variable must have a particular value, we need not
--- only to add a new entry in the state, but also update existing values which
--- might contain that variable. This is the job of 'walk', which takes the value
--- being updated and the current state. Just like with 'unify', the actual job
--- of replacing variables with values is done by 'walk'', and you only need to
--- apply it to each field.
---
--- > walk state (LogicPoint x y) = LogicPoint (walk' state x) (walk' state y)
---
--- You may notice that the logical representation of the type and the 'Logical'
--- instance are suitable for automatic generation. Indeed, the
--- @"Kanren.GenericLogical"@ module provides generic versions of `Logical`'s
--- methods. The @"Kanren.TH"@ module goes further and provides
--- 'Kanren.TH.makeLogical' to generate logical representations for your types.
---
--- Although you'll see instances for @base@ types below, keep in mind that
--- they're only available from the @"Kanren.LogicalBase"@ module.
+-- Such instances need not be written by hand. "Kanren.GenericLogical" provides
+-- generic implementations of the methods, and 'Kanren.TH.makeLogical'
+-- generates both the logical representation and the instance. Instances for
+-- @base@ types are in "Kanren.LogicalBase".
 class Logical a where
   -- | The logical representation of this type. This defaults to the type
   -- itself, but complex types will usually have a separate logic type.
@@ -185,6 +143,12 @@ class Logical a where
   default walk :: (a ~ Logic a) => State -> Logic a -> Logic a
   walk _ = id
 
+  -- | Check whether a variable occurs in the value, in which case unifying
+  -- them would create an infinite term.
+  --
+  -- The default implementation works for simple types and returns 'False'.
+  -- Complex types will provide their own implementations which apply
+  -- 'occursCheck'' to each field.
   occursCheck :: VarId b -> Logic a -> State -> Bool
   default occursCheck :: (a ~ Logic a) => VarId b -> Logic a -> State -> Bool
   occursCheck _ _ _ = False
