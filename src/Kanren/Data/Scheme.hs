@@ -174,12 +174,13 @@ properListo exprs env value =
         properListo cdr env cdr'
     ]
 
--- Note that the structure of this relation — the order of clauses, the
--- order of conjuncts within each clause, and the order in which an
--- application evaluates its operand and operator — exactly follows the
--- reference implementations from the klogic benchmark suite
--- (faster-miniKanren, OCanren, and klogic agree on all of these), since
--- the search order, and thus benchmark results, depend on it.
+-- | Evaluate a Scheme expression in an environment.
+--
+-- The order of clauses, the order of conjuncts in each clause, and the order in
+-- which an application evaluates its operand and operator follow the reference
+-- implementations in the klogic benchmark suite (faster-miniKanren, OCanren,
+-- and klogic agree on all of these). The search order, and thus the benchmark
+-- results, depend on them.
 evalo :: Term SExpr -> Term Env -> Term Value -> Goal ()
 evalo expr env value =
   disjMany
