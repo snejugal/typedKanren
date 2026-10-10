@@ -13,8 +13,8 @@
 module Kanren.LogicalBase (
   -- * Primitive types
 
-  -- | There are 'Logical' instances for 'Bool', 'Char', 'Int', and 'Void'. They
-  -- don't require a separate logic representation.
+  -- | There are 'Logical' instances for @()@, 'Bool', 'Char', 'Int', and
+  -- 'Void'. They don't require a separate logic representation.
 
   -- ** Prisms for 'Bool'
   _False,
