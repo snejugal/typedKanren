@@ -159,13 +159,11 @@ run = fmap (\(Solution vars _) -> vars) . run'
 -- >>> run' (\(x, y) -> x =/= (y :: Term Bool))
 -- [Solution (_.0,_.1) { _.0 /= _.1 }]
 --
--- Since 'Disequalities' has to erase types of terms it stores, @run'@ will be
--- mostly useless to you:
+-- 'Disequalities' erases the types of the terms it stores, so only variables
+-- are shown in full:
 --
 -- >>> run' (\x -> x =/= Value True)
 -- [Solution _.0 { _.0 /= <term of erased type> }]
---
--- but at least it's something.
 --
 -- 'Disequalities' is shown as a conjunction of disjunctions:
 --

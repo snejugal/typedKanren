@@ -582,8 +582,8 @@ repeatedMulo n q nq =
 -- >>> extract' <$> run (\b -> logo (inject' 8) b (inject' 3) (inject' 0))
 -- [Just [O,I]]
 --
--- If you want to enumerate solutions to @logo n b q r@, you probably shouldn't
--- go beyond the first 16 solutions without an OOM killer.
+-- When all of @n@, @b@, @q@ and @r@ are unknown, enumerating the solutions
+-- takes a lot of memory beyond the first 16 or so.
 --
 -- The original implementation of this relation in Prolog can be found at
 -- <https://okmij.org/ftp/Prolog/Arithm/pure-bin-arithm.prl>. Although the paper

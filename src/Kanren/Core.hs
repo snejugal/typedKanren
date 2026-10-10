@@ -342,8 +342,8 @@ instance Show ErasedTerm where
   show (ErasedTerm (Var varId)) = show varId
   show (ErasedTerm (Value _)) = "<term of erased type>"
 
--- | Cast an 'ErasedTerm' back to a 'Term a'. Hopefully, you will cast it to the
--- correct type, or bad things will happen.
+-- | Cast an 'ErasedTerm' back to a 'Term a'. The cast is not checked, so the
+-- caller must ask for the type that was erased.
 unsafeReconstructTerm :: ErasedTerm -> Term a
 unsafeReconstructTerm (ErasedTerm x) = unsafeCoerce x
 
