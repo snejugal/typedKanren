@@ -108,12 +108,13 @@ instance (Logical a) => Logical [a] where
   inject = genericInject
   extract = genericExtract
 
+-- | 'toList' fails if the tail of the list is a variable.
 instance IsList (LogicList a) where
   type Item (LogicList a) = Term a
   fromList [] = LogicNil
   fromList (x : xs) = LogicCons x (Value (fromList xs))
   toList LogicNil = []
-  toList (LogicCons x xs) = x : toList xs -- NOTE: toList for (Term [a]) is partial
+  toList (LogicCons x xs) = x : toList xs
 
 makePrisms ''LogicList
 makeExhaustivePrisms ''LogicList

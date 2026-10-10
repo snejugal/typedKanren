@@ -439,8 +439,6 @@ newtype Disequalities = Disequalities (IntMap (StrictList (DisequalityHead Erase
 nullDisequalities :: Disequalities -> Bool
 nullDisequalities (Disequalities d) = IntMap.null d
 
--- TODO: provide a nice API to inspect the disequalities
-
 instance Show Disequalities where
   show (Disequalities disequalities)
     | IntMap.null disequalities = "∅"

@@ -19,7 +19,9 @@ instance (Show a) => Show (Stream a) where
     show' (Only x)                 = show x ++ "]"
     show' (Yield x xs@(Yield _ _)) = show x ++ ", " ++ show' xs
     show' (Yield x xs)             = show x ++ show' xs
-    show' (Await xs)               = show xs    -- FIXME: demonstrate the use of Await
+    -- The suspension itself is not shown, and the rest is shown as a separate
+    -- list.
+    show' (Await xs)               = show xs
 
 instance Applicative Stream where
   pure = Only
