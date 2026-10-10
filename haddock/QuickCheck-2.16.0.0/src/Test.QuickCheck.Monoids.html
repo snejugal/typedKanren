@@ -1,0 +1,172 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE CPP #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# LANGUAGE ExistentialQuantification #-}</span><span>
+</span><span id="line-3"></span><span class="hs-pragma">{-# LANGUAGE Safe #-}</span><span>
+</span><span id="line-4"></span><span>
+</span><span id="line-5"></span><span class="hs-keyword">module</span><span> </span><span class="annot"><a href="Test.QuickCheck.Monoids.html"><span class="hs-identifier">Test.QuickCheck.Monoids</span></a></span><span>
+</span><span id="line-6"></span><span>  </span><span class="hs-special">(</span><span> </span><span class="annot"><a href="Test.QuickCheck.Monoids.html#Every"><span class="hs-identifier">Every</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-7"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Test.QuickCheck.Monoids.html#Some"><span class="hs-identifier">Some</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-8"></span><span>  </span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span class="hs-cpp">
+
+#ifndef NO_SEMIGROUP
+</span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.List.NonEmpty</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">NonEmpty</span></span><span>
+</span><span id="line-12"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Semigroup</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Semigroup</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-cpp">
+#else
+</span><span class="hs-keyword">import</span><span> </span><span class="hs-identifier">Data.Monoid</span><span> </span><span class="hs-special">(</span><span class="hs-identifier">Monoid</span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-cpp">
+#endif
+</span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Test.QuickCheck.Property.html"><span class="hs-identifier">Test.QuickCheck.Property</span></a></span><span>
+</span><span id="line-17"></span><span>
+</span><span id="line-18"></span><span class="hs-comment">-- | Conjunction monoid built with `.&amp;&amp;.`.</span><span>
+</span><span id="line-19"></span><span class="hs-comment">--</span><span>
+</span><span id="line-20"></span><span class="hs-comment">-- Use `property @Every` as an accessor which doesn't leak</span><span>
+</span><span id="line-21"></span><span class="hs-comment">-- existential variables.</span><span>
+</span><span id="line-22"></span><span class="hs-comment">--</span><span>
+</span><span id="line-23"></span><span class="hs-comment">-- Note: monoid laws are satisfied up to 'Test.QuickCheck.isSuccess' unless one</span><span>
+</span><span id="line-24"></span><span class="hs-comment">-- is using `checkCoverage`.</span><span>
+</span><span id="line-25"></span><span class="hs-comment">--</span><span class="hs-cpp">
+#ifndef NO_EXISTENTIAL_FIELD_SELECTORS
+</span><span class="hs-keyword">data</span><span> </span><span id="Every"><span class="annot"><a href="Test.QuickCheck.Monoids.html#Every"><span class="hs-identifier hs-var">Every</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621679148165"><span class="annot"><a href="#local-6989586621679148165"><span class="hs-identifier hs-type">p</span></a></span></span><span class="hs-operator">.</span><span> </span><span class="annot"><a href="Test.QuickCheck.Property.html#Testable"><span class="hs-identifier hs-type">Testable</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679148165"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span id="Every"><span class="annot"><a href="Test.QuickCheck.Monoids.html#Every"><span class="hs-identifier hs-var">Every</span></a></span></span><span> </span><span class="hs-special">{</span><span> </span><span id="getEvery"><span class="annot"><span class="annottext">()
+</span><a href="Test.QuickCheck.Monoids.html#getEvery"><span class="hs-identifier hs-var hs-var">getEvery</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621679148165"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-special">}</span><span class="hs-cpp">
+#else
+</span><span class="hs-keyword">data</span><span> </span><span class="hs-identifier">Every</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">forall</span><span> </span><span class="hs-identifier">p</span><span class="hs-operator">.</span><span> </span><span class="hs-identifier">Testable</span><span> </span><span class="hs-identifier">p</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="hs-identifier">Every</span><span> </span><span class="hs-identifier">p</span><span class="hs-cpp">
+#endif
+</span><span>
+</span><span id="line-32"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679148170"><span class="annot"><a href="Test.QuickCheck.Property.html#Testable"><span class="hs-identifier hs-type">Testable</span></a></span><span> </span><span class="annot"><a href="Test.QuickCheck.Monoids.html#Every"><span class="hs-identifier hs-type">Every</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-33"></span><span>    </span><span id="local-6989586621679148174"><span class="annot"><span class="annottext">property :: Every -&gt; Property
+</span><a href="#local-6989586621679148174"><span class="hs-identifier hs-var hs-var hs-var">property</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Test.QuickCheck.Monoids.html#Every"><span class="hs-identifier hs-type">Every</span></a></span><span> </span><span id="local-6989586621679148178"><span class="annot"><span class="annottext">p
+</span><a href="#local-6989586621679148178"><span class="hs-identifier hs-var">p</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">p -&gt; Property
+forall prop. Testable prop =&gt; prop -&gt; Property
+</span><a href="Test.QuickCheck.Property.html#property"><span class="hs-identifier hs-var">property</span></a></span><span> </span><span class="annot"><span class="annottext">p
+</span><a href="#local-6989586621679148178"><span class="hs-identifier hs-var">p</span></a></span><span class="hs-cpp">
+
+#ifndef NO_SEMIGROUP
+</span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679148182"><span class="annot"><span class="hs-identifier hs-type">Semigroup</span></span><span> </span><span class="annot"><a href="Test.QuickCheck.Monoids.html#Every"><span class="hs-identifier hs-type">Every</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-37"></span><span>    </span><span class="annot"><a href="Test.QuickCheck.Monoids.html#Every"><span class="hs-identifier hs-type">Every</span></a></span><span> </span><span id="local-6989586621679148189"><span class="annot"><span class="annottext">p
+</span><a href="#local-6989586621679148189"><span class="hs-identifier hs-var">p</span></a></span></span><span> </span><span id="local-6989586621679148190"><span class="annot"><span class="annottext">&lt;&gt; :: Every -&gt; Every -&gt; Every
+</span><span class="hs-operator hs-var hs-var hs-var">&lt;&gt;</span></span></span><span> </span><span class="annot"><a href="Test.QuickCheck.Monoids.html#Every"><span class="hs-identifier hs-type">Every</span></a></span><span> </span><span id="local-6989586621679148196"><span class="annot"><span class="annottext">p
+</span><a href="#local-6989586621679148196"><span class="hs-identifier hs-var">p'</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Property -&gt; Every
+forall p. Testable p =&gt; p -&gt; Every
+</span><a href="Test.QuickCheck.Monoids.html#Every"><span class="hs-identifier hs-var">Every</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">p
+</span><a href="#local-6989586621679148189"><span class="hs-identifier hs-var">p</span></a></span><span> </span><span class="annot"><span class="annottext">p -&gt; p -&gt; Property
+forall prop1 prop2.
+(Testable prop1, Testable prop2) =&gt;
+prop1 -&gt; prop2 -&gt; Property
+</span><a href="Test.QuickCheck.Property.html#.%26%26."><span class="hs-operator hs-var">.&amp;&amp;.</span></a></span><span> </span><span class="annot"><span class="annottext">p
+</span><a href="#local-6989586621679148196"><span class="hs-identifier hs-var">p'</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-38"></span><span>    </span><span id="local-6989586621679148199"><span class="annot"><span class="annottext">sconcat :: NonEmpty Every -&gt; Every
+</span><a href="#local-6989586621679148199"><span class="hs-identifier hs-var hs-var hs-var">sconcat</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Property -&gt; Every
+forall p. Testable p =&gt; p -&gt; Every
+</span><a href="Test.QuickCheck.Monoids.html#Every"><span class="hs-identifier hs-var">Every</span></a></span><span> </span><span class="annot"><span class="annottext">(Property -&gt; Every)
+-&gt; (NonEmpty Every -&gt; Property) -&gt; NonEmpty Every -&gt; Every
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">[Every] -&gt; Property
+forall prop. Testable prop =&gt; [prop] -&gt; Property
+</span><a href="Test.QuickCheck.Property.html#conjoin"><span class="hs-identifier hs-var">conjoin</span></a></span><span> </span><span class="annot"><span class="annottext">([Every] -&gt; Property)
+-&gt; (NonEmpty Every -&gt; [Every]) -&gt; NonEmpty Every -&gt; Property
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">NonEmpty Every -&gt; [Every]
+forall a. NonEmpty a -&gt; [a]
+</span><span class="hs-identifier hs-var">NonEmpty.toList</span></span><span>
+</span><span id="line-39"></span><span>
+</span><span id="line-40"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Monoid</span></span><span> </span><span class="annot"><a href="Test.QuickCheck.Monoids.html#Every"><span class="hs-identifier hs-type">Every</span></a></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-41"></span><span>    </span><span id="local-6989586621679148213"><span class="annot"><span class="annottext">mempty :: Every
+</span><span class="hs-identifier hs-var hs-var hs-var">mempty</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Every
+forall p. Testable p =&gt; p -&gt; Every
+</span><a href="Test.QuickCheck.Monoids.html#Every"><span class="hs-identifier hs-var">Every</span></a></span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">True</span></span><span>
+</span><span id="line-42"></span><span>    </span><span id="local-6989586621679148215"><span class="annot"><span class="annottext">mappend :: Every -&gt; Every -&gt; Every
+</span><span class="hs-identifier hs-var hs-var hs-var">mappend</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Every -&gt; Every -&gt; Every
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">(&lt;&gt;)</span></span><span>
+</span><span id="line-43"></span><span>    </span><span id="local-6989586621679148218"><span class="annot"><span class="annottext">mconcat :: [Every] -&gt; Every
+</span><span class="hs-identifier hs-var hs-var hs-var">mconcat</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Property -&gt; Every
+forall p. Testable p =&gt; p -&gt; Every
+</span><a href="Test.QuickCheck.Monoids.html#Every"><span class="hs-identifier hs-var">Every</span></a></span><span> </span><span class="annot"><span class="annottext">(Property -&gt; Every) -&gt; ([Every] -&gt; Property) -&gt; [Every] -&gt; Every
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">[Every] -&gt; Property
+forall prop. Testable prop =&gt; [prop] -&gt; Property
+</span><a href="Test.QuickCheck.Property.html#conjoin"><span class="hs-identifier hs-var">conjoin</span></a></span><span class="hs-cpp">
+#else
+</span><span class="hs-keyword">instance</span><span> </span><span class="hs-identifier">Monoid</span><span> </span><span class="hs-identifier">Every</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-46"></span><span>    </span><span class="hs-identifier">mempty</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-identifier">Every</span><span> </span><span class="hs-identifier">True</span><span>
+</span><span id="line-47"></span><span>    </span><span class="hs-identifier">mappend</span><span> </span><span class="hs-special">(</span><span class="hs-identifier">Every</span><span> </span><span class="hs-identifier">p</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="hs-identifier">Every</span><span> </span><span class="hs-identifier">p'</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-identifier">Every</span><span> </span><span class="hs-special">(</span><span class="hs-identifier">p</span><span> </span><span class="hs-operator">.&amp;&amp;.</span><span> </span><span class="hs-identifier">p'</span><span class="hs-special">)</span><span>
+</span><span id="line-48"></span><span>    </span><span class="hs-identifier">mconcat</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-identifier">Every</span><span> </span><span class="hs-operator">.</span><span> </span><span class="hs-identifier">conjoin</span><span class="hs-cpp">
+#endif
+</span><span>
+</span><span id="line-51"></span><span>
+</span><span id="line-52"></span><span class="hs-comment">-- | Disjunction monoid built with `.||.`.</span><span>
+</span><span id="line-53"></span><span class="hs-comment">--</span><span>
+</span><span id="line-54"></span><span class="hs-comment">-- Use `property @Some` as an accessor which doesn't leak</span><span>
+</span><span id="line-55"></span><span class="hs-comment">-- existential variables.</span><span>
+</span><span id="line-56"></span><span class="hs-comment">--</span><span>
+</span><span id="line-57"></span><span class="hs-comment">-- Note: monoid laws are satisfied up to 'Test.QuickCheck.isSuccess' unless one</span><span>
+</span><span id="line-58"></span><span class="hs-comment">-- is using `checkCoverage`.</span><span>
+</span><span id="line-59"></span><span class="hs-comment">--</span><span class="hs-cpp">
+#ifndef NO_EXISTENTIAL_FIELD_SELECTORS
+</span><span class="hs-keyword">data</span><span> </span><span id="Some"><span class="annot"><a href="Test.QuickCheck.Monoids.html#Some"><span class="hs-identifier hs-var">Some</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621679148220"><span class="annot"><a href="#local-6989586621679148220"><span class="hs-identifier hs-type">p</span></a></span></span><span class="hs-operator">.</span><span> </span><span class="annot"><a href="Test.QuickCheck.Property.html#Testable"><span class="hs-identifier hs-type">Testable</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679148220"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span id="Some"><span class="annot"><a href="Test.QuickCheck.Monoids.html#Some"><span class="hs-identifier hs-var">Some</span></a></span></span><span> </span><span class="hs-special">{</span><span> </span><span id="getSome"><span class="annot"><span class="annottext">()
+</span><a href="Test.QuickCheck.Monoids.html#getSome"><span class="hs-identifier hs-var hs-var">getSome</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621679148220"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-special">}</span><span class="hs-cpp">
+#else
+</span><span class="hs-keyword">data</span><span> </span><span class="hs-identifier">Some</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">forall</span><span> </span><span class="hs-identifier">p</span><span class="hs-operator">.</span><span> </span><span class="hs-identifier">Testable</span><span> </span><span class="hs-identifier">p</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="hs-identifier">Some</span><span> </span><span class="hs-identifier">p</span><span class="hs-cpp">
+#endif
+</span><span>
+</span><span id="line-66"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679148225"><span class="annot"><a href="Test.QuickCheck.Property.html#Testable"><span class="hs-identifier hs-type">Testable</span></a></span><span> </span><span class="annot"><a href="Test.QuickCheck.Monoids.html#Some"><span class="hs-identifier hs-type">Some</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-67"></span><span>    </span><span id="local-6989586621679148228"><span class="annot"><span class="annottext">property :: Some -&gt; Property
+</span><a href="Test.QuickCheck.Property.html#property"><span class="hs-identifier hs-var hs-var hs-var">property</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Test.QuickCheck.Monoids.html#Some"><span class="hs-identifier hs-type">Some</span></a></span><span> </span><span id="local-6989586621679148231"><span class="annot"><span class="annottext">p
+</span><a href="#local-6989586621679148231"><span class="hs-identifier hs-var">p</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">p -&gt; Property
+forall prop. Testable prop =&gt; prop -&gt; Property
+</span><a href="Test.QuickCheck.Property.html#property"><span class="hs-identifier hs-var">property</span></a></span><span> </span><span class="annot"><span class="annottext">p
+</span><a href="#local-6989586621679148231"><span class="hs-identifier hs-var">p</span></a></span><span class="hs-cpp">
+
+#ifndef NO_SEMIGROUP
+</span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679148235"><span class="annot"><span class="hs-identifier hs-type">Semigroup</span></span><span> </span><span class="annot"><a href="Test.QuickCheck.Monoids.html#Some"><span class="hs-identifier hs-type">Some</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-71"></span><span>    </span><span class="annot"><a href="Test.QuickCheck.Monoids.html#Some"><span class="hs-identifier hs-type">Some</span></a></span><span> </span><span id="local-6989586621679148241"><span class="annot"><span class="annottext">p
+</span><a href="#local-6989586621679148241"><span class="hs-identifier hs-var">p</span></a></span></span><span> </span><span id="local-6989586621679148242"><span class="annot"><span class="annottext">&lt;&gt; :: Some -&gt; Some -&gt; Some
+</span><span class="hs-operator hs-var hs-var hs-var">&lt;&gt;</span></span></span><span> </span><span class="annot"><a href="Test.QuickCheck.Monoids.html#Some"><span class="hs-identifier hs-type">Some</span></a></span><span> </span><span id="local-6989586621679148247"><span class="annot"><span class="annottext">p
+</span><a href="#local-6989586621679148247"><span class="hs-identifier hs-var">p'</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Property -&gt; Some
+forall p. Testable p =&gt; p -&gt; Some
+</span><a href="Test.QuickCheck.Monoids.html#Some"><span class="hs-identifier hs-var">Some</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">p
+</span><a href="#local-6989586621679148241"><span class="hs-identifier hs-var">p</span></a></span><span> </span><span class="annot"><span class="annottext">p -&gt; p -&gt; Property
+forall prop1 prop2.
+(Testable prop1, Testable prop2) =&gt;
+prop1 -&gt; prop2 -&gt; Property
+</span><a href="Test.QuickCheck.Property.html#.%7C%7C."><span class="hs-operator hs-var">.||.</span></a></span><span> </span><span class="annot"><span class="annottext">p
+</span><a href="#local-6989586621679148247"><span class="hs-identifier hs-var">p'</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-72"></span><span>    </span><span id="local-6989586621679148250"><span class="annot"><span class="annottext">sconcat :: NonEmpty Some -&gt; Some
+</span><span class="hs-identifier hs-var hs-var hs-var">sconcat</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Property -&gt; Some
+forall p. Testable p =&gt; p -&gt; Some
+</span><a href="Test.QuickCheck.Monoids.html#Some"><span class="hs-identifier hs-var">Some</span></a></span><span> </span><span class="annot"><span class="annottext">(Property -&gt; Some)
+-&gt; (NonEmpty Some -&gt; Property) -&gt; NonEmpty Some -&gt; Some
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">[Some] -&gt; Property
+forall prop. Testable prop =&gt; [prop] -&gt; Property
+</span><a href="Test.QuickCheck.Property.html#disjoin"><span class="hs-identifier hs-var">disjoin</span></a></span><span> </span><span class="annot"><span class="annottext">([Some] -&gt; Property)
+-&gt; (NonEmpty Some -&gt; [Some]) -&gt; NonEmpty Some -&gt; Property
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">NonEmpty Some -&gt; [Some]
+forall a. NonEmpty a -&gt; [a]
+</span><span class="hs-identifier hs-var">NonEmpty.toList</span></span><span>
+</span><span id="line-73"></span><span>
+</span><span id="line-74"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Monoid</span></span><span> </span><span class="annot"><a href="Test.QuickCheck.Monoids.html#Some"><span class="hs-identifier hs-type">Some</span></a></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-75"></span><span>    </span><span id="local-6989586621679148259"><span class="annot"><span class="annottext">mempty :: Some
+</span><span class="hs-identifier hs-var hs-var hs-var">mempty</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Some
+forall p. Testable p =&gt; p -&gt; Some
+</span><a href="Test.QuickCheck.Monoids.html#Some"><span class="hs-identifier hs-var">Some</span></a></span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">False</span></span><span>
+</span><span id="line-76"></span><span>    </span><span id="local-6989586621679148261"><span class="annot"><span class="annottext">mappend :: Some -&gt; Some -&gt; Some
+</span><span class="hs-identifier hs-var hs-var hs-var">mappend</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Some -&gt; Some -&gt; Some
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">(&lt;&gt;)</span></span><span>
+</span><span id="line-77"></span><span>    </span><span id="local-6989586621679148264"><span class="annot"><span class="annottext">mconcat :: [Some] -&gt; Some
+</span><span class="hs-identifier hs-var hs-var hs-var">mconcat</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Property -&gt; Some
+forall p. Testable p =&gt; p -&gt; Some
+</span><a href="Test.QuickCheck.Monoids.html#Some"><span class="hs-identifier hs-var">Some</span></a></span><span> </span><span class="annot"><span class="annottext">(Property -&gt; Some) -&gt; ([Some] -&gt; Property) -&gt; [Some] -&gt; Some
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">[Some] -&gt; Property
+forall prop. Testable prop =&gt; [prop] -&gt; Property
+</span><a href="Test.QuickCheck.Property.html#disjoin"><span class="hs-identifier hs-var">disjoin</span></a></span><span class="hs-cpp">
+#else
+</span><span class="hs-keyword">instance</span><span> </span><span class="hs-identifier">Monoid</span><span> </span><span class="hs-identifier">Some</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-80"></span><span>    </span><span class="hs-identifier">mempty</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-identifier">Some</span><span> </span><span class="hs-identifier">False</span><span>
+</span><span id="line-81"></span><span>    </span><span class="hs-identifier">mappend</span><span> </span><span class="hs-special">(</span><span class="hs-identifier">Some</span><span> </span><span class="hs-identifier">p</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="hs-identifier">Some</span><span> </span><span class="hs-identifier">p'</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-identifier">Some</span><span> </span><span class="hs-special">(</span><span class="hs-identifier">p</span><span> </span><span class="hs-operator">.||.</span><span> </span><span class="hs-identifier">p'</span><span class="hs-special">)</span><span>
+</span><span id="line-82"></span><span>    </span><span class="hs-identifier">mconcat</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-identifier">Some</span><span> </span><span class="hs-operator">.</span><span> </span><span class="hs-identifier">disjoin</span><span class="hs-cpp">
+#endif
+</span></pre></body></html>

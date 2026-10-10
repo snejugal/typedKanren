@@ -1,0 +1,1049 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE CPP #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# LANGUAGE DefaultSignatures #-}</span><span>
+</span><span id="line-3"></span><span class="hs-pragma">{-# LANGUAGE Safe #-}</span><span>
+</span><span id="line-4"></span><span class="hs-pragma">{-# LANGUAGE StandaloneDeriving #-}</span><span>
+</span><span id="line-5"></span><span class="hs-pragma">{-# LANGUAGE PolyKinds #-}</span><span>
+</span><span id="line-6"></span><span> </span><span class="hs-comment">-----------------------------------------------------------------------------</span><span>
+</span><span id="line-7"></span><span class="hs-comment">-- |</span><span>
+</span><span id="line-8"></span><span class="hs-comment">-- Module      :  Control.Comonad</span><span>
+</span><span id="line-9"></span><span class="hs-comment">-- Copyright   :  (C) 2008-2015 Edward Kmett,</span><span>
+</span><span id="line-10"></span><span class="hs-comment">--                (C) 2004 Dave Menendez</span><span>
+</span><span id="line-11"></span><span class="hs-comment">-- License     :  BSD-style (see the file LICENSE)</span><span>
+</span><span id="line-12"></span><span class="hs-comment">--</span><span>
+</span><span id="line-13"></span><span class="hs-comment">-- Maintainer  :  Edward Kmett &lt;ekmett@gmail.com&gt;</span><span>
+</span><span id="line-14"></span><span class="hs-comment">-- Stability   :  provisional</span><span>
+</span><span id="line-15"></span><span class="hs-comment">-- Portability :  portable</span><span>
+</span><span id="line-16"></span><span class="hs-comment">--</span><span>
+</span><span id="line-17"></span><span class="hs-comment">----------------------------------------------------------------------------</span><span>
+</span><span id="line-18"></span><span class="hs-keyword">module</span><span> </span><span class="annot"><a href="Control.Comonad.html"><span class="hs-identifier">Control.Comonad</span></a></span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-19"></span><span>  </span><span class="annot"><span class="hs-comment">-- * Comonads</span></span><span>
+</span><span id="line-20"></span><span>    </span><span class="annot"><a href="Control.Comonad.html#Comonad"><span class="hs-identifier">Comonad</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-21"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Comonad.html#liftW"><span class="hs-identifier">liftW</span></a></span><span>     </span><span class="hs-comment">-- :: Comonad w =&gt; (a -&gt; b) -&gt; w a -&gt; w b</span><span>
+</span><span id="line-22"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Comonad.html#wfix"><span class="hs-identifier">wfix</span></a></span><span>      </span><span class="hs-comment">-- :: Comonad w =&gt; w (w a -&gt; a) -&gt; a</span><span>
+</span><span id="line-23"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Comonad.html#cfix"><span class="hs-identifier">cfix</span></a></span><span>      </span><span class="hs-comment">-- :: Comonad w =&gt; (w a -&gt; a) -&gt; w a</span><span>
+</span><span id="line-24"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Comonad.html#kfix"><span class="hs-identifier">kfix</span></a></span><span>      </span><span class="hs-comment">-- :: ComonadApply w =&gt; w (w a -&gt; a) -&gt; w a</span><span>
+</span><span id="line-25"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Comonad.html#%3D%3E%3D"><span class="hs-operator">(=&gt;=)</span></a></span><span>
+</span><span id="line-26"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Comonad.html#%3D%3C%3D"><span class="hs-operator">(=&lt;=)</span></a></span><span>
+</span><span id="line-27"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Comonad.html#%3C%3C%3D"><span class="hs-operator">(&lt;&lt;=)</span></a></span><span>
+</span><span id="line-28"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Comonad.html#%3D%3E%3E"><span class="hs-operator">(=&gt;&gt;)</span></a></span><span>
+</span><span id="line-29"></span><span>  </span><span class="annot"><span class="hs-comment">-- * Combining Comonads</span></span><span>
+</span><span id="line-30"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Comonad.html#ComonadApply"><span class="hs-identifier">ComonadApply</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-31"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Comonad.html#%3C%40%40%3E"><span class="hs-operator">(&lt;@@&gt;)</span></a></span><span>    </span><span class="hs-comment">-- :: ComonadApply w =&gt; w a -&gt; w (a -&gt; b) -&gt; w b</span><span>
+</span><span id="line-32"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Comonad.html#liftW2"><span class="hs-identifier">liftW2</span></a></span><span>    </span><span class="hs-comment">-- :: ComonadApply w =&gt; (a -&gt; b -&gt; c) -&gt; w a -&gt; w b -&gt; w c</span><span>
+</span><span id="line-33"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Comonad.html#liftW3"><span class="hs-identifier">liftW3</span></a></span><span>    </span><span class="hs-comment">-- :: ComonadApply w =&gt; (a -&gt; b -&gt; c -&gt; d) -&gt; w a -&gt; w b -&gt; w c -&gt; w d</span><span>
+</span><span id="line-34"></span><span>  </span><span class="annot"><span class="hs-comment">-- * Cokleisli Arrows</span></span><span>
+</span><span id="line-35"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Comonad.html#Cokleisli"><span class="hs-identifier">Cokleisli</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-36"></span><span>  </span><span class="annot"><span class="hs-comment">-- * Functors</span></span><span>
+</span><span id="line-37"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">Functor</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-38"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-operator">(&lt;$&gt;)</span></span><span>     </span><span class="hs-comment">-- :: Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b</span><span>
+</span><span id="line-39"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-operator">($&gt;)</span></span><span>      </span><span class="hs-comment">-- :: Functor f =&gt; f a -&gt; b -&gt; f b</span><span>
+</span><span id="line-40"></span><span>  </span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-41"></span><span>
+</span><span id="line-42"></span><span class="hs-comment">-- import _everything_</span><span>
+</span><span id="line-43"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Functor</span></span><span>
+</span><span id="line-44"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Applicative</span></span><span>
+</span><span id="line-45"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Arrow</span></span><span>
+</span><span id="line-46"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Category</span></span><span>
+</span><span id="line-47"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">ap</span></span><span class="hs-special">)</span><span>
+</span><span id="line-48"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad.Trans.Identity</span></span><span>
+</span><span id="line-49"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Functor.Identity</span></span><span>
+</span><span id="line-50"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.Functor.Sum</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">FSum</span></span><span>
+</span><span id="line-51"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.List.NonEmpty</span></span><span> </span><span class="hs-keyword">hiding</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">map</span></span><span class="hs-special">)</span><span>
+</span><span id="line-52"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Semigroup</span></span><span> </span><span class="hs-keyword">hiding</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Product</span></span><span class="hs-special">)</span><span>
+</span><span id="line-53"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Tagged</span></span><span>
+</span><span id="line-54"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Prelude</span></span><span> </span><span class="hs-keyword">hiding</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">id</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-operator">(.)</span></span><span class="hs-special">)</span><span>
+</span><span id="line-55"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad.Fix</span></span><span class="hs-cpp">
+
+#ifdef MIN_VERSION_containers
+</span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Tree</span></span><span class="hs-cpp">
+#endif
+</span><span>
+</span><span id="line-61"></span><span class="hs-keyword">infixl</span><span> </span><span class="hs-number">4</span><span> </span><span class="annot"><a href="Control.Comonad.html#%3C%40"><span class="hs-operator hs-type">&lt;@</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Comonad.html#%40%3E"><span class="hs-operator hs-type">@&gt;</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Comonad.html#%3C%40%40%3E"><span class="hs-operator hs-type">&lt;@@&gt;</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Comonad.html#%3C%40%3E"><span class="hs-operator hs-type">&lt;@&gt;</span></a></span><span>
+</span><span id="line-62"></span><span class="hs-keyword">infixl</span><span> </span><span class="hs-number">1</span><span> </span><span class="annot"><a href="Control.Comonad.html#%3D%3E%3E"><span class="hs-operator hs-type">=&gt;&gt;</span></a></span><span>
+</span><span id="line-63"></span><span class="hs-keyword">infixr</span><span> </span><span class="hs-number">1</span><span> </span><span class="annot"><a href="Control.Comonad.html#%3C%3C%3D"><span class="hs-operator hs-type">&lt;&lt;=</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Comonad.html#%3D%3C%3D"><span class="hs-operator hs-type">=&lt;=</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Comonad.html#%3D%3E%3D"><span class="hs-operator hs-type">=&gt;=</span></a></span><span>
+</span><span id="line-64"></span><span>
+</span><span id="line-65"></span><span class="annot"><span class="hs-comment">{- |
+
+There are two ways to define a comonad:
+
+I. Provide definitions for 'extract' and 'extend'
+satisfying these laws:
+
+@
+'extend' 'extract'      = 'id'
+'extract' . 'extend' f  = f
+'extend' f . 'extend' g = 'extend' (f . 'extend' g)
+@
+
+In this case, you may simply set 'fmap' = 'liftW'.
+
+These laws are directly analogous to the laws for monads
+and perhaps can be made clearer by viewing them as laws stating
+that Cokleisli composition must be associative, and has extract for
+a unit:
+
+@
+f '=&gt;=' 'extract'   = f
+'extract' '=&gt;=' f   = f
+(f '=&gt;=' g) '=&gt;=' h = f '=&gt;=' (g '=&gt;=' h)
+@
+
+II. Alternately, you may choose to provide definitions for 'fmap',
+'extract', and 'duplicate' satisfying these laws:
+
+@
+'extract' . 'duplicate'      = 'id'
+'fmap' 'extract' . 'duplicate' = 'id'
+'duplicate' . 'duplicate'    = 'fmap' 'duplicate' . 'duplicate'
+@
+
+In this case you may not rely on the ability to define 'fmap' in
+terms of 'liftW'.
+
+You may of course, choose to define both 'duplicate' /and/ 'extend'.
+In that case you must also satisfy these laws:
+
+@
+'extend' f  = 'fmap' f . 'duplicate'
+'duplicate' = 'extend' id
+'fmap' f    = 'extend' (f . 'extract')
+@
+
+These are the default definitions of 'extend' and 'duplicate' and
+the definition of 'liftW' respectively.
+
+-}</span></span><span>
+</span><span id="line-116"></span><span>
+</span><span id="line-117"></span><span class="hs-keyword">class</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Functor</span></span><span> </span><span class="annot"><a href="#local-6989586621679068371"><span class="hs-identifier hs-type">w</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span id="Comonad"><span class="annot"><a href="Control.Comonad.html#Comonad"><span class="hs-identifier hs-var">Comonad</span></a></span></span><span> </span><span id="local-6989586621679068371"><span class="annot"><a href="#local-6989586621679068371"><span class="hs-identifier hs-type">w</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-118"></span><span>  </span><span class="hs-comment">-- |</span><span>
+</span><span id="line-119"></span><span>  </span><span class="hs-comment">-- @</span><span>
+</span><span id="line-120"></span><span>  </span><span class="hs-comment">-- 'extract' . 'fmap' f = f . 'extract'</span><span>
+</span><span id="line-121"></span><span>  </span><span class="hs-comment">-- @</span><span>
+</span><span id="line-122"></span><span>  </span><span id="extract"><span class="annot"><a href="Control.Comonad.html#extract"><span class="hs-identifier hs-type">extract</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span id="local-6989586621679068390"><span class="annot"><a href="#local-6989586621679068371"><span class="hs-identifier hs-type">w</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679068390"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679068390"><span class="hs-identifier hs-type">a</span></a></span></span><span>
+</span><span id="line-123"></span><span>
+</span><span id="line-124"></span><span>  </span><span class="hs-comment">-- |</span><span>
+</span><span id="line-125"></span><span>  </span><span class="hs-comment">-- @</span><span>
+</span><span id="line-126"></span><span>  </span><span class="hs-comment">-- 'duplicate' = 'extend' 'id'</span><span>
+</span><span id="line-127"></span><span>  </span><span class="hs-comment">-- 'fmap' ('fmap' f) . 'duplicate' = 'duplicate' . 'fmap' f</span><span>
+</span><span id="line-128"></span><span>  </span><span class="hs-comment">-- @</span><span>
+</span><span id="line-129"></span><span>  </span><span id="duplicate"><span class="annot"><a href="Control.Comonad.html#duplicate"><span class="hs-identifier hs-type">duplicate</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span id="local-6989586621679068373"><span class="annot"><a href="#local-6989586621679068371"><span class="hs-identifier hs-type">w</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679068373"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679068371"><span class="hs-identifier hs-type">w</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679068371"><span class="hs-identifier hs-type">w</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679068373"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span><span>
+</span><span id="line-130"></span><span>  </span><span id="local-6989586621679068779"><span class="annot"><a href="Control.Comonad.html#duplicate"><span class="hs-identifier hs-var hs-var">duplicate</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(w a -&gt; w a) -&gt; w a -&gt; w (w a)
+forall a b. (w a -&gt; b) -&gt; w a -&gt; w b
+forall (w :: * -&gt; *) a b. Comonad w =&gt; (w a -&gt; b) -&gt; w a -&gt; w b
+</span><a href="Control.Comonad.html#extend"><span class="hs-identifier hs-var">extend</span></a></span><span> </span><span class="annot"><span class="annottext">w a -&gt; w a
+forall a. a -&gt; a
+forall {k} (cat :: k -&gt; k -&gt; *) (a :: k). Category cat =&gt; cat a a
+</span><span class="hs-identifier hs-var">id</span></span></span><span>
+</span><span id="line-131"></span><span>
+</span><span id="line-132"></span><span>  </span><span class="hs-comment">-- |</span><span>
+</span><span id="line-133"></span><span>  </span><span class="hs-comment">-- @</span><span>
+</span><span id="line-134"></span><span>  </span><span class="hs-comment">-- 'extend' f = 'fmap' f . 'duplicate'</span><span>
+</span><span id="line-135"></span><span>  </span><span class="hs-comment">-- @</span><span>
+</span><span id="line-136"></span><span>  </span><span id="extend"><span class="annot"><a href="Control.Comonad.html#extend"><span class="hs-identifier hs-type">extend</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span id="local-6989586621679068376"><span id="local-6989586621679068377"><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679068371"><span class="hs-identifier hs-type">w</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679068376"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679068377"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679068371"><span class="hs-identifier hs-type">w</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679068376"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679068371"><span class="hs-identifier hs-type">w</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679068377"><span class="hs-identifier hs-type">b</span></a></span></span></span><span>
+</span><span id="line-137"></span><span>  </span><span id="local-6989586621679068783"><span class="annot"><a href="Control.Comonad.html#extend"><span class="hs-identifier hs-var hs-var">extend</span></a></span><span> </span><span id="local-6989586621679068788"><span class="annot"><span class="annottext">w a -&gt; b
+</span><a href="#local-6989586621679068788"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(w a -&gt; b) -&gt; w (w a) -&gt; w b
+forall a b. (a -&gt; b) -&gt; w a -&gt; w b
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="annot"><span class="annottext">w a -&gt; b
+</span><a href="#local-6989586621679068788"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">(w (w a) -&gt; w b) -&gt; (w a -&gt; w (w a)) -&gt; w a -&gt; w b
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+forall {k} (cat :: k -&gt; k -&gt; *) (b :: k) (c :: k) (a :: k).
+Category cat =&gt;
+cat b c -&gt; cat a b -&gt; cat a c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">w a -&gt; w (w a)
+forall a. w a -&gt; w (w a)
+forall (w :: * -&gt; *) a. Comonad w =&gt; w a -&gt; w (w a)
+</span><a href="Control.Comonad.html#duplicate"><span class="hs-identifier hs-var">duplicate</span></a></span></span><span>
+</span><span id="line-138"></span><span>
+</span><span id="line-139"></span><span>  </span><span class="hs-pragma">{-# MINIMAL</span><span> </span><span class="annot"><a href="Control.Comonad.html#extract"><span class="hs-pragma hs-type">extract</span></a></span><span class="hs-pragma">,</span><span> </span><span class="hs-pragma">(</span><span class="annot"><a href="Control.Comonad.html#duplicate"><span class="hs-pragma hs-type">duplicate</span></a></span><span> </span><span class="hs-pragma">|</span><span> </span><span class="annot"><a href="Control.Comonad.html#extend"><span class="hs-pragma hs-type">extend</span></a></span><span class="hs-pragma">)</span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-140"></span><span>
+</span><span id="line-141"></span><span>
+</span><span id="line-142"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679068391"><span id="local-6989586621679068796"><span class="annot"><a href="Control.Comonad.html#Comonad"><span class="hs-identifier hs-type">Comonad</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">(</span><span class="hs-special">,</span><span class="hs-special">)</span><span class="annot"><a href="#local-6989586621679068391"><span class="hs-identifier hs-type">e</span></a></span><span class="hs-special">)</span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-143"></span><span>  </span><span id="local-6989586621679068800"><span class="annot"><span class="annottext">duplicate :: forall a. (e, a) -&gt; (e, (e, a))
+</span><a href="Control.Comonad.html#duplicate"><span class="hs-identifier hs-var hs-var hs-var">duplicate</span></a></span></span><span> </span><span id="local-6989586621679068801"><span class="annot"><span class="annottext">(e, a)
+</span><a href="#local-6989586621679068801"><span class="hs-identifier hs-var">p</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(e, a) -&gt; e
+forall a b. (a, b) -&gt; a
+</span><span class="hs-identifier hs-var">fst</span></span><span> </span><span class="annot"><span class="annottext">(e, a)
+</span><a href="#local-6989586621679068801"><span class="hs-identifier hs-var">p</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">(e, a)
+</span><a href="#local-6989586621679068801"><span class="hs-identifier hs-var">p</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-144"></span><span>  </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Control.Comonad.html#duplicate"><span class="hs-pragma hs-type">duplicate</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-145"></span><span>  </span><span id="local-6989586621679068803"><span class="annot"><span class="annottext">extract :: forall a. (e, a) -&gt; a
+</span><a href="Control.Comonad.html#extract"><span class="hs-identifier hs-var hs-var hs-var">extract</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(e, a) -&gt; a
+forall e a. (e, a) -&gt; a
+</span><span class="hs-identifier hs-var">snd</span></span><span>
+</span><span id="line-146"></span><span>  </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Control.Comonad.html#extract"><span class="hs-pragma hs-type">extract</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-147"></span><span>
+</span><span id="line-148"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679068398"><span class="annot"><a href="Control.Comonad.html#Comonad"><span class="hs-identifier hs-type">Comonad</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Arg</span></span><span> </span><span class="annot"><a href="#local-6989586621679068398"><span class="hs-identifier hs-type">e</span></a></span><span class="hs-special">)</span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-149"></span><span>  </span><span id="local-6989586621679068812"><span class="annot"><span class="annottext">duplicate :: forall a. Arg e a -&gt; Arg e (Arg e a)
+</span><a href="Control.Comonad.html#duplicate"><span class="hs-identifier hs-var hs-var hs-var">duplicate</span></a></span></span><span> </span><span id="local-6989586621679068813"><span class="annot"><span class="annottext">w :: Arg e a
+</span><a href="#local-6989586621679068813"><span class="hs-identifier hs-var">w</span></a></span></span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Arg</span></span><span> </span><span id="local-6989586621679068815"><span class="annot"><span class="annottext">e
+</span><a href="#local-6989586621679068815"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span class="annot"><span class="annottext">a
+</span><span class="hs-identifier">_</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">e -&gt; Arg e a -&gt; Arg e (Arg e a)
+forall a b. a -&gt; b -&gt; Arg a b
+</span><span class="hs-identifier hs-var">Arg</span></span><span> </span><span class="annot"><span class="annottext">e
+</span><a href="#local-6989586621679068815"><span class="hs-identifier hs-var">a</span></a></span><span> </span><span class="annot"><span class="annottext">Arg e a
+</span><a href="#local-6989586621679068813"><span class="hs-identifier hs-var">w</span></a></span><span>
+</span><span id="line-150"></span><span>  </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Control.Comonad.html#duplicate"><span class="hs-pragma hs-type">duplicate</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-151"></span><span>  </span><span id="local-6989586621679068816"><span class="annot"><span class="annottext">extend :: forall a b. (Arg e a -&gt; b) -&gt; Arg e a -&gt; Arg e b
+</span><a href="Control.Comonad.html#extend"><span class="hs-identifier hs-var hs-var hs-var">extend</span></a></span></span><span> </span><span id="local-6989586621679068817"><span class="annot"><span class="annottext">Arg e a -&gt; b
+</span><a href="#local-6989586621679068817"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span id="local-6989586621679068818"><span class="annot"><span class="annottext">w :: Arg e a
+</span><a href="#local-6989586621679068818"><span class="hs-identifier hs-var">w</span></a></span></span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Arg</span></span><span> </span><span id="local-6989586621679068819"><span class="annot"><span class="annottext">e
+</span><a href="#local-6989586621679068819"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span class="annot"><span class="annottext">a
+</span><span class="hs-identifier">_</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">e -&gt; b -&gt; Arg e b
+forall a b. a -&gt; b -&gt; Arg a b
+</span><span class="hs-identifier hs-var">Arg</span></span><span> </span><span class="annot"><span class="annottext">e
+</span><a href="#local-6989586621679068819"><span class="hs-identifier hs-var">a</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Arg e a -&gt; b
+</span><a href="#local-6989586621679068817"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">Arg e a
+</span><a href="#local-6989586621679068818"><span class="hs-identifier hs-var">w</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-152"></span><span>  </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Control.Comonad.html#extend"><span class="hs-pragma hs-type">extend</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-153"></span><span>  </span><span id="local-6989586621679068820"><span class="annot"><span class="annottext">extract :: forall a. Arg e a -&gt; a
+</span><a href="Control.Comonad.html#extract"><span class="hs-identifier hs-var hs-var hs-var">extract</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Arg</span></span><span> </span><span class="annot"><span class="annottext">e
+</span><span class="hs-identifier">_</span></span><span> </span><span id="local-6989586621679068821"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679068821"><span class="hs-identifier hs-var">b</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679068821"><span class="hs-identifier hs-var">b</span></a></span><span>
+</span><span id="line-154"></span><span>  </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Control.Comonad.html#extract"><span class="hs-pragma hs-type">extract</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-155"></span><span>
+</span><span id="line-156"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679068407"><span id="local-6989586621679068829"><span class="annot"><span class="hs-identifier hs-type">Monoid</span></span><span> </span><span class="annot"><a href="#local-6989586621679068407"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Control.Comonad.html#Comonad"><span class="hs-identifier hs-type">Comonad</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">(</span><span class="hs-glyph">-&gt;</span><span class="hs-special">)</span><span class="annot"><a href="#local-6989586621679068407"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-157"></span><span>  </span><span id="local-6989586621679068834"><span class="annot"><span class="annottext">duplicate :: forall a. (m -&gt; a) -&gt; m -&gt; (m -&gt; a)
+</span><a href="Control.Comonad.html#duplicate"><span class="hs-identifier hs-var hs-var hs-var">duplicate</span></a></span></span><span> </span><span id="local-6989586621679068835"><span class="annot"><span class="annottext">m -&gt; a
+</span><a href="#local-6989586621679068835"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span id="local-6989586621679068836"><span class="annot"><span class="annottext">m
+</span><a href="#local-6989586621679068836"><span class="hs-identifier hs-var">m</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">m -&gt; a
+</span><a href="#local-6989586621679068835"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">(m -&gt; a) -&gt; (m -&gt; m) -&gt; m -&gt; a
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+forall {k} (cat :: k -&gt; k -&gt; *) (b :: k) (c :: k) (a :: k).
+Category cat =&gt;
+cat b c -&gt; cat a b -&gt; cat a c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">m -&gt; m -&gt; m
+forall a. Monoid a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-identifier hs-var">mappend</span></span><span> </span><span class="annot"><span class="annottext">m
+</span><a href="#local-6989586621679068836"><span class="hs-identifier hs-var">m</span></a></span><span>
+</span><span id="line-158"></span><span>  </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Control.Comonad.html#duplicate"><span class="hs-pragma hs-type">duplicate</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-159"></span><span>  </span><span id="local-6989586621679068838"><span class="annot"><span class="annottext">extract :: forall a. (m -&gt; a) -&gt; a
+</span><a href="Control.Comonad.html#extract"><span class="hs-identifier hs-var hs-var hs-var">extract</span></a></span></span><span> </span><span id="local-6989586621679068839"><span class="annot"><span class="annottext">m -&gt; a
+</span><a href="#local-6989586621679068839"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">m -&gt; a
+</span><a href="#local-6989586621679068839"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">m
+forall a. Monoid a =&gt; a
+</span><span class="hs-identifier hs-var">mempty</span></span><span>
+</span><span id="line-160"></span><span>  </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Control.Comonad.html#extract"><span class="hs-pragma hs-type">extract</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-161"></span><span>
+</span><span id="line-162"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679068846"><span class="annot"><a href="Control.Comonad.html#Comonad"><span class="hs-identifier hs-type">Comonad</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Identity</span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-163"></span><span>  </span><span id="local-6989586621679068849"><span class="annot"><span class="annottext">duplicate :: forall a. Identity a -&gt; Identity (Identity a)
+</span><a href="Control.Comonad.html#duplicate"><span class="hs-identifier hs-var hs-var hs-var">duplicate</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Identity a -&gt; Identity (Identity a)
+forall a. a -&gt; Identity a
+</span><span class="hs-identifier hs-var">Identity</span></span><span>
+</span><span id="line-164"></span><span>  </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Control.Comonad.html#duplicate"><span class="hs-pragma hs-type">duplicate</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-165"></span><span>  </span><span id="local-6989586621679068851"><span class="annot"><span class="annottext">extract :: forall a. Identity a -&gt; a
+</span><a href="Control.Comonad.html#extract"><span class="hs-identifier hs-var hs-var hs-var">extract</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Identity a -&gt; a
+forall a. Identity a -&gt; a
+</span><span class="hs-identifier hs-var">runIdentity</span></span><span>
+</span><span id="line-166"></span><span>  </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Control.Comonad.html#extract"><span class="hs-pragma hs-type">extract</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-167"></span><span>
+</span><span id="line-168"></span><span class="hs-comment">-- $</span><span>
+</span><span id="line-169"></span><span class="hs-comment">-- The variable `s` can have any kind.</span><span>
+</span><span id="line-170"></span><span class="hs-comment">-- For example, here it has kind `Bool`:</span><span>
+</span><span id="line-171"></span><span class="hs-comment">-- &gt;&gt;&gt; :set -XDataKinds</span><span>
+</span><span id="line-172"></span><span class="hs-comment">-- &gt;&gt;&gt; import Data.Tagged</span><span>
+</span><span id="line-173"></span><span class="hs-comment">-- &gt;&gt;&gt; extract (Tagged 42 :: Tagged 'True Integer)</span><span>
+</span><span id="line-174"></span><span class="hs-comment">-- 42</span><span>
+</span><span id="line-175"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679068419"><span id="local-6989586621679068859"><span class="annot"><a href="Control.Comonad.html#Comonad"><span class="hs-identifier hs-type">Comonad</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Tagged</span></span><span> </span><span class="annot"><a href="#local-6989586621679068419"><span class="hs-identifier hs-type">s</span></a></span><span class="hs-special">)</span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-176"></span><span>  </span><span id="local-6989586621679068862"><span class="annot"><span class="annottext">duplicate :: forall a. Tagged s a -&gt; Tagged s (Tagged s a)
+</span><a href="Control.Comonad.html#duplicate"><span class="hs-identifier hs-var hs-var hs-var">duplicate</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Tagged s a -&gt; Tagged s (Tagged s a)
+forall {k} (s :: k) b. b -&gt; Tagged s b
+</span><span class="hs-identifier hs-var">Tagged</span></span><span>
+</span><span id="line-177"></span><span>  </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Control.Comonad.html#duplicate"><span class="hs-pragma hs-type">duplicate</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-178"></span><span>  </span><span id="local-6989586621679068864"><span class="annot"><span class="annottext">extract :: forall a. Tagged s a -&gt; a
+</span><a href="Control.Comonad.html#extract"><span class="hs-identifier hs-var hs-var hs-var">extract</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Tagged s a -&gt; a
+forall k (s :: k) a. Tagged s a -&gt; a
+</span><span class="hs-identifier hs-var">unTagged</span></span><span>
+</span><span id="line-179"></span><span>  </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Control.Comonad.html#extract"><span class="hs-pragma hs-type">extract</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-180"></span><span>
+</span><span id="line-181"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679068428"><span id="local-6989586621679068873"><span class="annot"><a href="Control.Comonad.html#Comonad"><span class="hs-identifier hs-type">Comonad</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679068428"><span class="hs-identifier hs-type">w</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Control.Comonad.html#Comonad"><span class="hs-identifier hs-type">Comonad</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">IdentityT</span></span><span> </span><span class="annot"><a href="#local-6989586621679068428"><span class="hs-identifier hs-type">w</span></a></span><span class="hs-special">)</span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-182"></span><span>  </span><span id="local-6989586621679068879"><span class="annot"><span class="annottext">extend :: forall a b. (IdentityT w a -&gt; b) -&gt; IdentityT w a -&gt; IdentityT w b
+</span><a href="Control.Comonad.html#extend"><span class="hs-identifier hs-var hs-var hs-var">extend</span></a></span></span><span> </span><span id="local-6989586621679068880"><span class="annot"><span class="annottext">IdentityT w a -&gt; b
+</span><a href="#local-6989586621679068880"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">IdentityT</span></span><span> </span><span id="local-6989586621679068882"><span class="annot"><span class="annottext">w a
+</span><a href="#local-6989586621679068882"><span class="hs-identifier hs-var">m</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">w b -&gt; IdentityT w b
+forall {k} (f :: k -&gt; *) (a :: k). f a -&gt; IdentityT f a
+</span><span class="hs-identifier hs-var">IdentityT</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(w a -&gt; b) -&gt; w a -&gt; w b
+forall a b. (w a -&gt; b) -&gt; w a -&gt; w b
+forall (w :: * -&gt; *) a b. Comonad w =&gt; (w a -&gt; b) -&gt; w a -&gt; w b
+</span><a href="Control.Comonad.html#extend"><span class="hs-identifier hs-var">extend</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">IdentityT w a -&gt; b
+</span><a href="#local-6989586621679068880"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">(IdentityT w a -&gt; b) -&gt; (w a -&gt; IdentityT w a) -&gt; w a -&gt; b
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+forall {k} (cat :: k -&gt; k -&gt; *) (b :: k) (c :: k) (a :: k).
+Category cat =&gt;
+cat b c -&gt; cat a b -&gt; cat a c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">w a -&gt; IdentityT w a
+forall {k} (f :: k -&gt; *) (a :: k). f a -&gt; IdentityT f a
+</span><span class="hs-identifier hs-var">IdentityT</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">w a
+</span><a href="#local-6989586621679068882"><span class="hs-identifier hs-var">m</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-183"></span><span>  </span><span id="local-6989586621679068885"><span class="annot"><span class="annottext">extract :: forall a. IdentityT w a -&gt; a
+</span><a href="Control.Comonad.html#extract"><span class="hs-identifier hs-var hs-var hs-var">extract</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">w a -&gt; a
+forall a. w a -&gt; a
+forall (w :: * -&gt; *) a. Comonad w =&gt; w a -&gt; a
+</span><a href="Control.Comonad.html#extract"><span class="hs-identifier hs-var">extract</span></a></span><span> </span><span class="annot"><span class="annottext">(w a -&gt; a) -&gt; (IdentityT w a -&gt; w a) -&gt; IdentityT w a -&gt; a
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+forall {k} (cat :: k -&gt; k -&gt; *) (b :: k) (c :: k) (a :: k).
+Category cat =&gt;
+cat b c -&gt; cat a b -&gt; cat a c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">IdentityT w a -&gt; w a
+forall {k} (f :: k -&gt; *) (a :: k). IdentityT f a -&gt; f a
+</span><span class="hs-identifier hs-var">runIdentityT</span></span><span>
+</span><span id="line-184"></span><span>  </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Control.Comonad.html#extract"><span class="hs-pragma hs-type">extract</span></a></span><span> </span><span class="hs-pragma">#-}</span><span class="hs-cpp">
+
+#ifdef MIN_VERSION_containers
+</span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679068893"><span class="annot"><a href="Control.Comonad.html#Comonad"><span class="hs-identifier hs-type">Comonad</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tree</span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-188"></span><span>  </span><span id="local-6989586621679068897"><span class="annot"><span class="annottext">duplicate :: forall a. Tree a -&gt; Tree (Tree a)
+</span><a href="Control.Comonad.html#duplicate"><span class="hs-identifier hs-var hs-var hs-var">duplicate</span></a></span></span><span> </span><span id="local-6989586621679068898"><span class="annot"><span class="annottext">w :: Tree a
+</span><a href="#local-6989586621679068898"><span class="hs-identifier hs-var">w</span></a></span></span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Node</span></span><span> </span><span class="annot"><span class="annottext">a
+</span><span class="hs-identifier">_</span></span><span> </span><span id="local-6989586621679068900"><span class="annot"><span class="annottext">[Tree a]
+</span><a href="#local-6989586621679068900"><span class="hs-keyword hs-var">as</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Tree a -&gt; [Tree (Tree a)] -&gt; Tree (Tree a)
+forall a. a -&gt; [Tree a] -&gt; Tree a
+</span><span class="hs-identifier hs-var">Node</span></span><span> </span><span class="annot"><span class="annottext">Tree a
+</span><a href="#local-6989586621679068898"><span class="hs-identifier hs-var">w</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(Tree a -&gt; Tree (Tree a)) -&gt; [Tree a] -&gt; [Tree (Tree a)]
+forall a b. (a -&gt; b) -&gt; [a] -&gt; [b]
+</span><span class="hs-identifier hs-var">map</span></span><span> </span><span class="annot"><span class="annottext">Tree a -&gt; Tree (Tree a)
+forall a. Tree a -&gt; Tree (Tree a)
+forall (w :: * -&gt; *) a. Comonad w =&gt; w a -&gt; w (w a)
+</span><a href="Control.Comonad.html#duplicate"><span class="hs-identifier hs-var">duplicate</span></a></span><span> </span><span class="annot"><span class="annottext">[Tree a]
+</span><a href="#local-6989586621679068900"><span class="hs-keyword hs-var">as</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-189"></span><span>  </span><span id="local-6989586621679068901"><span class="annot"><span class="annottext">extract :: forall a. Tree a -&gt; a
+</span><a href="Control.Comonad.html#extract"><span class="hs-identifier hs-var hs-var hs-var">extract</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Node</span></span><span> </span><span id="local-6989586621679068902"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679068902"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span class="annot"><span class="annottext">[Tree a]
+</span><span class="hs-identifier">_</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679068902"><span class="hs-identifier hs-var">a</span></a></span><span>
+</span><span id="line-190"></span><span>  </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Control.Comonad.html#extract"><span class="hs-pragma hs-type">extract</span></a></span><span> </span><span class="hs-pragma">#-}</span><span class="hs-cpp">
+#endif
+</span><span>
+</span><span id="line-193"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679068908"><span class="annot"><a href="Control.Comonad.html#Comonad"><span class="hs-identifier hs-type">Comonad</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">NonEmpty</span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-194"></span><span>  </span><span id="local-6989586621679068913"><span class="annot"><span class="annottext">extend :: forall a b. (NonEmpty a -&gt; b) -&gt; NonEmpty a -&gt; NonEmpty b
+</span><a href="Control.Comonad.html#extend"><span class="hs-identifier hs-var hs-var hs-var">extend</span></a></span></span><span> </span><span id="local-6989586621679068914"><span class="annot"><span class="annottext">NonEmpty a -&gt; b
+</span><a href="#local-6989586621679068914"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span id="local-6989586621679068915"><span class="annot"><span class="annottext">w :: NonEmpty a
+</span><a href="#local-6989586621679068915"><span class="hs-identifier hs-var">w</span></a></span></span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="hs-glyph">~</span><span class="hs-special">(</span><span class="annot"><span class="annottext">a
+</span><span class="hs-identifier">_</span></span><span> </span><span class="annot"><span class="hs-operator hs-type">:|</span></span><span> </span><span id="local-6989586621679068917"><span class="annot"><span class="annottext">[a]
+</span><a href="#local-6989586621679068917"><span class="hs-identifier hs-var">aas</span></a></span></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-195"></span><span>    </span><span class="annot"><span class="annottext">NonEmpty a -&gt; b
+</span><a href="#local-6989586621679068914"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">NonEmpty a
+</span><a href="#local-6989586621679068915"><span class="hs-identifier hs-var">w</span></a></span><span> </span><span class="annot"><span class="annottext">b -&gt; [b] -&gt; NonEmpty b
+forall a. a -&gt; [a] -&gt; NonEmpty a
+</span><span class="hs-operator hs-var">:|</span></span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">[a]
+</span><a href="#local-6989586621679068917"><span class="hs-identifier hs-var">aas</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-196"></span><span>      </span><span class="hs-special">[</span><span class="hs-special">]</span><span>     </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-197"></span><span>      </span><span class="hs-special">(</span><span id="local-6989586621679068918"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679068918"><span class="hs-identifier hs-var">a</span></a></span></span><span class="annot"><span class="hs-glyph hs-type">:</span></span><span id="local-6989586621679068919"><span class="annot"><span class="annottext">[a]
+</span><a href="#local-6989586621679068919"><span class="hs-keyword hs-var">as</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">NonEmpty b -&gt; [b]
+forall a. NonEmpty a -&gt; [a]
+</span><span class="hs-identifier hs-var">toList</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(NonEmpty a -&gt; b) -&gt; NonEmpty a -&gt; NonEmpty b
+forall a b. (NonEmpty a -&gt; b) -&gt; NonEmpty a -&gt; NonEmpty b
+forall (w :: * -&gt; *) a b. Comonad w =&gt; (w a -&gt; b) -&gt; w a -&gt; w b
+</span><a href="Control.Comonad.html#extend"><span class="hs-identifier hs-var">extend</span></a></span><span> </span><span class="annot"><span class="annottext">NonEmpty a -&gt; b
+</span><a href="#local-6989586621679068914"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679068918"><span class="hs-identifier hs-var">a</span></a></span><span> </span><span class="annot"><span class="annottext">a -&gt; [a] -&gt; NonEmpty a
+forall a. a -&gt; [a] -&gt; NonEmpty a
+</span><span class="hs-operator hs-var">:|</span></span><span> </span><span class="annot"><span class="annottext">[a]
+</span><a href="#local-6989586621679068919"><span class="hs-keyword hs-var">as</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-198"></span><span>  </span><span id="local-6989586621679068921"><span class="annot"><span class="annottext">extract :: forall a. NonEmpty a -&gt; a
+</span><a href="Control.Comonad.html#extract"><span class="hs-identifier hs-var hs-var hs-var">extract</span></a></span></span><span> </span><span class="hs-glyph">~</span><span class="hs-special">(</span><span id="local-6989586621679068922"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679068922"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span class="annot"><span class="hs-operator hs-type">:|</span></span><span> </span><span class="annot"><span class="annottext">[a]
+</span><span class="hs-identifier">_</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679068922"><span class="hs-identifier hs-var">a</span></a></span><span>
+</span><span id="line-199"></span><span>  </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Control.Comonad.html#extract"><span class="hs-pragma hs-type">extract</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-200"></span><span>
+</span><span id="line-201"></span><span id="local-6989586621679068451"><span id="local-6989586621679068452"><span id="local-6989586621679068453"><span id="local-6989586621679068454"><span class="annot"><a href="Control.Comonad.html#coproduct"><span class="hs-identifier hs-type">coproduct</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679068451"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679068452"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679068453"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679068454"><span class="hs-identifier hs-type">g</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679068452"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679068453"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">FSum.Sum</span></span><span> </span><span class="annot"><a href="#local-6989586621679068451"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679068454"><span class="hs-identifier hs-type">g</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679068452"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679068453"><span class="hs-identifier hs-type">b</span></a></span></span></span></span></span><span>
+</span><span id="line-202"></span><span id="coproduct"><span class="annot"><span class="annottext">coproduct :: forall {k} (f :: k -&gt; *) (a :: k) b (g :: k -&gt; *).
+(f a -&gt; b) -&gt; (g a -&gt; b) -&gt; Sum f g a -&gt; b
+</span><a href="Control.Comonad.html#coproduct"><span class="hs-identifier hs-var hs-var">coproduct</span></a></span></span><span> </span><span id="local-6989586621679068924"><span class="annot"><span class="annottext">f a -&gt; b
+</span><a href="#local-6989586621679068924"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="annot"><span class="annottext">g a -&gt; b
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">FSum.InL</span></span><span> </span><span id="local-6989586621679068926"><span class="annot"><span class="annottext">f a
+</span><a href="#local-6989586621679068926"><span class="hs-identifier hs-var">x</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">f a -&gt; b
+</span><a href="#local-6989586621679068924"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">f a
+</span><a href="#local-6989586621679068926"><span class="hs-identifier hs-var">x</span></a></span><span>
+</span><span id="line-203"></span><span class="annot"><a href="Control.Comonad.html#coproduct"><span class="hs-identifier hs-var">coproduct</span></a></span><span> </span><span class="annot"><span class="annottext">f a -&gt; b
+</span><span class="hs-identifier">_</span></span><span> </span><span id="local-6989586621679068927"><span class="annot"><span class="annottext">g a -&gt; b
+</span><a href="#local-6989586621679068927"><span class="hs-identifier hs-var">g</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">FSum.InR</span></span><span> </span><span id="local-6989586621679068929"><span class="annot"><span class="annottext">g a
+</span><a href="#local-6989586621679068929"><span class="hs-identifier hs-var">y</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">g a -&gt; b
+</span><a href="#local-6989586621679068927"><span class="hs-identifier hs-var">g</span></a></span><span> </span><span class="annot"><span class="annottext">g a
+</span><a href="#local-6989586621679068929"><span class="hs-identifier hs-var">y</span></a></span><span>
+</span><span id="line-204"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Control.Comonad.html#coproduct"><span class="hs-pragma hs-type">coproduct</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-205"></span><span>
+</span><span id="line-206"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679068465"><span id="local-6989586621679068466"><span id="local-6989586621679068939"><span class="hs-special">(</span><span class="annot"><a href="Control.Comonad.html#Comonad"><span class="hs-identifier hs-type">Comonad</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679068465"><span class="hs-identifier hs-type">f</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Comonad.html#Comonad"><span class="hs-identifier hs-type">Comonad</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679068466"><span class="hs-identifier hs-type">g</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Control.Comonad.html#Comonad"><span class="hs-identifier hs-type">Comonad</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">FSum.Sum</span></span><span> </span><span class="annot"><a href="#local-6989586621679068465"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679068466"><span class="hs-identifier hs-type">g</span></a></span><span class="hs-special">)</span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-207"></span><span>  </span><span id="local-6989586621679068949"><span class="annot"><span class="annottext">extend :: forall a b. (Sum f g a -&gt; b) -&gt; Sum f g a -&gt; Sum f g b
+</span><a href="Control.Comonad.html#extend"><span class="hs-identifier hs-var hs-var hs-var">extend</span></a></span></span><span> </span><span id="local-6989586621679068950"><span class="annot"><span class="annottext">Sum f g a -&gt; b
+</span><a href="#local-6989586621679068950"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(f a -&gt; Sum f g b) -&gt; (g a -&gt; Sum f g b) -&gt; Sum f g a -&gt; Sum f g b
+forall {k} (f :: k -&gt; *) (a :: k) b (g :: k -&gt; *).
+(f a -&gt; b) -&gt; (g a -&gt; b) -&gt; Sum f g a -&gt; b
+</span><a href="Control.Comonad.html#coproduct"><span class="hs-identifier hs-var">coproduct</span></a></span><span>
+</span><span id="line-208"></span><span>               </span><span class="hs-special">(</span><span class="annot"><span class="annottext">f b -&gt; Sum f g b
+forall {k} (f :: k -&gt; *) (g :: k -&gt; *) (a :: k). f a -&gt; Sum f g a
+</span><span class="hs-identifier hs-var">FSum.InL</span></span><span> </span><span class="annot"><span class="annottext">(f b -&gt; Sum f g b) -&gt; (f a -&gt; f b) -&gt; f a -&gt; Sum f g b
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+forall {k} (cat :: k -&gt; k -&gt; *) (b :: k) (c :: k) (a :: k).
+Category cat =&gt;
+cat b c -&gt; cat a b -&gt; cat a c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">(f a -&gt; b) -&gt; f a -&gt; f b
+forall a b. (f a -&gt; b) -&gt; f a -&gt; f b
+forall (w :: * -&gt; *) a b. Comonad w =&gt; (w a -&gt; b) -&gt; w a -&gt; w b
+</span><a href="Control.Comonad.html#extend"><span class="hs-identifier hs-var">extend</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Sum f g a -&gt; b
+</span><a href="#local-6989586621679068950"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">(Sum f g a -&gt; b) -&gt; (f a -&gt; Sum f g a) -&gt; f a -&gt; b
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+forall {k} (cat :: k -&gt; k -&gt; *) (b :: k) (c :: k) (a :: k).
+Category cat =&gt;
+cat b c -&gt; cat a b -&gt; cat a c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">f a -&gt; Sum f g a
+forall {k} (f :: k -&gt; *) (g :: k -&gt; *) (a :: k). f a -&gt; Sum f g a
+</span><span class="hs-identifier hs-var">FSum.InL</span></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-209"></span><span>               </span><span class="hs-special">(</span><span class="annot"><span class="annottext">g b -&gt; Sum f g b
+forall {k} (f :: k -&gt; *) (g :: k -&gt; *) (a :: k). g a -&gt; Sum f g a
+</span><span class="hs-identifier hs-var">FSum.InR</span></span><span> </span><span class="annot"><span class="annottext">(g b -&gt; Sum f g b) -&gt; (g a -&gt; g b) -&gt; g a -&gt; Sum f g b
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+forall {k} (cat :: k -&gt; k -&gt; *) (b :: k) (c :: k) (a :: k).
+Category cat =&gt;
+cat b c -&gt; cat a b -&gt; cat a c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">(g a -&gt; b) -&gt; g a -&gt; g b
+forall a b. (g a -&gt; b) -&gt; g a -&gt; g b
+forall (w :: * -&gt; *) a b. Comonad w =&gt; (w a -&gt; b) -&gt; w a -&gt; w b
+</span><a href="Control.Comonad.html#extend"><span class="hs-identifier hs-var">extend</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Sum f g a -&gt; b
+</span><a href="#local-6989586621679068950"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">(Sum f g a -&gt; b) -&gt; (g a -&gt; Sum f g a) -&gt; g a -&gt; b
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+forall {k} (cat :: k -&gt; k -&gt; *) (b :: k) (c :: k) (a :: k).
+Category cat =&gt;
+cat b c -&gt; cat a b -&gt; cat a c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">g a -&gt; Sum f g a
+forall {k} (f :: k -&gt; *) (g :: k -&gt; *) (a :: k). g a -&gt; Sum f g a
+</span><span class="hs-identifier hs-var">FSum.InR</span></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-210"></span><span>  </span><span id="local-6989586621679068953"><span class="annot"><span class="annottext">extract :: forall a. Sum f g a -&gt; a
+</span><a href="Control.Comonad.html#extract"><span class="hs-identifier hs-var hs-var hs-var">extract</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(f a -&gt; a) -&gt; (g a -&gt; a) -&gt; Sum f g a -&gt; a
+forall {k} (f :: k -&gt; *) (a :: k) b (g :: k -&gt; *).
+(f a -&gt; b) -&gt; (g a -&gt; b) -&gt; Sum f g a -&gt; b
+</span><a href="Control.Comonad.html#coproduct"><span class="hs-identifier hs-var">coproduct</span></a></span><span> </span><span class="annot"><span class="annottext">f a -&gt; a
+forall a. f a -&gt; a
+forall (w :: * -&gt; *) a. Comonad w =&gt; w a -&gt; a
+</span><a href="Control.Comonad.html#extract"><span class="hs-identifier hs-var">extract</span></a></span><span> </span><span class="annot"><span class="annottext">g a -&gt; a
+forall a. g a -&gt; a
+forall (w :: * -&gt; *) a. Comonad w =&gt; w a -&gt; a
+</span><a href="Control.Comonad.html#extract"><span class="hs-identifier hs-var">extract</span></a></span><span>
+</span><span id="line-211"></span><span>  </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Control.Comonad.html#extract"><span class="hs-pragma hs-type">extract</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-212"></span><span>
+</span><span id="line-213"></span><span>
+</span><span id="line-214"></span><span class="hs-comment">-- | @ComonadApply@ is to @Comonad@ like @Applicative@ is to @Monad@.</span><span>
+</span><span id="line-215"></span><span class="hs-comment">--</span><span>
+</span><span id="line-216"></span><span class="hs-comment">-- Mathematically, it is a strong lax symmetric semi-monoidal comonad on the</span><span>
+</span><span id="line-217"></span><span class="hs-comment">-- category @Hask@ of Haskell types. That it to say that @w@ is a strong lax</span><span>
+</span><span id="line-218"></span><span class="hs-comment">-- symmetric semi-monoidal functor on Hask, where both 'extract' and 'duplicate' are</span><span>
+</span><span id="line-219"></span><span class="hs-comment">-- symmetric monoidal natural transformations.</span><span>
+</span><span id="line-220"></span><span class="hs-comment">--</span><span>
+</span><span id="line-221"></span><span class="hs-comment">-- Laws:</span><span>
+</span><span id="line-222"></span><span class="hs-comment">--</span><span>
+</span><span id="line-223"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-224"></span><span class="hs-comment">-- ('.') '&lt;$&gt;' u '&lt;@&gt;' v '&lt;@&gt;' w = u '&lt;@&gt;' (v '&lt;@&gt;' w)</span><span>
+</span><span id="line-225"></span><span class="hs-comment">-- 'extract' (p '&lt;@&gt;' q) = 'extract' p ('extract' q)</span><span>
+</span><span id="line-226"></span><span class="hs-comment">-- 'duplicate' (p '&lt;@&gt;' q) = ('&lt;@&gt;') '&lt;$&gt;' 'duplicate' p '&lt;@&gt;' 'duplicate' q</span><span>
+</span><span id="line-227"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-228"></span><span class="hs-comment">--</span><span>
+</span><span id="line-229"></span><span class="hs-comment">-- If our type is both a 'ComonadApply' and 'Applicative' we further require</span><span>
+</span><span id="line-230"></span><span class="hs-comment">--</span><span>
+</span><span id="line-231"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-232"></span><span class="hs-comment">-- ('&lt;*&gt;') = ('&lt;@&gt;')</span><span>
+</span><span id="line-233"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-234"></span><span class="hs-comment">--</span><span>
+</span><span id="line-235"></span><span class="hs-comment">-- Finally, if you choose to define ('&lt;@') and ('@&gt;'), the results of your</span><span>
+</span><span id="line-236"></span><span class="hs-comment">-- definitions should match the following laws:</span><span>
+</span><span id="line-237"></span><span class="hs-comment">--</span><span>
+</span><span id="line-238"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-239"></span><span class="hs-comment">-- a '@&gt;' b = 'const' 'id' '&lt;$&gt;' a '&lt;@&gt;' b</span><span>
+</span><span id="line-240"></span><span class="hs-comment">-- a '&lt;@' b = 'const' '&lt;$&gt;' a '&lt;@&gt;' b</span><span>
+</span><span id="line-241"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-242"></span><span>
+</span><span id="line-243"></span><span class="hs-keyword">class</span><span> </span><span class="annot"><a href="Control.Comonad.html#Comonad"><span class="hs-identifier hs-type">Comonad</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679068474"><span class="hs-identifier hs-type">w</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span id="ComonadApply"><span class="annot"><a href="Control.Comonad.html#ComonadApply"><span class="hs-identifier hs-var">ComonadApply</span></a></span></span><span> </span><span id="local-6989586621679068474"><span class="annot"><a href="#local-6989586621679068474"><span class="hs-identifier hs-type">w</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-244"></span><span>  </span><span id="%3C%40%3E"><span class="annot"><a href="Control.Comonad.html#%3C%40%3E"><span class="hs-operator hs-type">(&lt;@&gt;)</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span id="local-6989586621679068497"><span id="local-6989586621679068498"><span class="annot"><a href="#local-6989586621679068474"><span class="hs-identifier hs-type">w</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679068497"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679068498"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679068474"><span class="hs-identifier hs-type">w</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679068497"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679068474"><span class="hs-identifier hs-type">w</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679068498"><span class="hs-identifier hs-type">b</span></a></span></span></span><span>
+</span><span id="line-245"></span><span>  </span><span class="hs-keyword">default</span><span> </span><span id="%3C%40%3E"><span class="annot"><a href="Control.Comonad.html#%3C%40%3E"><span class="hs-operator hs-type">(&lt;@&gt;)</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span id="local-6989586621679068476"><span id="local-6989586621679068477"><span class="annot"><span class="hs-identifier hs-type">Applicative</span></span><span> </span><span class="annot"><a href="#local-6989586621679068474"><span class="hs-identifier hs-type">w</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679068474"><span class="hs-identifier hs-type">w</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679068476"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679068477"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679068474"><span class="hs-identifier hs-type">w</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679068476"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679068474"><span class="hs-identifier hs-type">w</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679068477"><span class="hs-identifier hs-type">b</span></a></span></span></span><span>
+</span><span id="line-246"></span><span>  </span><span id="local-6989586621679068957"><span class="annot"><a href="Control.Comonad.html#%3C%40%3E"><span class="hs-operator hs-var hs-var">(&lt;@&gt;)</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">w (a -&gt; b) -&gt; w a -&gt; w b
+forall a b. w (a -&gt; b) -&gt; w a -&gt; w b
+forall (f :: * -&gt; *) a b. Applicative f =&gt; f (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">(&lt;*&gt;)</span></span></span><span>
+</span><span id="line-247"></span><span>
+</span><span id="line-248"></span><span>  </span><span id="%40%3E"><span class="annot"><a href="Control.Comonad.html#%40%3E"><span class="hs-operator hs-type">(@&gt;)</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span id="local-6989586621679068483"><span id="local-6989586621679068484"><span class="annot"><a href="#local-6989586621679068474"><span class="hs-identifier hs-type">w</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679068483"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679068474"><span class="hs-identifier hs-type">w</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679068484"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679068474"><span class="hs-identifier hs-type">w</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679068484"><span class="hs-identifier hs-type">b</span></a></span></span></span><span>
+</span><span id="line-249"></span><span>  </span><span id="local-6989586621679068960"><span id="local-6989586621679068966"><span class="annot"><span class="annottext">w a
+</span><a href="#local-6989586621679068966"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span class="annot"><a href="Control.Comonad.html#%40%3E"><span class="hs-operator hs-var hs-var">@&gt;</span></a></span><span> </span><span id="local-6989586621679068967"><span class="annot"><span class="annottext">w b
+</span><a href="#local-6989586621679068967"><span class="hs-identifier hs-var">b</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(b -&gt; b) -&gt; a -&gt; b -&gt; b
+forall a b. a -&gt; b -&gt; a
+</span><span class="hs-identifier hs-var">const</span></span><span> </span><span class="annot"><span class="annottext">b -&gt; b
+forall a. a -&gt; a
+forall {k} (cat :: k -&gt; k -&gt; *) (a :: k). Category cat =&gt; cat a a
+</span><span class="hs-identifier hs-var">id</span></span><span> </span><span class="annot"><span class="annottext">(a -&gt; b -&gt; b) -&gt; w a -&gt; w (b -&gt; b)
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">w a
+</span><a href="#local-6989586621679068966"><span class="hs-identifier hs-var">a</span></a></span><span> </span><span class="annot"><span class="annottext">w (b -&gt; b) -&gt; w b -&gt; w b
+forall a b. w (a -&gt; b) -&gt; w a -&gt; w b
+forall (w :: * -&gt; *) a b.
+ComonadApply w =&gt;
+w (a -&gt; b) -&gt; w a -&gt; w b
+</span><a href="Control.Comonad.html#%3C%40%3E"><span class="hs-operator hs-var">&lt;@&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">w b
+</span><a href="#local-6989586621679068967"><span class="hs-identifier hs-var">b</span></a></span></span><span>
+</span><span id="line-250"></span><span>
+</span><span id="line-251"></span><span>  </span><span id="%3C%40"><span class="annot"><a href="Control.Comonad.html#%3C%40"><span class="hs-operator hs-type">(&lt;@)</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span id="local-6989586621679068492"><span id="local-6989586621679068493"><span class="annot"><a href="#local-6989586621679068474"><span class="hs-identifier hs-type">w</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679068492"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679068474"><span class="hs-identifier hs-type">w</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679068493"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679068474"><span class="hs-identifier hs-type">w</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679068492"><span class="hs-identifier hs-type">a</span></a></span></span></span><span>
+</span><span id="line-252"></span><span>  </span><span id="local-6989586621679068968"><span id="local-6989586621679068973"><span class="annot"><span class="annottext">w a
+</span><a href="#local-6989586621679068973"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span class="annot"><a href="Control.Comonad.html#%3C%40"><span class="hs-operator hs-var hs-var">&lt;@</span></a></span><span> </span><span id="local-6989586621679068974"><span class="annot"><span class="annottext">w b
+</span><a href="#local-6989586621679068974"><span class="hs-identifier hs-var">b</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">a -&gt; b -&gt; a
+forall a b. a -&gt; b -&gt; a
+</span><span class="hs-identifier hs-var">const</span></span><span> </span><span class="annot"><span class="annottext">(a -&gt; b -&gt; a) -&gt; w a -&gt; w (b -&gt; a)
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">w a
+</span><a href="#local-6989586621679068973"><span class="hs-identifier hs-var">a</span></a></span><span> </span><span class="annot"><span class="annottext">w (b -&gt; a) -&gt; w b -&gt; w a
+forall a b. w (a -&gt; b) -&gt; w a -&gt; w b
+forall (w :: * -&gt; *) a b.
+ComonadApply w =&gt;
+w (a -&gt; b) -&gt; w a -&gt; w b
+</span><a href="Control.Comonad.html#%3C%40%3E"><span class="hs-operator hs-var">&lt;@&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">w b
+</span><a href="#local-6989586621679068974"><span class="hs-identifier hs-var">b</span></a></span></span><span>
+</span><span id="line-253"></span><span>
+</span><span id="line-254"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679068499"><span class="annot"><span class="hs-identifier hs-type">Semigroup</span></span><span> </span><span class="annot"><a href="#local-6989586621679068499"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Control.Comonad.html#ComonadApply"><span class="hs-identifier hs-type">ComonadApply</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">(</span><span class="hs-special">,</span><span class="hs-special">)</span><span class="annot"><a href="#local-6989586621679068499"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-255"></span><span>  </span><span class="hs-special">(</span><span id="local-6989586621679068984"><span class="annot"><span class="annottext">m
+</span><a href="#local-6989586621679068984"><span class="hs-identifier hs-var">m</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679068985"><span class="annot"><span class="annottext">a -&gt; b
+</span><a href="#local-6989586621679068985"><span class="hs-identifier hs-var">f</span></a></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621679068986"><span class="annot"><span class="annottext">&lt;@&gt; :: forall a b. (m, a -&gt; b) -&gt; (m, a) -&gt; (m, b)
+</span><a href="Control.Comonad.html#%3C%40%3E"><span class="hs-operator hs-var hs-var hs-var">&lt;@&gt;</span></a></span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679068987"><span class="annot"><span class="annottext">m
+</span><a href="#local-6989586621679068987"><span class="hs-identifier hs-var">n</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679068988"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679068988"><span class="hs-identifier hs-var">a</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">m
+</span><a href="#local-6989586621679068984"><span class="hs-identifier hs-var">m</span></a></span><span> </span><span class="annot"><span class="annottext">m -&gt; m -&gt; m
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">m
+</span><a href="#local-6989586621679068987"><span class="hs-identifier hs-var">n</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">a -&gt; b
+</span><a href="#local-6989586621679068985"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679068988"><span class="hs-identifier hs-var">a</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-256"></span><span>  </span><span class="hs-special">(</span><span id="local-6989586621679068990"><span class="annot"><span class="annottext">m
+</span><a href="#local-6989586621679068990"><span class="hs-identifier hs-var">m</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679068991"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679068991"><span class="hs-identifier hs-var">a</span></a></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621679068992"><span class="annot"><span class="annottext">&lt;@ :: forall a b. (m, a) -&gt; (m, b) -&gt; (m, a)
+</span><a href="Control.Comonad.html#%3C%40"><span class="hs-operator hs-var hs-var hs-var">&lt;@</span></a></span></span><span>  </span><span class="hs-special">(</span><span id="local-6989586621679068993"><span class="annot"><span class="annottext">m
+</span><a href="#local-6989586621679068993"><span class="hs-identifier hs-var">n</span></a></span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">b
+</span><span class="hs-identifier">_</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">m
+</span><a href="#local-6989586621679068990"><span class="hs-identifier hs-var">m</span></a></span><span> </span><span class="annot"><span class="annottext">m -&gt; m -&gt; m
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">m
+</span><a href="#local-6989586621679068993"><span class="hs-identifier hs-var">n</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679068991"><span class="hs-identifier hs-var">a</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-257"></span><span>  </span><span class="hs-special">(</span><span id="local-6989586621679068995"><span class="annot"><span class="annottext">m
+</span><a href="#local-6989586621679068995"><span class="hs-identifier hs-var">m</span></a></span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">a
+</span><span class="hs-identifier">_</span></span><span class="hs-special">)</span><span>  </span><span id="local-6989586621679068996"><span class="annot"><span class="annottext">@&gt; :: forall a b. (m, a) -&gt; (m, b) -&gt; (m, b)
+</span><a href="Control.Comonad.html#%40%3E"><span class="hs-operator hs-var hs-var hs-var">@&gt;</span></a></span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679068997"><span class="annot"><span class="annottext">m
+</span><a href="#local-6989586621679068997"><span class="hs-identifier hs-var">n</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679068998"><span class="annot"><span class="annottext">b
+</span><a href="#local-6989586621679068998"><span class="hs-identifier hs-var">b</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">m
+</span><a href="#local-6989586621679068995"><span class="hs-identifier hs-var">m</span></a></span><span> </span><span class="annot"><span class="annottext">m -&gt; m -&gt; m
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">m
+</span><a href="#local-6989586621679068997"><span class="hs-identifier hs-var">n</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">b
+</span><a href="#local-6989586621679068998"><span class="hs-identifier hs-var">b</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-258"></span><span>
+</span><span id="line-259"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679069003"><span id="local-6989586621679069007"><span class="annot"><a href="Control.Comonad.html#ComonadApply"><span class="hs-identifier hs-type">ComonadApply</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">NonEmpty</span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-260"></span><span>  </span><span id="local-6989586621679069011"><span class="annot"><span class="annottext">&lt;@&gt; :: forall a b. NonEmpty (a -&gt; b) -&gt; NonEmpty a -&gt; NonEmpty b
+</span><a href="Control.Comonad.html#%3C%40%3E"><span class="hs-operator hs-var hs-var hs-var">(&lt;@&gt;)</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">NonEmpty (a -&gt; b) -&gt; NonEmpty a -&gt; NonEmpty b
+forall (m :: * -&gt; *) a b. Monad m =&gt; m (a -&gt; b) -&gt; m a -&gt; m b
+</span><span class="hs-identifier hs-var">ap</span></span><span>
+</span><span id="line-261"></span><span>
+</span><span id="line-262"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679068513"><span class="annot"><span class="hs-identifier hs-type">Monoid</span></span><span> </span><span class="annot"><a href="#local-6989586621679068513"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Control.Comonad.html#ComonadApply"><span class="hs-identifier hs-type">ComonadApply</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">(</span><span class="hs-glyph">-&gt;</span><span class="hs-special">)</span><span class="annot"><a href="#local-6989586621679068513"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-263"></span><span>  </span><span id="local-6989586621679069021"><span class="annot"><span class="annottext">&lt;@&gt; :: forall a b. (m -&gt; (a -&gt; b)) -&gt; (m -&gt; a) -&gt; m -&gt; b
+</span><a href="Control.Comonad.html#%3C%40%3E"><span class="hs-operator hs-var hs-var hs-var">(&lt;@&gt;)</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(m -&gt; a -&gt; b) -&gt; (m -&gt; a) -&gt; m -&gt; b
+forall a b. (m -&gt; (a -&gt; b)) -&gt; (m -&gt; a) -&gt; m -&gt; b
+forall (f :: * -&gt; *) a b. Applicative f =&gt; f (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">(&lt;*&gt;)</span></span><span>
+</span><span id="line-264"></span><span>  </span><span id="local-6989586621679069023"><span class="hs-special">(</span><span class="hs-operator">&lt;@</span><span> </span><span class="hs-special">)</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="hs-operator">&lt;*</span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-265"></span><span>  </span><span id="local-6989586621679069026"><span class="hs-special">(</span><span> </span><span class="hs-operator">@&gt;</span><span class="hs-special">)</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span> </span><span class="hs-operator">*&gt;</span><span class="hs-special">)</span><span>
+</span><span id="line-266"></span><span>
+</span><span id="line-267"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><a href="Control.Comonad.html#ComonadApply"><span class="hs-identifier hs-type">ComonadApply</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Identity</span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-268"></span><span>  </span><span id="local-6989586621679069035"><span class="annot"><span class="annottext">&lt;@&gt; :: forall a b. Identity (a -&gt; b) -&gt; Identity a -&gt; Identity b
+</span><a href="Control.Comonad.html#%3C%40%3E"><span class="hs-operator hs-var hs-var hs-var">(&lt;@&gt;)</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Identity (a -&gt; b) -&gt; Identity a -&gt; Identity b
+forall a b. Identity (a -&gt; b) -&gt; Identity a -&gt; Identity b
+forall (f :: * -&gt; *) a b. Applicative f =&gt; f (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">(&lt;*&gt;)</span></span><span>
+</span><span id="line-269"></span><span>  </span><span id="local-6989586621679069037"><span class="hs-special">(</span><span class="hs-operator">&lt;@</span><span> </span><span class="hs-special">)</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="hs-operator">&lt;*</span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-270"></span><span>  </span><span id="local-6989586621679069039"><span class="hs-special">(</span><span> </span><span class="hs-operator">@&gt;</span><span class="hs-special">)</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span> </span><span class="hs-operator">*&gt;</span><span class="hs-special">)</span><span>
+</span><span id="line-271"></span><span>
+</span><span id="line-272"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679068532"><span id="local-6989586621679069046"><span id="local-6989586621679069050"><span class="annot"><a href="Control.Comonad.html#ComonadApply"><span class="hs-identifier hs-type">ComonadApply</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679068532"><span class="hs-identifier hs-type">w</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Control.Comonad.html#ComonadApply"><span class="hs-identifier hs-type">ComonadApply</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">IdentityT</span></span><span> </span><span class="annot"><a href="#local-6989586621679068532"><span class="hs-identifier hs-type">w</span></a></span><span class="hs-special">)</span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-273"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">IdentityT</span></span><span> </span><span id="local-6989586621679069053"><span class="annot"><span class="annottext">w (a -&gt; b)
+</span><a href="#local-6989586621679069053"><span class="hs-identifier hs-var">wa</span></a></span></span><span> </span><span id="local-6989586621679069054"><span class="annot"><span class="annottext">&lt;@&gt; :: forall a b. IdentityT w (a -&gt; b) -&gt; IdentityT w a -&gt; IdentityT w b
+</span><a href="Control.Comonad.html#%3C%40%3E"><span class="hs-operator hs-var hs-var hs-var">&lt;@&gt;</span></a></span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">IdentityT</span></span><span> </span><span id="local-6989586621679069055"><span class="annot"><span class="annottext">w a
+</span><a href="#local-6989586621679069055"><span class="hs-identifier hs-var">wb</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">w b -&gt; IdentityT w b
+forall {k} (f :: k -&gt; *) (a :: k). f a -&gt; IdentityT f a
+</span><span class="hs-identifier hs-var">IdentityT</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">w (a -&gt; b)
+</span><a href="#local-6989586621679069053"><span class="hs-identifier hs-var">wa</span></a></span><span> </span><span class="annot"><span class="annottext">w (a -&gt; b) -&gt; w a -&gt; w b
+forall a b. w (a -&gt; b) -&gt; w a -&gt; w b
+forall (w :: * -&gt; *) a b.
+ComonadApply w =&gt;
+w (a -&gt; b) -&gt; w a -&gt; w b
+</span><a href="Control.Comonad.html#%3C%40%3E"><span class="hs-operator hs-var">&lt;@&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">w a
+</span><a href="#local-6989586621679069055"><span class="hs-identifier hs-var">wb</span></a></span><span class="hs-special">)</span><span class="hs-cpp">
+
+#ifdef MIN_VERSION_containers
+</span><span class="hs-keyword">instance</span><span> </span><span class="annot"><a href="Control.Comonad.html#ComonadApply"><span class="hs-identifier hs-type">ComonadApply</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tree</span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-277"></span><span>  </span><span id="local-6989586621679069064"><span class="annot"><span class="annottext">&lt;@&gt; :: forall a b. Tree (a -&gt; b) -&gt; Tree a -&gt; Tree b
+</span><a href="Control.Comonad.html#%3C%40%3E"><span class="hs-operator hs-var hs-var hs-var">(&lt;@&gt;)</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Tree (a -&gt; b) -&gt; Tree a -&gt; Tree b
+forall a b. Tree (a -&gt; b) -&gt; Tree a -&gt; Tree b
+forall (f :: * -&gt; *) a b. Applicative f =&gt; f (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">(&lt;*&gt;)</span></span><span>
+</span><span id="line-278"></span><span>  </span><span id="local-6989586621679069066"><span class="hs-special">(</span><span class="hs-operator">&lt;@</span><span> </span><span class="hs-special">)</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="hs-operator">&lt;*</span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-279"></span><span>  </span><span id="local-6989586621679069068"><span class="hs-special">(</span><span> </span><span class="hs-operator">@&gt;</span><span class="hs-special">)</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span> </span><span class="hs-operator">*&gt;</span><span class="hs-special">)</span><span class="hs-cpp">
+#endif
+</span><span>
+</span><span id="line-282"></span><span class="hs-comment">-- | A suitable default definition for 'fmap' for a 'Comonad'.</span><span>
+</span><span id="line-283"></span><span class="hs-comment">-- Promotes a function to a comonad.</span><span>
+</span><span id="line-284"></span><span class="hs-comment">--</span><span>
+</span><span id="line-285"></span><span class="hs-comment">-- You can only safely use 'liftW' to define 'fmap' if your 'Comonad'</span><span>
+</span><span id="line-286"></span><span class="hs-comment">-- defines 'extend', not just 'duplicate', since defining</span><span>
+</span><span id="line-287"></span><span class="hs-comment">-- 'extend' in terms of duplicate uses 'fmap'!</span><span>
+</span><span id="line-288"></span><span class="hs-comment">--</span><span>
+</span><span id="line-289"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-290"></span><span class="hs-comment">-- 'fmap' f = 'liftW' f = 'extend' (f . 'extract')</span><span>
+</span><span id="line-291"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-292"></span><span id="local-6989586621679068541"><span id="local-6989586621679068542"><span id="local-6989586621679068543"><span class="annot"><a href="Control.Comonad.html#liftW"><span class="hs-identifier hs-type">liftW</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Control.Comonad.html#Comonad"><span class="hs-identifier hs-type">Comonad</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679068541"><span class="hs-identifier hs-type">w</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679068542"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679068543"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679068541"><span class="hs-identifier hs-type">w</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679068542"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679068541"><span class="hs-identifier hs-type">w</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679068543"><span class="hs-identifier hs-type">b</span></a></span></span></span></span><span>
+</span><span id="line-293"></span><span id="liftW"><span class="annot"><span class="annottext">liftW :: forall (w :: * -&gt; *) a b. Comonad w =&gt; (a -&gt; b) -&gt; w a -&gt; w b
+</span><a href="Control.Comonad.html#liftW"><span class="hs-identifier hs-var hs-var">liftW</span></a></span></span><span> </span><span id="local-6989586621679069073"><span class="annot"><span class="annottext">a -&gt; b
+</span><a href="#local-6989586621679069073"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(w a -&gt; b) -&gt; w a -&gt; w b
+forall a b. (w a -&gt; b) -&gt; w a -&gt; w b
+forall (w :: * -&gt; *) a b. Comonad w =&gt; (w a -&gt; b) -&gt; w a -&gt; w b
+</span><a href="Control.Comonad.html#extend"><span class="hs-identifier hs-var">extend</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">a -&gt; b
+</span><a href="#local-6989586621679069073"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">(a -&gt; b) -&gt; (w a -&gt; a) -&gt; w a -&gt; b
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+forall {k} (cat :: k -&gt; k -&gt; *) (b :: k) (c :: k) (a :: k).
+Category cat =&gt;
+cat b c -&gt; cat a b -&gt; cat a c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">w a -&gt; a
+forall a. w a -&gt; a
+forall (w :: * -&gt; *) a. Comonad w =&gt; w a -&gt; a
+</span><a href="Control.Comonad.html#extract"><span class="hs-identifier hs-var">extract</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-294"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Control.Comonad.html#liftW"><span class="hs-pragma hs-type">liftW</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-295"></span><span>
+</span><span id="line-296"></span><span class="annot"><span class="hs-comment">-- | Comonadic fixed point &#224; la David Menendez</span></span><span>
+</span><span id="line-297"></span><span id="local-6989586621679068547"><span id="local-6989586621679068548"><span class="annot"><a href="Control.Comonad.html#wfix"><span class="hs-identifier hs-type">wfix</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Control.Comonad.html#Comonad"><span class="hs-identifier hs-type">Comonad</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679068547"><span class="hs-identifier hs-type">w</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679068547"><span class="hs-identifier hs-type">w</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679068547"><span class="hs-identifier hs-type">w</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679068548"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679068548"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679068548"><span class="hs-identifier hs-type">a</span></a></span></span></span><span>
+</span><span id="line-298"></span><span id="wfix"><span class="annot"><span class="annottext">wfix :: forall (w :: * -&gt; *) a. Comonad w =&gt; w (w a -&gt; a) -&gt; a
+</span><a href="Control.Comonad.html#wfix"><span class="hs-identifier hs-var hs-var">wfix</span></a></span></span><span> </span><span id="local-6989586621679069078"><span class="annot"><span class="annottext">w (w a -&gt; a)
+</span><a href="#local-6989586621679069078"><span class="hs-identifier hs-var">w</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">w (w a -&gt; a) -&gt; w a -&gt; a
+forall a. w a -&gt; a
+forall (w :: * -&gt; *) a. Comonad w =&gt; w a -&gt; a
+</span><a href="Control.Comonad.html#extract"><span class="hs-identifier hs-var">extract</span></a></span><span> </span><span class="annot"><span class="annottext">w (w a -&gt; a)
+</span><a href="#local-6989586621679069078"><span class="hs-identifier hs-var">w</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(w (w a -&gt; a) -&gt; a) -&gt; w (w a -&gt; a) -&gt; w a
+forall a b. (w a -&gt; b) -&gt; w a -&gt; w b
+forall (w :: * -&gt; *) a b. Comonad w =&gt; (w a -&gt; b) -&gt; w a -&gt; w b
+</span><a href="Control.Comonad.html#extend"><span class="hs-identifier hs-var">extend</span></a></span><span> </span><span class="annot"><span class="annottext">w (w a -&gt; a) -&gt; a
+forall (w :: * -&gt; *) a. Comonad w =&gt; w (w a -&gt; a) -&gt; a
+</span><a href="Control.Comonad.html#wfix"><span class="hs-identifier hs-var">wfix</span></a></span><span> </span><span class="annot"><span class="annottext">w (w a -&gt; a)
+</span><a href="#local-6989586621679069078"><span class="hs-identifier hs-var">w</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-299"></span><span>
+</span><span id="line-300"></span><span class="annot"><span class="hs-comment">-- | Comonadic fixed point &#224; la Dominic Orchard</span></span><span>
+</span><span id="line-301"></span><span id="local-6989586621679068551"><span id="local-6989586621679068552"><span class="annot"><a href="Control.Comonad.html#cfix"><span class="hs-identifier hs-type">cfix</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Control.Comonad.html#Comonad"><span class="hs-identifier hs-type">Comonad</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679068551"><span class="hs-identifier hs-type">w</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679068551"><span class="hs-identifier hs-type">w</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679068552"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679068552"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679068551"><span class="hs-identifier hs-type">w</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679068552"><span class="hs-identifier hs-type">a</span></a></span></span></span><span>
+</span><span id="line-302"></span><span id="cfix"><span class="annot"><span class="annottext">cfix :: forall (w :: * -&gt; *) a. Comonad w =&gt; (w a -&gt; a) -&gt; w a
+</span><a href="Control.Comonad.html#cfix"><span class="hs-identifier hs-var hs-var">cfix</span></a></span></span><span> </span><span id="local-6989586621679069081"><span class="annot"><span class="annottext">w a -&gt; a
+</span><a href="#local-6989586621679069081"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(w a -&gt; w a) -&gt; w a
+forall a. (a -&gt; a) -&gt; a
+</span><span class="hs-identifier hs-var">fix</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(w a -&gt; a) -&gt; w a -&gt; w a
+forall a b. (w a -&gt; b) -&gt; w a -&gt; w b
+forall (w :: * -&gt; *) a b. Comonad w =&gt; (w a -&gt; b) -&gt; w a -&gt; w b
+</span><a href="Control.Comonad.html#extend"><span class="hs-identifier hs-var">extend</span></a></span><span> </span><span class="annot"><span class="annottext">w a -&gt; a
+</span><a href="#local-6989586621679069081"><span class="hs-identifier hs-var">f</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-303"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Control.Comonad.html#cfix"><span class="hs-pragma hs-type">cfix</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-304"></span><span>
+</span><span id="line-305"></span><span class="hs-comment">-- | Comonadic fixed point &#224; la Kenneth Foner:</span><span>
+</span><span id="line-306"></span><span class="hs-comment">--</span><span>
+</span><span id="line-307"></span><span class="hs-comment">-- This is the @evaluate@ function from his &lt;https://www.youtube.com/watch?v=F7F-BzOB670 &quot;Getting a Quick Fix on Comonads&quot;&gt; talk.</span><span>
+</span><span id="line-308"></span><span id="local-6989586621679068556"><span id="local-6989586621679068557"><span class="annot"><a href="Control.Comonad.html#kfix"><span class="hs-identifier hs-type">kfix</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Control.Comonad.html#ComonadApply"><span class="hs-identifier hs-type">ComonadApply</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679068556"><span class="hs-identifier hs-type">w</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679068556"><span class="hs-identifier hs-type">w</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679068556"><span class="hs-identifier hs-type">w</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679068557"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679068557"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679068556"><span class="hs-identifier hs-type">w</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679068557"><span class="hs-identifier hs-type">a</span></a></span></span></span><span>
+</span><span id="line-309"></span><span id="kfix"><span class="annot"><span class="annottext">kfix :: forall (w :: * -&gt; *) a. ComonadApply w =&gt; w (w a -&gt; a) -&gt; w a
+</span><a href="Control.Comonad.html#kfix"><span class="hs-identifier hs-var hs-var">kfix</span></a></span></span><span> </span><span id="local-6989586621679069087"><span class="annot"><span class="annottext">w (w a -&gt; a)
+</span><a href="#local-6989586621679069087"><span class="hs-identifier hs-var">w</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(w a -&gt; w a) -&gt; w a
+forall a. (a -&gt; a) -&gt; a
+</span><span class="hs-identifier hs-var">fix</span></span><span> </span><span class="annot"><span class="annottext">((w a -&gt; w a) -&gt; w a) -&gt; (w a -&gt; w a) -&gt; w a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679069088"><span class="annot"><span class="annottext">w a
+</span><a href="#local-6989586621679069088"><span class="hs-identifier hs-var">u</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">w (w a -&gt; a)
+</span><a href="#local-6989586621679069087"><span class="hs-identifier hs-var">w</span></a></span><span> </span><span class="annot"><span class="annottext">w (w a -&gt; a) -&gt; w (w a) -&gt; w a
+forall a b. w (a -&gt; b) -&gt; w a -&gt; w b
+forall (w :: * -&gt; *) a b.
+ComonadApply w =&gt;
+w (a -&gt; b) -&gt; w a -&gt; w b
+</span><a href="Control.Comonad.html#%3C%40%3E"><span class="hs-operator hs-var">&lt;@&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">w a -&gt; w (w a)
+forall a. w a -&gt; w (w a)
+forall (w :: * -&gt; *) a. Comonad w =&gt; w a -&gt; w (w a)
+</span><a href="Control.Comonad.html#duplicate"><span class="hs-identifier hs-var">duplicate</span></a></span><span> </span><span class="annot"><span class="annottext">w a
+</span><a href="#local-6989586621679069088"><span class="hs-identifier hs-var">u</span></a></span><span>
+</span><span id="line-310"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Control.Comonad.html#kfix"><span class="hs-pragma hs-type">kfix</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-311"></span><span>
+</span><span id="line-312"></span><span class="annot"><span class="hs-comment">-- | 'extend' with the arguments swapped. Dual to '&gt;&gt;=' for a 'Monad'.</span></span><span>
+</span><span id="line-313"></span><span id="local-6989586621679068564"><span id="local-6989586621679068565"><span id="local-6989586621679068566"><span class="annot"><a href="Control.Comonad.html#%3D%3E%3E"><span class="hs-operator hs-type">(=&gt;&gt;)</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Control.Comonad.html#Comonad"><span class="hs-identifier hs-type">Comonad</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679068564"><span class="hs-identifier hs-type">w</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679068564"><span class="hs-identifier hs-type">w</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679068565"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679068564"><span class="hs-identifier hs-type">w</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679068565"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679068566"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679068564"><span class="hs-identifier hs-type">w</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679068566"><span class="hs-identifier hs-type">b</span></a></span></span></span></span><span>
+</span><span id="line-314"></span><span id="%3D%3E%3E"><span class="annot"><span class="annottext">=&gt;&gt; :: forall (w :: * -&gt; *) a b. Comonad w =&gt; w a -&gt; (w a -&gt; b) -&gt; w b
+</span><a href="Control.Comonad.html#%3D%3E%3E"><span class="hs-operator hs-var hs-var">(=&gt;&gt;)</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">((w a -&gt; b) -&gt; w a -&gt; w b) -&gt; w a -&gt; (w a -&gt; b) -&gt; w b
+forall a b c. (a -&gt; b -&gt; c) -&gt; b -&gt; a -&gt; c
+</span><span class="hs-identifier hs-var">flip</span></span><span> </span><span class="annot"><span class="annottext">(w a -&gt; b) -&gt; w a -&gt; w b
+forall a b. (w a -&gt; b) -&gt; w a -&gt; w b
+forall (w :: * -&gt; *) a b. Comonad w =&gt; (w a -&gt; b) -&gt; w a -&gt; w b
+</span><a href="Control.Comonad.html#extend"><span class="hs-identifier hs-var">extend</span></a></span><span>
+</span><span id="line-315"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="hs-pragma">(</span><span class="hs-pragma">=&gt;&gt;</span><span class="hs-pragma">)</span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-316"></span><span>
+</span><span id="line-317"></span><span class="annot"><span class="hs-comment">-- | 'extend' in operator form</span></span><span>
+</span><span id="line-318"></span><span id="local-6989586621679068574"><span id="local-6989586621679068575"><span id="local-6989586621679068576"><span class="annot"><a href="Control.Comonad.html#%3C%3C%3D"><span class="hs-operator hs-type">(&lt;&lt;=)</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Control.Comonad.html#Comonad"><span class="hs-identifier hs-type">Comonad</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679068574"><span class="hs-identifier hs-type">w</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679068574"><span class="hs-identifier hs-type">w</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679068575"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679068576"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679068574"><span class="hs-identifier hs-type">w</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679068575"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679068574"><span class="hs-identifier hs-type">w</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679068576"><span class="hs-identifier hs-type">b</span></a></span></span></span></span><span>
+</span><span id="line-319"></span><span id="%3C%3C%3D"><span class="annot"><span class="annottext">&lt;&lt;= :: forall (w :: * -&gt; *) a b. Comonad w =&gt; (w a -&gt; b) -&gt; w a -&gt; w b
+</span><a href="Control.Comonad.html#%3C%3C%3D"><span class="hs-operator hs-var hs-var">(&lt;&lt;=)</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(w a -&gt; b) -&gt; w a -&gt; w b
+forall a b. (w a -&gt; b) -&gt; w a -&gt; w b
+forall (w :: * -&gt; *) a b. Comonad w =&gt; (w a -&gt; b) -&gt; w a -&gt; w b
+</span><a href="Control.Comonad.html#extend"><span class="hs-identifier hs-var">extend</span></a></span><span>
+</span><span id="line-320"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="hs-pragma">(</span><span class="hs-pragma">&lt;&lt;=</span><span class="hs-pragma">)</span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-321"></span><span>
+</span><span id="line-322"></span><span class="annot"><span class="hs-comment">-- | Right-to-left 'Cokleisli' composition</span></span><span>
+</span><span id="line-323"></span><span id="local-6989586621679068580"><span id="local-6989586621679068581"><span id="local-6989586621679068582"><span id="local-6989586621679068583"><span class="annot"><a href="Control.Comonad.html#%3D%3C%3D"><span class="hs-operator hs-type">(=&lt;=)</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Control.Comonad.html#Comonad"><span class="hs-identifier hs-type">Comonad</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679068580"><span class="hs-identifier hs-type">w</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679068580"><span class="hs-identifier hs-type">w</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679068581"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679068582"><span class="hs-identifier hs-type">c</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679068580"><span class="hs-identifier hs-type">w</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679068583"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679068581"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679068580"><span class="hs-identifier hs-type">w</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679068583"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679068582"><span class="hs-identifier hs-type">c</span></a></span></span></span></span></span><span>
+</span><span id="line-324"></span><span id="local-6989586621679069098"><span class="annot"><span class="annottext">w b -&gt; c
+</span><a href="#local-6989586621679069098"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span id="%3D%3C%3D"><span class="annot"><span class="annottext">=&lt;= :: forall (w :: * -&gt; *) b c a.
+Comonad w =&gt;
+(w b -&gt; c) -&gt; (w a -&gt; b) -&gt; w a -&gt; c
+</span><a href="Control.Comonad.html#%3D%3C%3D"><span class="hs-operator hs-var hs-var">=&lt;=</span></a></span></span><span> </span><span id="local-6989586621679069099"><span class="annot"><span class="annottext">w a -&gt; b
+</span><a href="#local-6989586621679069099"><span class="hs-identifier hs-var">g</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">w b -&gt; c
+</span><a href="#local-6989586621679069098"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">(w b -&gt; c) -&gt; (w a -&gt; w b) -&gt; w a -&gt; c
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+forall {k} (cat :: k -&gt; k -&gt; *) (b :: k) (c :: k) (a :: k).
+Category cat =&gt;
+cat b c -&gt; cat a b -&gt; cat a c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">(w a -&gt; b) -&gt; w a -&gt; w b
+forall a b. (w a -&gt; b) -&gt; w a -&gt; w b
+forall (w :: * -&gt; *) a b. Comonad w =&gt; (w a -&gt; b) -&gt; w a -&gt; w b
+</span><a href="Control.Comonad.html#extend"><span class="hs-identifier hs-var">extend</span></a></span><span> </span><span class="annot"><span class="annottext">w a -&gt; b
+</span><a href="#local-6989586621679069099"><span class="hs-identifier hs-var">g</span></a></span><span>
+</span><span id="line-325"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="hs-pragma">(</span><span class="hs-pragma">=&lt;=</span><span class="hs-pragma">)</span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-326"></span><span>
+</span><span id="line-327"></span><span class="annot"><span class="hs-comment">-- | Left-to-right 'Cokleisli' composition</span></span><span>
+</span><span id="line-328"></span><span id="local-6989586621679068588"><span id="local-6989586621679068589"><span id="local-6989586621679068590"><span id="local-6989586621679068591"><span class="annot"><a href="Control.Comonad.html#%3D%3E%3D"><span class="hs-operator hs-type">(=&gt;=)</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Control.Comonad.html#Comonad"><span class="hs-identifier hs-type">Comonad</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679068588"><span class="hs-identifier hs-type">w</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679068588"><span class="hs-identifier hs-type">w</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679068589"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679068590"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679068588"><span class="hs-identifier hs-type">w</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679068590"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679068591"><span class="hs-identifier hs-type">c</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679068588"><span class="hs-identifier hs-type">w</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679068589"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679068591"><span class="hs-identifier hs-type">c</span></a></span></span></span></span></span><span>
+</span><span id="line-329"></span><span id="local-6989586621679069103"><span class="annot"><span class="annottext">w a -&gt; b
+</span><a href="#local-6989586621679069103"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span id="%3D%3E%3D"><span class="annot"><span class="annottext">=&gt;= :: forall (w :: * -&gt; *) a b c.
+Comonad w =&gt;
+(w a -&gt; b) -&gt; (w b -&gt; c) -&gt; w a -&gt; c
+</span><a href="Control.Comonad.html#%3D%3E%3D"><span class="hs-operator hs-var hs-var">=&gt;=</span></a></span></span><span> </span><span id="local-6989586621679069104"><span class="annot"><span class="annottext">w b -&gt; c
+</span><a href="#local-6989586621679069104"><span class="hs-identifier hs-var">g</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">w b -&gt; c
+</span><a href="#local-6989586621679069104"><span class="hs-identifier hs-var">g</span></a></span><span> </span><span class="annot"><span class="annottext">(w b -&gt; c) -&gt; (w a -&gt; w b) -&gt; w a -&gt; c
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+forall {k} (cat :: k -&gt; k -&gt; *) (b :: k) (c :: k) (a :: k).
+Category cat =&gt;
+cat b c -&gt; cat a b -&gt; cat a c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">(w a -&gt; b) -&gt; w a -&gt; w b
+forall a b. (w a -&gt; b) -&gt; w a -&gt; w b
+forall (w :: * -&gt; *) a b. Comonad w =&gt; (w a -&gt; b) -&gt; w a -&gt; w b
+</span><a href="Control.Comonad.html#extend"><span class="hs-identifier hs-var">extend</span></a></span><span> </span><span class="annot"><span class="annottext">w a -&gt; b
+</span><a href="#local-6989586621679069103"><span class="hs-identifier hs-var">f</span></a></span><span>
+</span><span id="line-330"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="hs-pragma">(</span><span class="hs-pragma">=&gt;=</span><span class="hs-pragma">)</span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-331"></span><span>
+</span><span id="line-332"></span><span class="annot"><span class="hs-comment">-- | A variant of '&lt;@&gt;' with the arguments reversed.</span></span><span>
+</span><span id="line-333"></span><span id="local-6989586621679068596"><span id="local-6989586621679068597"><span id="local-6989586621679068598"><span class="annot"><a href="Control.Comonad.html#%3C%40%40%3E"><span class="hs-operator hs-type">(&lt;@@&gt;)</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Control.Comonad.html#ComonadApply"><span class="hs-identifier hs-type">ComonadApply</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679068596"><span class="hs-identifier hs-type">w</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679068596"><span class="hs-identifier hs-type">w</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679068597"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679068596"><span class="hs-identifier hs-type">w</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679068597"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679068598"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679068596"><span class="hs-identifier hs-type">w</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679068598"><span class="hs-identifier hs-type">b</span></a></span></span></span></span><span>
+</span><span id="line-334"></span><span id="%3C%40%40%3E"><span class="annot"><span class="annottext">&lt;@@&gt; :: forall (w :: * -&gt; *) a b.
+ComonadApply w =&gt;
+w a -&gt; w (a -&gt; b) -&gt; w b
+</span><a href="Control.Comonad.html#%3C%40%40%3E"><span class="hs-operator hs-var hs-var">(&lt;@@&gt;)</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(a -&gt; (a -&gt; b) -&gt; b) -&gt; w a -&gt; w (a -&gt; b) -&gt; w b
+forall (w :: * -&gt; *) a b c.
+ComonadApply w =&gt;
+(a -&gt; b -&gt; c) -&gt; w a -&gt; w b -&gt; w c
+</span><a href="Control.Comonad.html#liftW2"><span class="hs-identifier hs-var">liftW2</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">((a -&gt; b) -&gt; a -&gt; b) -&gt; a -&gt; (a -&gt; b) -&gt; b
+forall a b c. (a -&gt; b -&gt; c) -&gt; b -&gt; a -&gt; c
+</span><span class="hs-identifier hs-var">flip</span></span><span> </span><span class="annot"><span class="annottext">(a -&gt; b) -&gt; a -&gt; b
+forall a. a -&gt; a
+forall {k} (cat :: k -&gt; k -&gt; *) (a :: k). Category cat =&gt; cat a a
+</span><span class="hs-identifier hs-var">id</span></span><span class="hs-special">)</span><span>
+</span><span id="line-335"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="hs-pragma">(</span><span class="hs-pragma">&lt;@@&gt;</span><span class="hs-pragma">)</span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-336"></span><span>
+</span><span id="line-337"></span><span class="annot"><span class="hs-comment">-- | Lift a binary function into a 'Comonad' with zipping</span></span><span>
+</span><span id="line-338"></span><span id="local-6989586621679068602"><span id="local-6989586621679068603"><span id="local-6989586621679068604"><span id="local-6989586621679068605"><span class="annot"><a href="Control.Comonad.html#liftW2"><span class="hs-identifier hs-type">liftW2</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Control.Comonad.html#ComonadApply"><span class="hs-identifier hs-type">ComonadApply</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679068602"><span class="hs-identifier hs-type">w</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679068603"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679068604"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679068605"><span class="hs-identifier hs-type">c</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679068602"><span class="hs-identifier hs-type">w</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679068603"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679068602"><span class="hs-identifier hs-type">w</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679068604"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679068602"><span class="hs-identifier hs-type">w</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679068605"><span class="hs-identifier hs-type">c</span></a></span></span></span></span></span><span>
+</span><span id="line-339"></span><span id="liftW2"><span class="annot"><span class="annottext">liftW2 :: forall (w :: * -&gt; *) a b c.
+ComonadApply w =&gt;
+(a -&gt; b -&gt; c) -&gt; w a -&gt; w b -&gt; w c
+</span><a href="Control.Comonad.html#liftW2"><span class="hs-identifier hs-var hs-var">liftW2</span></a></span></span><span> </span><span id="local-6989586621679069113"><span class="annot"><span class="annottext">a -&gt; b -&gt; c
+</span><a href="#local-6989586621679069113"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span id="local-6989586621679069114"><span class="annot"><span class="annottext">w a
+</span><a href="#local-6989586621679069114"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span id="local-6989586621679069115"><span class="annot"><span class="annottext">w b
+</span><a href="#local-6989586621679069115"><span class="hs-identifier hs-var">b</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">a -&gt; b -&gt; c
+</span><a href="#local-6989586621679069113"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">(a -&gt; b -&gt; c) -&gt; w a -&gt; w (b -&gt; c)
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">w a
+</span><a href="#local-6989586621679069114"><span class="hs-identifier hs-var">a</span></a></span><span> </span><span class="annot"><span class="annottext">w (b -&gt; c) -&gt; w b -&gt; w c
+forall a b. w (a -&gt; b) -&gt; w a -&gt; w b
+forall (w :: * -&gt; *) a b.
+ComonadApply w =&gt;
+w (a -&gt; b) -&gt; w a -&gt; w b
+</span><a href="Control.Comonad.html#%3C%40%3E"><span class="hs-operator hs-var">&lt;@&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">w b
+</span><a href="#local-6989586621679069115"><span class="hs-identifier hs-var">b</span></a></span><span>
+</span><span id="line-340"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Control.Comonad.html#liftW2"><span class="hs-pragma hs-type">liftW2</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-341"></span><span>
+</span><span id="line-342"></span><span class="annot"><span class="hs-comment">-- | Lift a ternary function into a 'Comonad' with zipping</span></span><span>
+</span><span id="line-343"></span><span id="local-6989586621679068610"><span id="local-6989586621679068611"><span id="local-6989586621679068612"><span id="local-6989586621679068613"><span id="local-6989586621679068614"><span class="annot"><a href="Control.Comonad.html#liftW3"><span class="hs-identifier hs-type">liftW3</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Control.Comonad.html#ComonadApply"><span class="hs-identifier hs-type">ComonadApply</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679068610"><span class="hs-identifier hs-type">w</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679068611"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679068612"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679068613"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679068614"><span class="hs-identifier hs-type">d</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679068610"><span class="hs-identifier hs-type">w</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679068611"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679068610"><span class="hs-identifier hs-type">w</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679068612"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679068610"><span class="hs-identifier hs-type">w</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679068613"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679068610"><span class="hs-identifier hs-type">w</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679068614"><span class="hs-identifier hs-type">d</span></a></span></span></span></span></span></span><span>
+</span><span id="line-344"></span><span id="liftW3"><span class="annot"><span class="annottext">liftW3 :: forall (w :: * -&gt; *) a b c d.
+ComonadApply w =&gt;
+(a -&gt; b -&gt; c -&gt; d) -&gt; w a -&gt; w b -&gt; w c -&gt; w d
+</span><a href="Control.Comonad.html#liftW3"><span class="hs-identifier hs-var hs-var">liftW3</span></a></span></span><span> </span><span id="local-6989586621679069122"><span class="annot"><span class="annottext">a -&gt; b -&gt; c -&gt; d
+</span><a href="#local-6989586621679069122"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span id="local-6989586621679069123"><span class="annot"><span class="annottext">w a
+</span><a href="#local-6989586621679069123"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span id="local-6989586621679069124"><span class="annot"><span class="annottext">w b
+</span><a href="#local-6989586621679069124"><span class="hs-identifier hs-var">b</span></a></span></span><span> </span><span id="local-6989586621679069125"><span class="annot"><span class="annottext">w c
+</span><a href="#local-6989586621679069125"><span class="hs-identifier hs-var">c</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">a -&gt; b -&gt; c -&gt; d
+</span><a href="#local-6989586621679069122"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">(a -&gt; b -&gt; c -&gt; d) -&gt; w a -&gt; w (b -&gt; c -&gt; d)
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">w a
+</span><a href="#local-6989586621679069123"><span class="hs-identifier hs-var">a</span></a></span><span> </span><span class="annot"><span class="annottext">w (b -&gt; c -&gt; d) -&gt; w b -&gt; w (c -&gt; d)
+forall a b. w (a -&gt; b) -&gt; w a -&gt; w b
+forall (w :: * -&gt; *) a b.
+ComonadApply w =&gt;
+w (a -&gt; b) -&gt; w a -&gt; w b
+</span><a href="Control.Comonad.html#%3C%40%3E"><span class="hs-operator hs-var">&lt;@&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">w b
+</span><a href="#local-6989586621679069124"><span class="hs-identifier hs-var">b</span></a></span><span> </span><span class="annot"><span class="annottext">w (c -&gt; d) -&gt; w c -&gt; w d
+forall a b. w (a -&gt; b) -&gt; w a -&gt; w b
+forall (w :: * -&gt; *) a b.
+ComonadApply w =&gt;
+w (a -&gt; b) -&gt; w a -&gt; w b
+</span><a href="Control.Comonad.html#%3C%40%3E"><span class="hs-operator hs-var">&lt;@&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">w c
+</span><a href="#local-6989586621679069125"><span class="hs-identifier hs-var">c</span></a></span><span>
+</span><span id="line-345"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Control.Comonad.html#liftW3"><span class="hs-pragma hs-type">liftW3</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-346"></span><span>
+</span><span id="line-347"></span><span class="annot"><span class="hs-comment">-- | The 'Cokleisli' 'Arrow's of a given 'Comonad'</span></span><span>
+</span><span id="line-348"></span><span class="hs-keyword">newtype</span><span> </span><span id="Cokleisli"><span class="annot"><a href="Control.Comonad.html#Cokleisli"><span class="hs-identifier hs-var">Cokleisli</span></a></span></span><span> </span><span id="local-6989586621679068621"><span class="annot"><a href="#local-6989586621679068621"><span class="hs-identifier hs-type">w</span></a></span></span><span> </span><span id="local-6989586621679068622"><span class="annot"><a href="#local-6989586621679068622"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span id="local-6989586621679068623"><span class="annot"><a href="#local-6989586621679068623"><span class="hs-identifier hs-type">b</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="Cokleisli"><span class="annot"><a href="Control.Comonad.html#Cokleisli"><span class="hs-identifier hs-var">Cokleisli</span></a></span></span><span> </span><span class="hs-special">{</span><span> </span><span id="runCokleisli"><span class="annot"><span class="annottext">forall {k} (w :: k -&gt; *) (a :: k) b. Cokleisli w a b -&gt; w a -&gt; b
+</span><a href="Control.Comonad.html#runCokleisli"><span class="hs-identifier hs-var hs-var">runCokleisli</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621679068621"><span class="hs-identifier hs-type">w</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679068622"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679068623"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-special">}</span><span>
+</span><span id="line-349"></span><span>
+</span><span id="line-350"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679068630"><span class="annot"><a href="Control.Comonad.html#Comonad"><span class="hs-identifier hs-type">Comonad</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679068630"><span class="hs-identifier hs-type">w</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Category</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Comonad.html#Cokleisli"><span class="hs-identifier hs-type">Cokleisli</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679068630"><span class="hs-identifier hs-type">w</span></a></span><span class="hs-special">)</span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-351"></span><span>  </span><span id="local-6989586621679069133"><span class="annot"><span class="annottext">id :: forall a. Cokleisli w a a
+</span><span class="hs-identifier hs-var hs-var hs-var">id</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(w a -&gt; a) -&gt; Cokleisli w a a
+forall {k} (w :: k -&gt; *) (a :: k) b. (w a -&gt; b) -&gt; Cokleisli w a b
+</span><a href="Control.Comonad.html#Cokleisli"><span class="hs-identifier hs-var">Cokleisli</span></a></span><span> </span><span class="annot"><span class="annottext">w a -&gt; a
+forall a. w a -&gt; a
+forall (w :: * -&gt; *) a. Comonad w =&gt; w a -&gt; a
+</span><a href="Control.Comonad.html#extract"><span class="hs-identifier hs-var">extract</span></a></span><span>
+</span><span id="line-352"></span><span>  </span><span class="annot"><a href="Control.Comonad.html#Cokleisli"><span class="hs-identifier hs-type">Cokleisli</span></a></span><span> </span><span id="local-6989586621679069135"><span class="annot"><span class="annottext">w b -&gt; c
+</span><a href="#local-6989586621679069135"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span id="local-6989586621679069136"><span class="annot"><span class="annottext">. :: forall b c a. Cokleisli w b c -&gt; Cokleisli w a b -&gt; Cokleisli w a c
+</span><span class="hs-operator hs-var hs-var hs-var">.</span></span></span><span> </span><span class="annot"><a href="Control.Comonad.html#Cokleisli"><span class="hs-identifier hs-type">Cokleisli</span></a></span><span> </span><span id="local-6989586621679069137"><span class="annot"><span class="annottext">w a -&gt; b
+</span><a href="#local-6989586621679069137"><span class="hs-identifier hs-var">g</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(w a -&gt; c) -&gt; Cokleisli w a c
+forall {k} (w :: k -&gt; *) (a :: k) b. (w a -&gt; b) -&gt; Cokleisli w a b
+</span><a href="Control.Comonad.html#Cokleisli"><span class="hs-identifier hs-var">Cokleisli</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">w b -&gt; c
+</span><a href="#local-6989586621679069135"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">(w b -&gt; c) -&gt; (w a -&gt; b) -&gt; w a -&gt; c
+forall (w :: * -&gt; *) b c a.
+Comonad w =&gt;
+(w b -&gt; c) -&gt; (w a -&gt; b) -&gt; w a -&gt; c
+</span><a href="Control.Comonad.html#%3D%3C%3D"><span class="hs-operator hs-var">=&lt;=</span></a></span><span> </span><span class="annot"><span class="annottext">w a -&gt; b
+</span><a href="#local-6989586621679069137"><span class="hs-identifier hs-var">g</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-353"></span><span>
+</span><span id="line-354"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679068653"><span class="annot"><a href="Control.Comonad.html#Comonad"><span class="hs-identifier hs-type">Comonad</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679068653"><span class="hs-identifier hs-type">w</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Arrow</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Comonad.html#Cokleisli"><span class="hs-identifier hs-type">Cokleisli</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679068653"><span class="hs-identifier hs-type">w</span></a></span><span class="hs-special">)</span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-355"></span><span>  </span><span id="local-6989586621679069151"><span class="annot"><span class="annottext">arr :: forall b c. (b -&gt; c) -&gt; Cokleisli w b c
+</span><span class="hs-identifier hs-var hs-var hs-var">arr</span></span></span><span> </span><span id="local-6989586621679069152"><span class="annot"><span class="annottext">b -&gt; c
+</span><a href="#local-6989586621679069152"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(w b -&gt; c) -&gt; Cokleisli w b c
+forall {k} (w :: k -&gt; *) (a :: k) b. (w a -&gt; b) -&gt; Cokleisli w a b
+</span><a href="Control.Comonad.html#Cokleisli"><span class="hs-identifier hs-var">Cokleisli</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">b -&gt; c
+</span><a href="#local-6989586621679069152"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">(b -&gt; c) -&gt; (w b -&gt; b) -&gt; w b -&gt; c
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+forall {k} (cat :: k -&gt; k -&gt; *) (b :: k) (c :: k) (a :: k).
+Category cat =&gt;
+cat b c -&gt; cat a b -&gt; cat a c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">w b -&gt; b
+forall a. w a -&gt; a
+forall (w :: * -&gt; *) a. Comonad w =&gt; w a -&gt; a
+</span><a href="Control.Comonad.html#extract"><span class="hs-identifier hs-var">extract</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-356"></span><span>  </span><span id="local-6989586621679069155"><span class="annot"><span class="annottext">first :: forall b c d. Cokleisli w b c -&gt; Cokleisli w (b, d) (c, d)
+</span><span class="hs-identifier hs-var hs-var hs-var">first</span></span></span><span> </span><span id="local-6989586621679069156"><span class="annot"><span class="annottext">Cokleisli w b c
+</span><a href="#local-6989586621679069156"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Cokleisli w b c
+</span><a href="#local-6989586621679069156"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">Cokleisli w b c -&gt; Cokleisli w d d -&gt; Cokleisli w (b, d) (c, d)
+forall b c b' c'.
+Cokleisli w b c -&gt; Cokleisli w b' c' -&gt; Cokleisli w (b, b') (c, c')
+forall (a :: * -&gt; * -&gt; *) b c b' c'.
+Arrow a =&gt;
+a b c -&gt; a b' c' -&gt; a (b, b') (c, c')
+</span><span class="hs-operator hs-var">***</span></span><span> </span><span class="annot"><span class="annottext">Cokleisli w d d
+forall a. Cokleisli w a a
+forall {k} (cat :: k -&gt; k -&gt; *) (a :: k). Category cat =&gt; cat a a
+</span><span class="hs-identifier hs-var">id</span></span><span>
+</span><span id="line-357"></span><span>  </span><span id="local-6989586621679069160"><span class="annot"><span class="annottext">second :: forall b c d. Cokleisli w b c -&gt; Cokleisli w (d, b) (d, c)
+</span><a href="#local-6989586621679069160"><span class="hs-identifier hs-var hs-var hs-var">second</span></a></span></span><span> </span><span id="local-6989586621679069162"><span class="annot"><span class="annottext">Cokleisli w b c
+</span><a href="#local-6989586621679069162"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Cokleisli w d d
+forall a. Cokleisli w a a
+forall {k} (cat :: k -&gt; k -&gt; *) (a :: k). Category cat =&gt; cat a a
+</span><span class="hs-identifier hs-var">id</span></span><span> </span><span class="annot"><span class="annottext">Cokleisli w d d -&gt; Cokleisli w b c -&gt; Cokleisli w (d, b) (d, c)
+forall b c b' c'.
+Cokleisli w b c -&gt; Cokleisli w b' c' -&gt; Cokleisli w (b, b') (c, c')
+forall (a :: * -&gt; * -&gt; *) b c b' c'.
+Arrow a =&gt;
+a b c -&gt; a b' c' -&gt; a (b, b') (c, c')
+</span><span class="hs-operator hs-var">***</span></span><span> </span><span class="annot"><span class="annottext">Cokleisli w b c
+</span><a href="#local-6989586621679069162"><span class="hs-identifier hs-var">f</span></a></span><span>
+</span><span id="line-358"></span><span>  </span><span class="annot"><a href="Control.Comonad.html#Cokleisli"><span class="hs-identifier hs-type">Cokleisli</span></a></span><span> </span><span id="local-6989586621679069169"><span class="annot"><span class="annottext">w b -&gt; c
+</span><a href="#local-6989586621679069169"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span id="local-6989586621679069170"><span class="annot"><span class="annottext">*** :: forall b c b' c'.
+Cokleisli w b c -&gt; Cokleisli w b' c' -&gt; Cokleisli w (b, b') (c, c')
+</span><span class="hs-operator hs-var hs-var hs-var">***</span></span></span><span> </span><span class="annot"><a href="Control.Comonad.html#Cokleisli"><span class="hs-identifier hs-type">Cokleisli</span></a></span><span> </span><span id="local-6989586621679069171"><span class="annot"><span class="annottext">w b' -&gt; c'
+</span><a href="#local-6989586621679069171"><span class="hs-identifier hs-var">g</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(w (b, b') -&gt; (c, c')) -&gt; Cokleisli w (b, b') (c, c')
+forall {k} (w :: k -&gt; *) (a :: k) b. (w a -&gt; b) -&gt; Cokleisli w a b
+</span><a href="Control.Comonad.html#Cokleisli"><span class="hs-identifier hs-var">Cokleisli</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">w b -&gt; c
+</span><a href="#local-6989586621679069169"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">(w b -&gt; c) -&gt; (w (b, b') -&gt; w b) -&gt; w (b, b') -&gt; c
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+forall {k} (cat :: k -&gt; k -&gt; *) (b :: k) (c :: k) (a :: k).
+Category cat =&gt;
+cat b c -&gt; cat a b -&gt; cat a c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">((b, b') -&gt; b) -&gt; w (b, b') -&gt; w b
+forall a b. (a -&gt; b) -&gt; w a -&gt; w b
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="annot"><span class="annottext">(b, b') -&gt; b
+forall a b. (a, b) -&gt; a
+</span><span class="hs-identifier hs-var">fst</span></span><span> </span><span class="annot"><span class="annottext">(w (b, b') -&gt; c) -&gt; (w (b, b') -&gt; c') -&gt; w (b, b') -&gt; (c, c')
+forall b c c'. (b -&gt; c) -&gt; (b -&gt; c') -&gt; b -&gt; (c, c')
+forall (a :: * -&gt; * -&gt; *) b c c'.
+Arrow a =&gt;
+a b c -&gt; a b c' -&gt; a b (c, c')
+</span><span class="hs-operator hs-var">&amp;&amp;&amp;</span></span><span> </span><span class="annot"><span class="annottext">w b' -&gt; c'
+</span><a href="#local-6989586621679069171"><span class="hs-identifier hs-var">g</span></a></span><span> </span><span class="annot"><span class="annottext">(w b' -&gt; c') -&gt; (w (b, b') -&gt; w b') -&gt; w (b, b') -&gt; c'
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+forall {k} (cat :: k -&gt; k -&gt; *) (b :: k) (c :: k) (a :: k).
+Category cat =&gt;
+cat b c -&gt; cat a b -&gt; cat a c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">((b, b') -&gt; b') -&gt; w (b, b') -&gt; w b'
+forall a b. (a -&gt; b) -&gt; w a -&gt; w b
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="annot"><span class="annottext">(b, b') -&gt; b'
+forall e a. (e, a) -&gt; a
+</span><span class="hs-identifier hs-var">snd</span></span><span class="hs-special">)</span><span>
+</span><span id="line-359"></span><span>  </span><span class="annot"><a href="Control.Comonad.html#Cokleisli"><span class="hs-identifier hs-type">Cokleisli</span></a></span><span> </span><span id="local-6989586621679069174"><span class="annot"><span class="annottext">w b -&gt; c
+</span><a href="#local-6989586621679069174"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span id="local-6989586621679069175"><span class="annot"><span class="annottext">&amp;&amp;&amp; :: forall b c c'.
+Cokleisli w b c -&gt; Cokleisli w b c' -&gt; Cokleisli w b (c, c')
+</span><span class="hs-operator hs-var hs-var hs-var">&amp;&amp;&amp;</span></span></span><span> </span><span class="annot"><a href="Control.Comonad.html#Cokleisli"><span class="hs-identifier hs-type">Cokleisli</span></a></span><span> </span><span id="local-6989586621679069176"><span class="annot"><span class="annottext">w b -&gt; c'
+</span><a href="#local-6989586621679069176"><span class="hs-identifier hs-var">g</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(w b -&gt; (c, c')) -&gt; Cokleisli w b (c, c')
+forall {k} (w :: k -&gt; *) (a :: k) b. (w a -&gt; b) -&gt; Cokleisli w a b
+</span><a href="Control.Comonad.html#Cokleisli"><span class="hs-identifier hs-var">Cokleisli</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">w b -&gt; c
+</span><a href="#local-6989586621679069174"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">(w b -&gt; c) -&gt; (w b -&gt; c') -&gt; w b -&gt; (c, c')
+forall b c c'. (b -&gt; c) -&gt; (b -&gt; c') -&gt; b -&gt; (c, c')
+forall (a :: * -&gt; * -&gt; *) b c c'.
+Arrow a =&gt;
+a b c -&gt; a b c' -&gt; a b (c, c')
+</span><span class="hs-operator hs-var">&amp;&amp;&amp;</span></span><span> </span><span class="annot"><span class="annottext">w b -&gt; c'
+</span><a href="#local-6989586621679069176"><span class="hs-identifier hs-var">g</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-360"></span><span>
+</span><span id="line-361"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679068674"><span class="annot"><a href="Control.Comonad.html#Comonad"><span class="hs-identifier hs-type">Comonad</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679068674"><span class="hs-identifier hs-type">w</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ArrowApply</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Comonad.html#Cokleisli"><span class="hs-identifier hs-type">Cokleisli</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679068674"><span class="hs-identifier hs-type">w</span></a></span><span class="hs-special">)</span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-362"></span><span>  </span><span id="local-6989586621679069186"><span class="annot"><span class="annottext">app :: forall b c. Cokleisli w (Cokleisli w b c, b) c
+</span><span class="hs-identifier hs-var hs-var hs-var">app</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(w (Cokleisli w b c, b) -&gt; c) -&gt; Cokleisli w (Cokleisli w b c, b) c
+forall {k} (w :: k -&gt; *) (a :: k) b. (w a -&gt; b) -&gt; Cokleisli w a b
+</span><a href="Control.Comonad.html#Cokleisli"><span class="hs-identifier hs-var">Cokleisli</span></a></span><span> </span><span class="annot"><span class="annottext">((w (Cokleisli w b c, b) -&gt; c)
+ -&gt; Cokleisli w (Cokleisli w b c, b) c)
+-&gt; (w (Cokleisli w b c, b) -&gt; c)
+-&gt; Cokleisli w (Cokleisli w b c, b) c
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679069187"><span class="annot"><span class="annottext">w (Cokleisli w b c, b)
+</span><a href="#local-6989586621679069187"><span class="hs-identifier hs-var">w</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Cokleisli w b c -&gt; w b -&gt; c
+forall {k} (w :: k -&gt; *) (a :: k) b. Cokleisli w a b -&gt; w a -&gt; b
+</span><a href="Control.Comonad.html#runCokleisli"><span class="hs-identifier hs-var">runCokleisli</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(Cokleisli w b c, b) -&gt; Cokleisli w b c
+forall a b. (a, b) -&gt; a
+</span><span class="hs-identifier hs-var">fst</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">w (Cokleisli w b c, b) -&gt; (Cokleisli w b c, b)
+forall a. w a -&gt; a
+forall (w :: * -&gt; *) a. Comonad w =&gt; w a -&gt; a
+</span><a href="Control.Comonad.html#extract"><span class="hs-identifier hs-var">extract</span></a></span><span> </span><span class="annot"><span class="annottext">w (Cokleisli w b c, b)
+</span><a href="#local-6989586621679069187"><span class="hs-identifier hs-var">w</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(Cokleisli w b c, b) -&gt; b
+forall e a. (e, a) -&gt; a
+</span><span class="hs-identifier hs-var">snd</span></span><span> </span><span class="annot"><span class="annottext">((Cokleisli w b c, b) -&gt; b) -&gt; w (Cokleisli w b c, b) -&gt; w b
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">w (Cokleisli w b c, b)
+</span><a href="#local-6989586621679069187"><span class="hs-identifier hs-var">w</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-363"></span><span>
+</span><span id="line-364"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679068693"><span id="local-6989586621679069193"><span id="local-6989586621679069197"><span id="local-6989586621679069200"><span class="annot"><a href="Control.Comonad.html#Comonad"><span class="hs-identifier hs-type">Comonad</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679068693"><span class="hs-identifier hs-type">w</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ArrowChoice</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Comonad.html#Cokleisli"><span class="hs-identifier hs-type">Cokleisli</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679068693"><span class="hs-identifier hs-type">w</span></a></span><span class="hs-special">)</span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-365"></span><span>  </span><span id="local-6989586621679069204"><span class="annot"><span class="annottext">left :: forall b c d.
+Cokleisli w b c -&gt; Cokleisli w (Either b d) (Either c d)
+</span><a href="#local-6989586621679069204"><span class="hs-identifier hs-var hs-var hs-var">left</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Cokleisli w b c -&gt; Cokleisli w (Either b d) (Either c d)
+forall (a :: * -&gt; * -&gt; *) b c d.
+ArrowApply a =&gt;
+a b c -&gt; a (Either b d) (Either c d)
+</span><span class="hs-identifier hs-var">leftApp</span></span><span>
+</span><span id="line-366"></span><span>
+</span><span id="line-367"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679068707"><span class="annot"><a href="Control.Comonad.html#ComonadApply"><span class="hs-identifier hs-type">ComonadApply</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679068707"><span class="hs-identifier hs-type">w</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ArrowLoop</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Comonad.html#Cokleisli"><span class="hs-identifier hs-type">Cokleisli</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679068707"><span class="hs-identifier hs-type">w</span></a></span><span class="hs-special">)</span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-368"></span><span>  </span><span id="local-6989586621679069219"><span class="annot"><span class="annottext">loop :: forall b d c. Cokleisli w (b, d) (c, d) -&gt; Cokleisli w b c
+</span><span class="hs-identifier hs-var hs-var hs-var">loop</span></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Comonad.html#Cokleisli"><span class="hs-identifier hs-type">Cokleisli</span></a></span><span> </span><span id="local-6989586621679069220"><span class="annot"><span class="annottext">w (b, d) -&gt; (c, d)
+</span><a href="#local-6989586621679069220"><span class="hs-identifier hs-var">f</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(w b -&gt; c) -&gt; Cokleisli w b c
+forall {k} (w :: k -&gt; *) (a :: k) b. (w a -&gt; b) -&gt; Cokleisli w a b
+</span><a href="Control.Comonad.html#Cokleisli"><span class="hs-identifier hs-var">Cokleisli</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(c, d) -&gt; c
+forall a b. (a, b) -&gt; a
+</span><span class="hs-identifier hs-var">fst</span></span><span> </span><span class="annot"><span class="annottext">((c, d) -&gt; c) -&gt; (w b -&gt; (c, d)) -&gt; w b -&gt; c
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+forall {k} (cat :: k -&gt; k -&gt; *) (b :: k) (c :: k) (a :: k).
+Category cat =&gt;
+cat b c -&gt; cat a b -&gt; cat a c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">w (w (c, d) -&gt; (c, d)) -&gt; (c, d)
+forall (w :: * -&gt; *) a. Comonad w =&gt; w (w a -&gt; a) -&gt; a
+</span><a href="Control.Comonad.html#wfix"><span class="hs-identifier hs-var">wfix</span></a></span><span> </span><span class="annot"><span class="annottext">(w (w (c, d) -&gt; (c, d)) -&gt; (c, d))
+-&gt; (w b -&gt; w (w (c, d) -&gt; (c, d))) -&gt; w b -&gt; (c, d)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+forall {k} (cat :: k -&gt; k -&gt; *) (b :: k) (c :: k) (a :: k).
+Category cat =&gt;
+cat b c -&gt; cat a b -&gt; cat a c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">(w b -&gt; w (c, d) -&gt; (c, d)) -&gt; w b -&gt; w (w (c, d) -&gt; (c, d))
+forall a b. (w a -&gt; b) -&gt; w a -&gt; w b
+forall (w :: * -&gt; *) a b. Comonad w =&gt; (w a -&gt; b) -&gt; w a -&gt; w b
+</span><a href="Control.Comonad.html#extend"><span class="hs-identifier hs-var">extend</span></a></span><span> </span><span class="annot"><span class="annottext">w b -&gt; w (c, d) -&gt; (c, d)
+forall {a}. w b -&gt; w (a, d) -&gt; (c, d)
+</span><a href="#local-6989586621679069221"><span class="hs-identifier hs-var">f'</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-369"></span><span>    </span><span id="local-6989586621679069221"><span class="annot"><span class="annottext">f' :: w b -&gt; w (a, d) -&gt; (c, d)
+</span><a href="#local-6989586621679069221"><span class="hs-identifier hs-var hs-var">f'</span></a></span></span><span> </span><span id="local-6989586621679069227"><span class="annot"><span class="annottext">w b
+</span><a href="#local-6989586621679069227"><span class="hs-identifier hs-var">wa</span></a></span></span><span> </span><span id="local-6989586621679069228"><span class="annot"><span class="annottext">w (a, d)
+</span><a href="#local-6989586621679069228"><span class="hs-identifier hs-var">wb</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">w (b, d) -&gt; (c, d)
+</span><a href="#local-6989586621679069220"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">(</span><span class="hs-special">,</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(b -&gt; d -&gt; (b, d)) -&gt; w b -&gt; w (d -&gt; (b, d))
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">w b
+</span><a href="#local-6989586621679069227"><span class="hs-identifier hs-var">wa</span></a></span><span> </span><span class="annot"><span class="annottext">w (d -&gt; (b, d)) -&gt; w d -&gt; w (b, d)
+forall a b. w (a -&gt; b) -&gt; w a -&gt; w b
+forall (w :: * -&gt; *) a b.
+ComonadApply w =&gt;
+w (a -&gt; b) -&gt; w a -&gt; w b
+</span><a href="Control.Comonad.html#%3C%40%3E"><span class="hs-operator hs-var">&lt;@&gt;</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(a, d) -&gt; d
+forall e a. (e, a) -&gt; a
+</span><span class="hs-identifier hs-var">snd</span></span><span> </span><span class="annot"><span class="annottext">((a, d) -&gt; d) -&gt; w (a, d) -&gt; w d
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">w (a, d)
+</span><a href="#local-6989586621679069228"><span class="hs-identifier hs-var">wb</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-370"></span><span>
+</span><span id="line-371"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679068719"><span id="local-6989586621679068720"><span id="local-6989586621679069231"><span class="annot"><span class="hs-identifier hs-type">Functor</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Comonad.html#Cokleisli"><span class="hs-identifier hs-type">Cokleisli</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679068719"><span class="hs-identifier hs-type">w</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679068720"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-372"></span><span>  </span><span id="local-6989586621679069236"><span class="annot"><span class="annottext">fmap :: forall a b. (a -&gt; b) -&gt; Cokleisli w a a -&gt; Cokleisli w a b
+</span><span class="hs-identifier hs-var hs-var hs-var">fmap</span></span></span><span> </span><span id="local-6989586621679069237"><span class="annot"><span class="annottext">a -&gt; b
+</span><a href="#local-6989586621679069237"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Comonad.html#Cokleisli"><span class="hs-identifier hs-type">Cokleisli</span></a></span><span> </span><span id="local-6989586621679069238"><span class="annot"><span class="annottext">w a -&gt; a
+</span><a href="#local-6989586621679069238"><span class="hs-identifier hs-var">g</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(w a -&gt; b) -&gt; Cokleisli w a b
+forall {k} (w :: k -&gt; *) (a :: k) b. (w a -&gt; b) -&gt; Cokleisli w a b
+</span><a href="Control.Comonad.html#Cokleisli"><span class="hs-identifier hs-var">Cokleisli</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">a -&gt; b
+</span><a href="#local-6989586621679069237"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">(a -&gt; b) -&gt; (w a -&gt; a) -&gt; w a -&gt; b
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+forall {k} (cat :: k -&gt; k -&gt; *) (b :: k) (c :: k) (a :: k).
+Category cat =&gt;
+cat b c -&gt; cat a b -&gt; cat a c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">w a -&gt; a
+</span><a href="#local-6989586621679069238"><span class="hs-identifier hs-var">g</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-373"></span><span>
+</span><span id="line-374"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679068731"><span id="local-6989586621679068732"><span id="local-6989586621679069244"><span id="local-6989586621679069248"><span id="local-6989586621679069251"><span class="annot"><span class="hs-identifier hs-type">Applicative</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Comonad.html#Cokleisli"><span class="hs-identifier hs-type">Cokleisli</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679068731"><span class="hs-identifier hs-type">w</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679068732"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-375"></span><span>  </span><span id="local-6989586621679069255"><span class="annot"><span class="annottext">pure :: forall a. a -&gt; Cokleisli w a a
+</span><span class="hs-identifier hs-var hs-var hs-var">pure</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(w a -&gt; a) -&gt; Cokleisli w a a
+forall {k} (w :: k -&gt; *) (a :: k) b. (w a -&gt; b) -&gt; Cokleisli w a b
+</span><a href="Control.Comonad.html#Cokleisli"><span class="hs-identifier hs-var">Cokleisli</span></a></span><span> </span><span class="annot"><span class="annottext">((w a -&gt; a) -&gt; Cokleisli w a a)
+-&gt; (a -&gt; w a -&gt; a) -&gt; a -&gt; Cokleisli w a a
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+forall {k} (cat :: k -&gt; k -&gt; *) (b :: k) (c :: k) (a :: k).
+Category cat =&gt;
+cat b c -&gt; cat a b -&gt; cat a c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; w a -&gt; a
+forall a b. a -&gt; b -&gt; a
+</span><span class="hs-identifier hs-var">const</span></span><span>
+</span><span id="line-376"></span><span>  </span><span class="annot"><a href="Control.Comonad.html#Cokleisli"><span class="hs-identifier hs-type">Cokleisli</span></a></span><span> </span><span id="local-6989586621679069256"><span class="annot"><span class="annottext">w a -&gt; a -&gt; b
+</span><a href="#local-6989586621679069256"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span id="local-6989586621679069257"><span class="annot"><span class="annottext">&lt;*&gt; :: forall a b.
+Cokleisli w a (a -&gt; b) -&gt; Cokleisli w a a -&gt; Cokleisli w a b
+</span><span class="hs-operator hs-var hs-var hs-var">&lt;*&gt;</span></span></span><span> </span><span class="annot"><a href="Control.Comonad.html#Cokleisli"><span class="hs-identifier hs-type">Cokleisli</span></a></span><span> </span><span id="local-6989586621679069258"><span class="annot"><span class="annottext">w a -&gt; a
+</span><a href="#local-6989586621679069258"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(w a -&gt; b) -&gt; Cokleisli w a b
+forall {k} (w :: k -&gt; *) (a :: k) b. (w a -&gt; b) -&gt; Cokleisli w a b
+</span><a href="Control.Comonad.html#Cokleisli"><span class="hs-identifier hs-var">Cokleisli</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621679069259"><span class="annot"><span class="annottext">w a
+</span><a href="#local-6989586621679069259"><span class="hs-identifier hs-var">w</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">w a -&gt; a -&gt; b
+</span><a href="#local-6989586621679069256"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">w a
+</span><a href="#local-6989586621679069259"><span class="hs-identifier hs-var">w</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">w a -&gt; a
+</span><a href="#local-6989586621679069258"><span class="hs-identifier hs-var">a</span></a></span><span> </span><span class="annot"><span class="annottext">w a
+</span><a href="#local-6989586621679069259"><span class="hs-identifier hs-var">w</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-377"></span><span>
+</span><span id="line-378"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679068746"><span id="local-6989586621679068747"><span id="local-6989586621679069264"><span class="annot"><span class="hs-identifier hs-type">Monad</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Comonad.html#Cokleisli"><span class="hs-identifier hs-type">Cokleisli</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679068746"><span class="hs-identifier hs-type">w</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679068747"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-379"></span><span>  </span><span id="local-6989586621679069270"><span class="annot"><span class="annottext">return :: forall a. a -&gt; Cokleisli w a a
+</span><span class="hs-identifier hs-var hs-var hs-var">return</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">a -&gt; Cokleisli w a a
+forall a. a -&gt; Cokleisli w a a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><span class="hs-identifier hs-var">pure</span></span><span>
+</span><span id="line-380"></span><span>  </span><span class="annot"><a href="Control.Comonad.html#Cokleisli"><span class="hs-identifier hs-type">Cokleisli</span></a></span><span> </span><span id="local-6989586621679069271"><span class="annot"><span class="annottext">w a -&gt; a
+</span><a href="#local-6989586621679069271"><span class="hs-identifier hs-var">k</span></a></span></span><span> </span><span id="local-6989586621679069272"><span class="annot"><span class="annottext">&gt;&gt;= :: forall a b.
+Cokleisli w a a -&gt; (a -&gt; Cokleisli w a b) -&gt; Cokleisli w a b
+</span><span class="hs-operator hs-var hs-var hs-var">&gt;&gt;=</span></span></span><span> </span><span id="local-6989586621679069273"><span class="annot"><span class="annottext">a -&gt; Cokleisli w a b
+</span><a href="#local-6989586621679069273"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(w a -&gt; b) -&gt; Cokleisli w a b
+forall {k} (w :: k -&gt; *) (a :: k) b. (w a -&gt; b) -&gt; Cokleisli w a b
+</span><a href="Control.Comonad.html#Cokleisli"><span class="hs-identifier hs-var">Cokleisli</span></a></span><span> </span><span class="annot"><span class="annottext">((w a -&gt; b) -&gt; Cokleisli w a b) -&gt; (w a -&gt; b) -&gt; Cokleisli w a b
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679069274"><span class="annot"><span class="annottext">w a
+</span><a href="#local-6989586621679069274"><span class="hs-identifier hs-var">w</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Cokleisli w a b -&gt; w a -&gt; b
+forall {k} (w :: k -&gt; *) (a :: k) b. Cokleisli w a b -&gt; w a -&gt; b
+</span><a href="Control.Comonad.html#runCokleisli"><span class="hs-identifier hs-var">runCokleisli</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">a -&gt; Cokleisli w a b
+</span><a href="#local-6989586621679069273"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">w a -&gt; a
+</span><a href="#local-6989586621679069271"><span class="hs-identifier hs-var">k</span></a></span><span> </span><span class="annot"><span class="annottext">w a
+</span><a href="#local-6989586621679069274"><span class="hs-identifier hs-var">w</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">w a
+</span><a href="#local-6989586621679069274"><span class="hs-identifier hs-var">w</span></a></span><span>
+</span><span id="line-381"></span></pre></body></html>

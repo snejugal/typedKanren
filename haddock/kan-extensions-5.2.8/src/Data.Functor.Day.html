@@ -1,0 +1,755 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE TypeFamilies #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# LANGUAGE ExistentialQuantification #-}</span><span>
+</span><span id="line-3"></span><span class="hs-pragma">{-# LANGUAGE KindSignatures #-}</span><span>
+</span><span id="line-4"></span><span class="hs-pragma">{-# LANGUAGE RankNTypes #-}</span><span>
+</span><span id="line-5"></span><span class="hs-pragma">{-# LANGUAGE MultiParamTypeClasses #-}</span><span>
+</span><span id="line-6"></span><span class="hs-pragma">{-# LANGUAGE UndecidableInstances #-}</span><span>
+</span><span id="line-7"></span><span class="hs-comment">-----------------------------------------------------------------------------</span><span>
+</span><span id="line-8"></span><span class="hs-comment">-- |</span><span>
+</span><span id="line-9"></span><span class="hs-comment">-- Copyright   :  (C) 2014-2016 Edward Kmett</span><span>
+</span><span id="line-10"></span><span class="hs-comment">-- License     :  BSD-style (see the file LICENSE)</span><span>
+</span><span id="line-11"></span><span class="hs-comment">--</span><span>
+</span><span id="line-12"></span><span class="hs-comment">-- Maintainer  :  Edward Kmett &lt;ekmett@gmail.com&gt;</span><span>
+</span><span id="line-13"></span><span class="hs-comment">-- Stability   :  provisional</span><span>
+</span><span id="line-14"></span><span class="hs-comment">-- Portability :  portable</span><span>
+</span><span id="line-15"></span><span class="hs-comment">--</span><span>
+</span><span id="line-16"></span><span class="hs-comment">-- Eitan Chatav first introduced me to this construction</span><span>
+</span><span id="line-17"></span><span class="hs-comment">--</span><span>
+</span><span id="line-18"></span><span class="hs-comment">-- The Day convolution of two covariant functors is a covariant functor.</span><span>
+</span><span id="line-19"></span><span class="hs-comment">--</span><span>
+</span><span id="line-20"></span><span class="hs-comment">-- Day convolution is usually defined in terms of contravariant functors,</span><span>
+</span><span id="line-21"></span><span class="hs-comment">-- however, it just needs a monoidal category, and Hask^op is also monoidal.</span><span>
+</span><span id="line-22"></span><span class="hs-comment">--</span><span>
+</span><span id="line-23"></span><span class="hs-comment">-- Day convolution can be used to nicely describe monoidal functors as monoid</span><span>
+</span><span id="line-24"></span><span class="hs-comment">-- objects w.r.t this product.</span><span>
+</span><span id="line-25"></span><span class="hs-comment">--</span><span>
+</span><span id="line-26"></span><span class="hs-comment">-- &lt;http://ncatlab.org/nlab/show/Day+convolution&gt;</span><span>
+</span><span id="line-27"></span><span class="hs-comment">----------------------------------------------------------------------------</span><span>
+</span><span id="line-28"></span><span>
+</span><span id="line-29"></span><span class="hs-keyword">module</span><span> </span><span class="annot"><a href="Data.Functor.Day.html"><span class="hs-identifier">Data.Functor.Day</span></a></span><span>
+</span><span id="line-30"></span><span>  </span><span class="hs-special">(</span><span> </span><span class="annot"><a href="Data.Functor.Day.html#Day"><span class="hs-identifier">Day</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-31"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.Functor.Day.html#day"><span class="hs-identifier">day</span></a></span><span>
+</span><span id="line-32"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.Functor.Day.html#dap"><span class="hs-identifier">dap</span></a></span><span>
+</span><span id="line-33"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.Functor.Day.html#assoc"><span class="hs-identifier">assoc</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.Functor.Day.html#disassoc"><span class="hs-identifier">disassoc</span></a></span><span>
+</span><span id="line-34"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.Functor.Day.html#swapped"><span class="hs-identifier">swapped</span></a></span><span>
+</span><span id="line-35"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.Functor.Day.html#intro1"><span class="hs-identifier">intro1</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.Functor.Day.html#intro2"><span class="hs-identifier">intro2</span></a></span><span>
+</span><span id="line-36"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.Functor.Day.html#elim1"><span class="hs-identifier">elim1</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.Functor.Day.html#elim2"><span class="hs-identifier">elim2</span></a></span><span>
+</span><span id="line-37"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.Functor.Day.html#trans1"><span class="hs-identifier">trans1</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.Functor.Day.html#trans2"><span class="hs-identifier">trans2</span></a></span><span>
+</span><span id="line-38"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.Functor.Day.html#cayley"><span class="hs-identifier">cayley</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.Functor.Day.html#dayley"><span class="hs-identifier">dayley</span></a></span><span>
+</span><span id="line-39"></span><span>  </span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-40"></span><span>
+</span><span id="line-41"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Applicative</span></span><span>
+</span><span id="line-42"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Category</span></span><span>
+</span><span id="line-43"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Comonad</span></span><span>
+</span><span id="line-44"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Comonad.Trans.Class</span></span><span>
+</span><span id="line-45"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Distributive</span></span><span>
+</span><span id="line-46"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Profunctor.Cayley</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Cayley</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-47"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Profunctor.Composition</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Procompose</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-48"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Functor.Adjunction</span></span><span>
+</span><span id="line-49"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Functor.Identity</span></span><span>
+</span><span id="line-50"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Functor.Rep</span></span><span>
+</span><span id="line-51"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Prelude</span></span><span> </span><span class="hs-keyword">hiding</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">id</span></span><span class="hs-special">,</span><span class="annot"><span class="hs-operator">(.)</span></span><span class="hs-special">)</span><span>
+</span><span id="line-52"></span><span>
+</span><span id="line-53"></span><span class="annot"><span class="hs-comment">-- | The Day convolution of two covariant functors.</span></span><span>
+</span><span id="line-54"></span><span class="hs-keyword">data</span><span> </span><span id="Day"><span class="annot"><a href="Data.Functor.Day.html#Day"><span class="hs-identifier hs-var">Day</span></a></span></span><span> </span><span id="local-6989586621679107474"><span class="annot"><a href="#local-6989586621679107474"><span class="hs-identifier hs-type">f</span></a></span></span><span> </span><span id="local-6989586621679107476"><span class="annot"><a href="#local-6989586621679107476"><span class="hs-identifier hs-type">g</span></a></span></span><span> </span><span id="local-6989586621679107478"><span class="annot"><a href="#local-6989586621679107478"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621679107790"><span class="annot"><a href="#local-6989586621679107790"><span class="hs-identifier hs-type">b</span></a></span></span><span> </span><span id="local-6989586621679107791"><span class="annot"><a href="#local-6989586621679107791"><span class="hs-identifier hs-type">c</span></a></span></span><span class="hs-operator">.</span><span> </span><span id="Day"><span class="annot"><a href="Data.Functor.Day.html#Day"><span class="hs-identifier hs-var">Day</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679107474"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679107790"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679107476"><span class="hs-identifier hs-type">g</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679107791"><span class="hs-identifier hs-type">c</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679107790"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679107791"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679107478"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-55"></span><span>
+</span><span id="line-56"></span><span class="annot"><span class="hs-comment">-- | Construct the Day convolution</span></span><span>
+</span><span id="line-57"></span><span id="local-6989586621679107464"><span id="local-6989586621679107465"><span id="local-6989586621679107466"><span id="local-6989586621679107467"><span class="annot"><a href="Data.Functor.Day.html#day"><span class="hs-identifier hs-type">day</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621679107464"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679107465"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679107466"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679107467"><span class="hs-identifier hs-type">g</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679107465"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Data.Functor.Day.html#Day"><span class="hs-identifier hs-type">Day</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679107464"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679107467"><span class="hs-identifier hs-type">g</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679107466"><span class="hs-identifier hs-type">b</span></a></span></span></span></span></span><span>
+</span><span id="line-58"></span><span id="day"><span class="annot"><span class="annottext">day :: forall (f :: * -&gt; *) a b (g :: * -&gt; *).
+f (a -&gt; b) -&gt; g a -&gt; Day f g b
+</span><a href="Data.Functor.Day.html#day"><span class="hs-identifier hs-var hs-var">day</span></a></span></span><span> </span><span id="local-6989586621679107795"><span class="annot"><span class="annottext">f (a -&gt; b)
+</span><a href="#local-6989586621679107795"><span class="hs-identifier hs-var">fa</span></a></span></span><span> </span><span id="local-6989586621679107796"><span class="annot"><span class="annottext">g a
+</span><a href="#local-6989586621679107796"><span class="hs-identifier hs-var">gb</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">f (a -&gt; b) -&gt; g a -&gt; ((a -&gt; b) -&gt; a -&gt; b) -&gt; Day f g b
+forall (f :: * -&gt; *) (g :: * -&gt; *) a b c.
+f b -&gt; g c -&gt; (b -&gt; c -&gt; a) -&gt; Day f g a
+</span><a href="Data.Functor.Day.html#Day"><span class="hs-identifier hs-var">Day</span></a></span><span> </span><span class="annot"><span class="annottext">f (a -&gt; b)
+</span><a href="#local-6989586621679107795"><span class="hs-identifier hs-var">fa</span></a></span><span> </span><span class="annot"><span class="annottext">g a
+</span><a href="#local-6989586621679107796"><span class="hs-identifier hs-var">gb</span></a></span><span> </span><span class="annot"><span class="annottext">(a -&gt; b) -&gt; a -&gt; b
+forall a. a -&gt; a
+forall {k} (cat :: k -&gt; k -&gt; *) (a :: k). Category cat =&gt; cat a a
+</span><span class="hs-identifier hs-var">id</span></span><span>
+</span><span id="line-59"></span><span>
+</span><span id="line-60"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679107489"><span id="local-6989586621679107490"><span id="local-6989586621679107800"><span class="annot"><span class="hs-identifier hs-type">Functor</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.Functor.Day.html#Day"><span class="hs-identifier hs-type">Day</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679107489"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679107490"><span class="hs-identifier hs-type">g</span></a></span><span class="hs-special">)</span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-61"></span><span>  </span><span id="local-6989586621679107804"><span class="annot"><span class="annottext">fmap :: forall a b. (a -&gt; b) -&gt; Day f g a -&gt; Day f g b
+</span><span class="hs-identifier hs-var hs-var hs-var">fmap</span></span></span><span> </span><span id="local-6989586621679107805"><span class="annot"><span class="annottext">a -&gt; b
+</span><a href="#local-6989586621679107805"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.Functor.Day.html#Day"><span class="hs-identifier hs-type">Day</span></a></span><span> </span><span id="local-6989586621679107806"><span class="annot"><span class="annottext">f b
+</span><a href="#local-6989586621679107806"><span class="hs-identifier hs-var">fb</span></a></span></span><span> </span><span id="local-6989586621679107807"><span class="annot"><span class="annottext">g c
+</span><a href="#local-6989586621679107807"><span class="hs-identifier hs-var">gc</span></a></span></span><span> </span><span id="local-6989586621679107808"><span class="annot"><span class="annottext">b -&gt; c -&gt; a
+</span><a href="#local-6989586621679107808"><span class="hs-identifier hs-var">bca</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">f b -&gt; g c -&gt; (b -&gt; c -&gt; b) -&gt; Day f g b
+forall (f :: * -&gt; *) (g :: * -&gt; *) a b c.
+f b -&gt; g c -&gt; (b -&gt; c -&gt; a) -&gt; Day f g a
+</span><a href="Data.Functor.Day.html#Day"><span class="hs-identifier hs-var">Day</span></a></span><span> </span><span class="annot"><span class="annottext">f b
+</span><a href="#local-6989586621679107806"><span class="hs-identifier hs-var">fb</span></a></span><span> </span><span class="annot"><span class="annottext">g c
+</span><a href="#local-6989586621679107807"><span class="hs-identifier hs-var">gc</span></a></span><span> </span><span class="annot"><span class="annottext">((b -&gt; c -&gt; b) -&gt; Day f g b) -&gt; (b -&gt; c -&gt; b) -&gt; Day f g b
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679107809"><span class="annot"><span class="annottext">b
+</span><a href="#local-6989586621679107809"><span class="hs-identifier hs-var">b</span></a></span></span><span> </span><span id="local-6989586621679107810"><span class="annot"><span class="annottext">c
+</span><a href="#local-6989586621679107810"><span class="hs-identifier hs-var">c</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">a -&gt; b
+</span><a href="#local-6989586621679107805"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">b -&gt; c -&gt; a
+</span><a href="#local-6989586621679107808"><span class="hs-identifier hs-var">bca</span></a></span><span> </span><span class="annot"><span class="annottext">b
+</span><a href="#local-6989586621679107809"><span class="hs-identifier hs-var">b</span></a></span><span> </span><span class="annot"><span class="annottext">c
+</span><a href="#local-6989586621679107810"><span class="hs-identifier hs-var">c</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-62"></span><span>
+</span><span id="line-63"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679107512"><span id="local-6989586621679107513"><span id="local-6989586621679107818"><span id="local-6989586621679107822"><span id="local-6989586621679107825"><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Applicative</span></span><span> </span><span class="annot"><a href="#local-6989586621679107512"><span class="hs-identifier hs-type">f</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Applicative</span></span><span> </span><span class="annot"><a href="#local-6989586621679107513"><span class="hs-identifier hs-type">g</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Applicative</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.Functor.Day.html#Day"><span class="hs-identifier hs-type">Day</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679107512"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679107513"><span class="hs-identifier hs-type">g</span></a></span><span class="hs-special">)</span></span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-64"></span><span>  </span><span id="local-6989586621679107833"><span class="annot"><span class="annottext">pure :: forall a. a -&gt; Day f g a
+</span><span class="hs-identifier hs-var hs-var hs-var">pure</span></span></span><span> </span><span id="local-6989586621679107834"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679107834"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">f () -&gt; g () -&gt; (() -&gt; () -&gt; a) -&gt; Day f g a
+forall (f :: * -&gt; *) (g :: * -&gt; *) a b c.
+f b -&gt; g c -&gt; (b -&gt; c -&gt; a) -&gt; Day f g a
+</span><a href="Data.Functor.Day.html#Day"><span class="hs-identifier hs-var">Day</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">() -&gt; f ()
+forall a. a -&gt; f a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><span class="hs-identifier hs-var">pure</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">() -&gt; g ()
+forall a. a -&gt; g a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><span class="hs-identifier hs-var">pure</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span class="annot"><span class="annottext">()
+</span><span class="hs-identifier">_</span></span><span> </span><span class="annot"><span class="annottext">()
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679107834"><span class="hs-identifier hs-var">x</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-65"></span><span>  </span><span class="hs-special">(</span><span class="annot"><a href="Data.Functor.Day.html#Day"><span class="hs-identifier hs-type">Day</span></a></span><span> </span><span id="local-6989586621679107835"><span class="annot"><span class="annottext">f b
+</span><a href="#local-6989586621679107835"><span class="hs-identifier hs-var">fa</span></a></span></span><span> </span><span id="local-6989586621679107836"><span class="annot"><span class="annottext">g c
+</span><a href="#local-6989586621679107836"><span class="hs-identifier hs-var">fb</span></a></span></span><span> </span><span id="local-6989586621679107837"><span class="annot"><span class="annottext">b -&gt; c -&gt; a -&gt; b
+</span><a href="#local-6989586621679107837"><span class="hs-identifier hs-var">u</span></a></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621679107838"><span class="annot"><span class="annottext">&lt;*&gt; :: forall a b. Day f g (a -&gt; b) -&gt; Day f g a -&gt; Day f g b
+</span><span class="hs-operator hs-var hs-var hs-var">&lt;*&gt;</span></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.Functor.Day.html#Day"><span class="hs-identifier hs-type">Day</span></a></span><span> </span><span id="local-6989586621679107843"><span class="annot"><span class="annottext">f b
+</span><a href="#local-6989586621679107843"><span class="hs-identifier hs-var">gc</span></a></span></span><span> </span><span id="local-6989586621679107844"><span class="annot"><span class="annottext">g c
+</span><a href="#local-6989586621679107844"><span class="hs-identifier hs-var">gd</span></a></span></span><span> </span><span id="local-6989586621679107845"><span class="annot"><span class="annottext">b -&gt; c -&gt; a
+</span><a href="#local-6989586621679107845"><span class="hs-identifier hs-var">v</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-66"></span><span>    </span><span class="annot"><span class="annottext">f (b, b) -&gt; g (c, c) -&gt; ((b, b) -&gt; (c, c) -&gt; b) -&gt; Day f g b
+forall (f :: * -&gt; *) (g :: * -&gt; *) a b c.
+f b -&gt; g c -&gt; (b -&gt; c -&gt; a) -&gt; Day f g a
+</span><a href="Data.Functor.Day.html#Day"><span class="hs-identifier hs-var">Day</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">(</span><span class="hs-special">,</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(b -&gt; b -&gt; (b, b)) -&gt; f b -&gt; f (b -&gt; (b, b))
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">f b
+</span><a href="#local-6989586621679107835"><span class="hs-identifier hs-var">fa</span></a></span><span> </span><span class="annot"><span class="annottext">f (b -&gt; (b, b)) -&gt; f b -&gt; f (b, b)
+forall a b. f (a -&gt; b) -&gt; f a -&gt; f b
+forall (f :: * -&gt; *) a b. Applicative f =&gt; f (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;*&gt;</span></span><span> </span><span class="annot"><span class="annottext">f b
+</span><a href="#local-6989586621679107843"><span class="hs-identifier hs-var">gc</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="hs-special">(</span><span class="hs-special">,</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(c -&gt; c -&gt; (c, c)) -&gt; g c -&gt; g (c -&gt; (c, c))
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">g c
+</span><a href="#local-6989586621679107836"><span class="hs-identifier hs-var">fb</span></a></span><span> </span><span class="annot"><span class="annottext">g (c -&gt; (c, c)) -&gt; g c -&gt; g (c, c)
+forall a b. g (a -&gt; b) -&gt; g a -&gt; g b
+forall (f :: * -&gt; *) a b. Applicative f =&gt; f (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;*&gt;</span></span><span> </span><span class="annot"><span class="annottext">g c
+</span><a href="#local-6989586621679107844"><span class="hs-identifier hs-var">gd</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-67"></span><span>        </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span class="hs-special">(</span><span id="local-6989586621679107847"><span class="annot"><span class="annottext">b
+</span><a href="#local-6989586621679107847"><span class="hs-identifier hs-var">a</span></a></span></span><span class="hs-special">,</span><span id="local-6989586621679107848"><span class="annot"><span class="annottext">b
+</span><a href="#local-6989586621679107848"><span class="hs-identifier hs-var">c</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span id="local-6989586621679107849"><span class="annot"><span class="annottext">c
+</span><a href="#local-6989586621679107849"><span class="hs-identifier hs-var">b</span></a></span></span><span class="hs-special">,</span><span id="local-6989586621679107850"><span class="annot"><span class="annottext">c
+</span><a href="#local-6989586621679107850"><span class="hs-identifier hs-var">d</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">b -&gt; c -&gt; a -&gt; b
+</span><a href="#local-6989586621679107837"><span class="hs-identifier hs-var">u</span></a></span><span> </span><span class="annot"><span class="annottext">b
+</span><a href="#local-6989586621679107847"><span class="hs-identifier hs-var">a</span></a></span><span> </span><span class="annot"><span class="annottext">c
+</span><a href="#local-6989586621679107849"><span class="hs-identifier hs-var">b</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">b -&gt; c -&gt; a
+</span><a href="#local-6989586621679107845"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="annot"><span class="annottext">b
+</span><a href="#local-6989586621679107848"><span class="hs-identifier hs-var">c</span></a></span><span> </span><span class="annot"><span class="annottext">c
+</span><a href="#local-6989586621679107850"><span class="hs-identifier hs-var">d</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-68"></span><span>
+</span><span id="line-69"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679107543"><span id="local-6989586621679107544"><span id="local-6989586621679107858"><span id="local-6989586621679107864"><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Representable</span></span><span> </span><span class="annot"><a href="#local-6989586621679107543"><span class="hs-identifier hs-type">f</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Representable</span></span><span> </span><span class="annot"><a href="#local-6989586621679107544"><span class="hs-identifier hs-type">g</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Distributive</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.Functor.Day.html#Day"><span class="hs-identifier hs-type">Day</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679107543"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679107544"><span class="hs-identifier hs-type">g</span></a></span><span class="hs-special">)</span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-70"></span><span>  </span><span id="local-6989586621679107875"><span class="annot"><span class="annottext">distribute :: forall (f :: * -&gt; *) a. Functor f =&gt; f (Day f g a) -&gt; Day f g (f a)
+</span><a href="#local-6989586621679107875"><span class="hs-identifier hs-var hs-var hs-var">distribute</span></a></span></span><span> </span><span id="local-6989586621679107877"><span class="annot"><span class="annottext">f (Day f g a)
+</span><a href="#local-6989586621679107877"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">f (Rep f) -&gt; g (Rep g) -&gt; (Rep f -&gt; Rep g -&gt; f a) -&gt; Day f g (f a)
+forall (f :: * -&gt; *) (g :: * -&gt; *) a b c.
+f b -&gt; g c -&gt; (b -&gt; c -&gt; a) -&gt; Day f g a
+</span><a href="Data.Functor.Day.html#Day"><span class="hs-identifier hs-var">Day</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(Rep f -&gt; Rep f) -&gt; f (Rep f)
+forall a. (Rep f -&gt; a) -&gt; f a
+forall (f :: * -&gt; *) a. Representable f =&gt; (Rep f -&gt; a) -&gt; f a
+</span><span class="hs-identifier hs-var">tabulate</span></span><span> </span><span class="annot"><span class="annottext">Rep f -&gt; Rep f
+forall a. a -&gt; a
+forall {k} (cat :: k -&gt; k -&gt; *) (a :: k). Category cat =&gt; cat a a
+</span><span class="hs-identifier hs-var">id</span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(Rep g -&gt; Rep g) -&gt; g (Rep g)
+forall a. (Rep g -&gt; a) -&gt; g a
+forall (f :: * -&gt; *) a. Representable f =&gt; (Rep f -&gt; a) -&gt; f a
+</span><span class="hs-identifier hs-var">tabulate</span></span><span> </span><span class="annot"><span class="annottext">Rep g -&gt; Rep g
+forall a. a -&gt; a
+forall {k} (cat :: k -&gt; k -&gt; *) (a :: k). Category cat =&gt; cat a a
+</span><span class="hs-identifier hs-var">id</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">((Rep f -&gt; Rep g -&gt; f a) -&gt; Day f g (f a))
+-&gt; (Rep f -&gt; Rep g -&gt; f a) -&gt; Day f g (f a)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679107879"><span class="annot"><span class="annottext">Rep f
+</span><a href="#local-6989586621679107879"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span id="local-6989586621679107880"><span class="annot"><span class="annottext">Rep g
+</span><a href="#local-6989586621679107880"><span class="hs-identifier hs-var">y</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-71"></span><span>    </span><span class="annot"><span class="annottext">(Day f g a -&gt; a) -&gt; f (Day f g a) -&gt; f a
+forall a b. (a -&gt; b) -&gt; f a -&gt; f b
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span class="hs-special">(</span><span class="annot"><a href="Data.Functor.Day.html#Day"><span class="hs-identifier hs-type">Day</span></a></span><span> </span><span id="local-6989586621679107883"><span class="annot"><span class="annottext">f b
+</span><a href="#local-6989586621679107883"><span class="hs-identifier hs-var">m</span></a></span></span><span> </span><span id="local-6989586621679107884"><span class="annot"><span class="annottext">g c
+</span><a href="#local-6989586621679107884"><span class="hs-identifier hs-var">n</span></a></span></span><span> </span><span id="local-6989586621679107885"><span class="annot"><span class="annottext">b -&gt; c -&gt; a
+</span><a href="#local-6989586621679107885"><span class="hs-identifier hs-var">o</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">b -&gt; c -&gt; a
+</span><a href="#local-6989586621679107885"><span class="hs-identifier hs-var">o</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">f b -&gt; Rep f -&gt; b
+forall a. f a -&gt; Rep f -&gt; a
+forall (f :: * -&gt; *) a. Representable f =&gt; f a -&gt; Rep f -&gt; a
+</span><span class="hs-identifier hs-var">index</span></span><span> </span><span class="annot"><span class="annottext">f b
+</span><a href="#local-6989586621679107883"><span class="hs-identifier hs-var">m</span></a></span><span> </span><span class="annot"><span class="annottext">Rep f
+</span><a href="#local-6989586621679107879"><span class="hs-identifier hs-var">x</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">g c -&gt; Rep g -&gt; c
+forall a. g a -&gt; Rep g -&gt; a
+forall (f :: * -&gt; *) a. Representable f =&gt; f a -&gt; Rep f -&gt; a
+</span><span class="hs-identifier hs-var">index</span></span><span> </span><span class="annot"><span class="annottext">g c
+</span><a href="#local-6989586621679107884"><span class="hs-identifier hs-var">n</span></a></span><span> </span><span class="annot"><span class="annottext">Rep g
+</span><a href="#local-6989586621679107880"><span class="hs-identifier hs-var">y</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">f (Day f g a)
+</span><a href="#local-6989586621679107877"><span class="hs-identifier hs-var">f</span></a></span><span>
+</span><span id="line-72"></span><span>
+</span><span id="line-73"></span><span>  </span><span id="local-6989586621679107893"><span class="annot"><span class="annottext">collect :: forall (f :: * -&gt; *) a b.
+Functor f =&gt;
+(a -&gt; Day f g b) -&gt; f a -&gt; Day f g (f b)
+</span><a href="#local-6989586621679107893"><span class="hs-identifier hs-var hs-var hs-var">collect</span></a></span></span><span> </span><span id="local-6989586621679107895"><span class="annot"><span class="annottext">a -&gt; Day f g b
+</span><a href="#local-6989586621679107895"><span class="hs-identifier hs-var">g</span></a></span></span><span> </span><span id="local-6989586621679107896"><span class="annot"><span class="annottext">f a
+</span><a href="#local-6989586621679107896"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">f (Rep f) -&gt; g (Rep g) -&gt; (Rep f -&gt; Rep g -&gt; f b) -&gt; Day f g (f b)
+forall (f :: * -&gt; *) (g :: * -&gt; *) a b c.
+f b -&gt; g c -&gt; (b -&gt; c -&gt; a) -&gt; Day f g a
+</span><a href="Data.Functor.Day.html#Day"><span class="hs-identifier hs-var">Day</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(Rep f -&gt; Rep f) -&gt; f (Rep f)
+forall a. (Rep f -&gt; a) -&gt; f a
+forall (f :: * -&gt; *) a. Representable f =&gt; (Rep f -&gt; a) -&gt; f a
+</span><span class="hs-identifier hs-var">tabulate</span></span><span> </span><span class="annot"><span class="annottext">Rep f -&gt; Rep f
+forall a. a -&gt; a
+forall {k} (cat :: k -&gt; k -&gt; *) (a :: k). Category cat =&gt; cat a a
+</span><span class="hs-identifier hs-var">id</span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(Rep g -&gt; Rep g) -&gt; g (Rep g)
+forall a. (Rep g -&gt; a) -&gt; g a
+forall (f :: * -&gt; *) a. Representable f =&gt; (Rep f -&gt; a) -&gt; f a
+</span><span class="hs-identifier hs-var">tabulate</span></span><span> </span><span class="annot"><span class="annottext">Rep g -&gt; Rep g
+forall a. a -&gt; a
+forall {k} (cat :: k -&gt; k -&gt; *) (a :: k). Category cat =&gt; cat a a
+</span><span class="hs-identifier hs-var">id</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">((Rep f -&gt; Rep g -&gt; f b) -&gt; Day f g (f b))
+-&gt; (Rep f -&gt; Rep g -&gt; f b) -&gt; Day f g (f b)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679107897"><span class="annot"><span class="annottext">Rep f
+</span><a href="#local-6989586621679107897"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span id="local-6989586621679107898"><span class="annot"><span class="annottext">Rep g
+</span><a href="#local-6989586621679107898"><span class="hs-identifier hs-var">y</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-74"></span><span>    </span><span class="annot"><span class="annottext">(a -&gt; b) -&gt; f a -&gt; f b
+forall a b. (a -&gt; b) -&gt; f a -&gt; f b
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621679107899"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679107899"><span class="hs-identifier hs-var">q</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">a -&gt; Day f g b
+</span><a href="#local-6989586621679107895"><span class="hs-identifier hs-var">g</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679107899"><span class="hs-identifier hs-var">q</span></a></span><span> </span><span class="hs-keyword">of</span><span> </span><span class="annot"><a href="Data.Functor.Day.html#Day"><span class="hs-identifier hs-type">Day</span></a></span><span> </span><span id="local-6989586621679107902"><span class="annot"><span class="annottext">f b
+</span><a href="#local-6989586621679107902"><span class="hs-identifier hs-var">m</span></a></span></span><span> </span><span id="local-6989586621679107903"><span class="annot"><span class="annottext">g c
+</span><a href="#local-6989586621679107903"><span class="hs-identifier hs-var">n</span></a></span></span><span> </span><span id="local-6989586621679107904"><span class="annot"><span class="annottext">b -&gt; c -&gt; b
+</span><a href="#local-6989586621679107904"><span class="hs-identifier hs-var">o</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">b -&gt; c -&gt; b
+</span><a href="#local-6989586621679107904"><span class="hs-identifier hs-var">o</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">f b -&gt; Rep f -&gt; b
+forall a. f a -&gt; Rep f -&gt; a
+forall (f :: * -&gt; *) a. Representable f =&gt; f a -&gt; Rep f -&gt; a
+</span><span class="hs-identifier hs-var">index</span></span><span> </span><span class="annot"><span class="annottext">f b
+</span><a href="#local-6989586621679107902"><span class="hs-identifier hs-var">m</span></a></span><span> </span><span class="annot"><span class="annottext">Rep f
+</span><a href="#local-6989586621679107897"><span class="hs-identifier hs-var">x</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">g c -&gt; Rep g -&gt; c
+forall a. g a -&gt; Rep g -&gt; a
+forall (f :: * -&gt; *) a. Representable f =&gt; f a -&gt; Rep f -&gt; a
+</span><span class="hs-identifier hs-var">index</span></span><span> </span><span class="annot"><span class="annottext">g c
+</span><a href="#local-6989586621679107903"><span class="hs-identifier hs-var">n</span></a></span><span> </span><span class="annot"><span class="annottext">Rep g
+</span><a href="#local-6989586621679107898"><span class="hs-identifier hs-var">y</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">f a
+</span><a href="#local-6989586621679107896"><span class="hs-identifier hs-var">f</span></a></span><span>
+</span><span id="line-75"></span><span>
+</span><span id="line-76"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679107560"><span id="local-6989586621679107561"><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Representable</span></span><span> </span><span class="annot"><a href="#local-6989586621679107560"><span class="hs-identifier hs-type">f</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Representable</span></span><span> </span><span class="annot"><a href="#local-6989586621679107561"><span class="hs-identifier hs-type">g</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Representable</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.Functor.Day.html#Day"><span class="hs-identifier hs-type">Day</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679107560"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679107561"><span class="hs-identifier hs-type">g</span></a></span><span class="hs-special">)</span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-77"></span><span>  </span><span class="hs-keyword">type</span><span> </span><span id="Rep"><span class="annot"><span class="hs-identifier hs-var">Rep</span></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.Functor.Day.html#Day"><span class="hs-identifier hs-type">Day</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679107560"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679107561"><span class="hs-identifier hs-type">g</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Rep</span></span><span> </span><span class="annot"><a href="#local-6989586621679107560"><span class="hs-identifier hs-type">f</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Rep</span></span><span> </span><span class="annot"><a href="#local-6989586621679107561"><span class="hs-identifier hs-type">g</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-78"></span><span>  </span><span id="local-6989586621679107917"><span class="annot"><span class="annottext">tabulate :: forall a. (Rep (Day f g) -&gt; a) -&gt; Day f g a
+</span><span class="hs-identifier hs-var hs-var hs-var">tabulate</span></span></span><span> </span><span id="local-6989586621679107918"><span class="annot"><span class="annottext">Rep (Day f g) -&gt; a
+</span><a href="#local-6989586621679107918"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">f (Rep f) -&gt; g (Rep g) -&gt; (Rep f -&gt; Rep g -&gt; a) -&gt; Day f g a
+forall (f :: * -&gt; *) (g :: * -&gt; *) a b c.
+f b -&gt; g c -&gt; (b -&gt; c -&gt; a) -&gt; Day f g a
+</span><a href="Data.Functor.Day.html#Day"><span class="hs-identifier hs-var">Day</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(Rep f -&gt; Rep f) -&gt; f (Rep f)
+forall a. (Rep f -&gt; a) -&gt; f a
+forall (f :: * -&gt; *) a. Representable f =&gt; (Rep f -&gt; a) -&gt; f a
+</span><span class="hs-identifier hs-var">tabulate</span></span><span> </span><span class="annot"><span class="annottext">Rep f -&gt; Rep f
+forall a. a -&gt; a
+forall {k} (cat :: k -&gt; k -&gt; *) (a :: k). Category cat =&gt; cat a a
+</span><span class="hs-identifier hs-var">id</span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(Rep g -&gt; Rep g) -&gt; g (Rep g)
+forall a. (Rep g -&gt; a) -&gt; g a
+forall (f :: * -&gt; *) a. Representable f =&gt; (Rep f -&gt; a) -&gt; f a
+</span><span class="hs-identifier hs-var">tabulate</span></span><span> </span><span class="annot"><span class="annottext">Rep g -&gt; Rep g
+forall a. a -&gt; a
+forall {k} (cat :: k -&gt; k -&gt; *) (a :: k). Category cat =&gt; cat a a
+</span><span class="hs-identifier hs-var">id</span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">((Rep f, Rep g) -&gt; a) -&gt; Rep f -&gt; Rep g -&gt; a
+forall a b c. ((a, b) -&gt; c) -&gt; a -&gt; b -&gt; c
+</span><span class="hs-identifier hs-var">curry</span></span><span> </span><span class="annot"><span class="annottext">(Rep f, Rep g) -&gt; a
+Rep (Day f g) -&gt; a
+</span><a href="#local-6989586621679107918"><span class="hs-identifier hs-var">f</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-79"></span><span>  </span><span id="local-6989586621679107920"><span class="annot"><span class="annottext">index :: forall a. Day f g a -&gt; Rep (Day f g) -&gt; a
+</span><span class="hs-identifier hs-var hs-var hs-var">index</span></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.Functor.Day.html#Day"><span class="hs-identifier hs-type">Day</span></a></span><span> </span><span id="local-6989586621679107923"><span class="annot"><span class="annottext">f b
+</span><a href="#local-6989586621679107923"><span class="hs-identifier hs-var">m</span></a></span></span><span> </span><span id="local-6989586621679107924"><span class="annot"><span class="annottext">g c
+</span><a href="#local-6989586621679107924"><span class="hs-identifier hs-var">n</span></a></span></span><span> </span><span id="local-6989586621679107925"><span class="annot"><span class="annottext">b -&gt; c -&gt; a
+</span><a href="#local-6989586621679107925"><span class="hs-identifier hs-var">o</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span id="local-6989586621679107926"><span class="annot"><span class="annottext">Rep f
+</span><a href="#local-6989586621679107926"><span class="hs-identifier hs-var">x</span></a></span></span><span class="hs-special">,</span><span id="local-6989586621679107927"><span class="annot"><span class="annottext">Rep g
+</span><a href="#local-6989586621679107927"><span class="hs-identifier hs-var">y</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">b -&gt; c -&gt; a
+</span><a href="#local-6989586621679107925"><span class="hs-identifier hs-var">o</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">f b -&gt; Rep f -&gt; b
+forall a. f a -&gt; Rep f -&gt; a
+forall (f :: * -&gt; *) a. Representable f =&gt; f a -&gt; Rep f -&gt; a
+</span><span class="hs-identifier hs-var">index</span></span><span> </span><span class="annot"><span class="annottext">f b
+</span><a href="#local-6989586621679107923"><span class="hs-identifier hs-var">m</span></a></span><span> </span><span class="annot"><span class="annottext">Rep f
+</span><a href="#local-6989586621679107926"><span class="hs-identifier hs-var">x</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">g c -&gt; Rep g -&gt; c
+forall a. g a -&gt; Rep g -&gt; a
+forall (f :: * -&gt; *) a. Representable f =&gt; f a -&gt; Rep f -&gt; a
+</span><span class="hs-identifier hs-var">index</span></span><span> </span><span class="annot"><span class="annottext">g c
+</span><a href="#local-6989586621679107924"><span class="hs-identifier hs-var">n</span></a></span><span> </span><span class="annot"><span class="annottext">Rep g
+</span><a href="#local-6989586621679107927"><span class="hs-identifier hs-var">y</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-80"></span><span>
+</span><span id="line-81"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679107582"><span id="local-6989586621679107583"><span id="local-6989586621679107584"><span id="local-6989586621679107585"><span id="local-6989586621679107939"><span id="local-6989586621679107943"><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Adjunction</span></span><span> </span><span class="annot"><a href="#local-6989586621679107582"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679107583"><span class="hs-identifier hs-type">u</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Adjunction</span></span><span> </span><span class="annot"><a href="#local-6989586621679107584"><span class="hs-identifier hs-type">f'</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679107585"><span class="hs-identifier hs-type">u'</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Adjunction</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.Functor.Day.html#Day"><span class="hs-identifier hs-type">Day</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679107582"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679107584"><span class="hs-identifier hs-type">f'</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.Functor.Day.html#Day"><span class="hs-identifier hs-type">Day</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679107583"><span class="hs-identifier hs-type">u</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679107585"><span class="hs-identifier hs-type">u'</span></a></span><span class="hs-special">)</span></span></span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-82"></span><span>  </span><span id="local-6989586621679107949"><span class="annot"><span class="annottext">unit :: forall a. a -&gt; Day u u' (Day f f' a)
+</span><a href="#local-6989586621679107949"><span class="hs-keyword hs-var hs-var hs-var">unit</span></a></span></span><span> </span><span id="local-6989586621679107951"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679107951"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">u (f ())
+-&gt; u' (f' ())
+-&gt; (f () -&gt; f' () -&gt; Day f f' a)
+-&gt; Day u u' (Day f f' a)
+forall (f :: * -&gt; *) (g :: * -&gt; *) a b c.
+f b -&gt; g c -&gt; (b -&gt; c -&gt; a) -&gt; Day f g a
+</span><a href="Data.Functor.Day.html#Day"><span class="hs-identifier hs-var">Day</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">() -&gt; u (f ())
+forall a. a -&gt; u (f a)
+forall (f :: * -&gt; *) (u :: * -&gt; *) a.
+Adjunction f u =&gt;
+a -&gt; u (f a)
+</span><span class="hs-keyword hs-var">unit</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">() -&gt; u' (f' ())
+forall a. a -&gt; u' (f' a)
+forall (f :: * -&gt; *) (u :: * -&gt; *) a.
+Adjunction f u =&gt;
+a -&gt; u (f a)
+</span><span class="hs-keyword hs-var">unit</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621679107952"><span class="annot"><span class="annottext">f ()
+</span><a href="#local-6989586621679107952"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span id="local-6989586621679107953"><span class="annot"><span class="annottext">f' ()
+</span><a href="#local-6989586621679107953"><span class="hs-identifier hs-var">f'</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">f () -&gt; f' () -&gt; (() -&gt; () -&gt; a) -&gt; Day f f' a
+forall (f :: * -&gt; *) (g :: * -&gt; *) a b c.
+f b -&gt; g c -&gt; (b -&gt; c -&gt; a) -&gt; Day f g a
+</span><a href="Data.Functor.Day.html#Day"><span class="hs-identifier hs-var">Day</span></a></span><span> </span><span class="annot"><span class="annottext">f ()
+</span><a href="#local-6989586621679107952"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">f' ()
+</span><a href="#local-6989586621679107953"><span class="hs-identifier hs-var">f'</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span class="hs-special">(</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679107951"><span class="hs-identifier hs-var">a</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-83"></span><span>  </span><span id="local-6989586621679107954"><span class="annot"><span class="annottext">counit :: forall a. Day f f' (Day u u' a) -&gt; a
+</span><a href="#local-6989586621679107954"><span class="hs-identifier hs-var hs-var hs-var">counit</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.Functor.Day.html#Day"><span class="hs-identifier hs-type">Day</span></a></span><span> </span><span id="local-6989586621679107958"><span class="annot"><span class="annottext">f b
+</span><a href="#local-6989586621679107958"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span id="local-6989586621679107959"><span class="annot"><span class="annottext">f' c
+</span><a href="#local-6989586621679107959"><span class="hs-identifier hs-var">f'</span></a></span></span><span> </span><span id="local-6989586621679107960"><span class="annot"><span class="annottext">b -&gt; c -&gt; Day u u' a
+</span><a href="#local-6989586621679107960"><span class="hs-identifier hs-var">h</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">b -&gt; c -&gt; Day u u' a
+</span><a href="#local-6989586621679107960"><span class="hs-identifier hs-var">h</span></a></span><span> </span><span class="annot"><span class="annottext">b
+</span><a href="#local-6989586621679107961"><span class="hs-identifier hs-var">a</span></a></span><span> </span><span class="annot"><span class="annottext">c
+</span><a href="#local-6989586621679107962"><span class="hs-identifier hs-var">a'</span></a></span><span> </span><span class="hs-keyword">of</span><span> </span><span class="annot"><a href="Data.Functor.Day.html#Day"><span class="hs-identifier hs-type">Day</span></a></span><span> </span><span id="local-6989586621679107965"><span class="annot"><span class="annottext">u b
+</span><a href="#local-6989586621679107965"><span class="hs-identifier hs-var">u</span></a></span></span><span> </span><span id="local-6989586621679107966"><span class="annot"><span class="annottext">u' c
+</span><a href="#local-6989586621679107966"><span class="hs-identifier hs-var">u'</span></a></span></span><span> </span><span id="local-6989586621679107967"><span class="annot"><span class="annottext">b -&gt; c -&gt; a
+</span><a href="#local-6989586621679107967"><span class="hs-identifier hs-var">g</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">b -&gt; c -&gt; a
+</span><a href="#local-6989586621679107967"><span class="hs-identifier hs-var">g</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">u b -&gt; f () -&gt; b
+forall (f :: * -&gt; *) (u :: * -&gt; *) b a.
+Adjunction f u =&gt;
+u b -&gt; f a -&gt; b
+</span><span class="hs-identifier hs-var">indexAdjunction</span></span><span> </span><span class="annot"><span class="annottext">u b
+</span><a href="#local-6989586621679107965"><span class="hs-identifier hs-var">u</span></a></span><span> </span><span class="annot"><span class="annottext">f ()
+</span><a href="#local-6989586621679107969"><span class="hs-identifier hs-var">f_</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">u' c -&gt; f' () -&gt; c
+forall (f :: * -&gt; *) (u :: * -&gt; *) b a.
+Adjunction f u =&gt;
+u b -&gt; f a -&gt; b
+</span><span class="hs-identifier hs-var">indexAdjunction</span></span><span> </span><span class="annot"><span class="annottext">u' c
+</span><a href="#local-6989586621679107966"><span class="hs-identifier hs-var">u'</span></a></span><span> </span><span class="annot"><span class="annottext">f' ()
+</span><a href="#local-6989586621679107970"><span class="hs-identifier hs-var">f_'</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-84"></span><span>    </span><span class="hs-keyword">where</span><span>
+</span><span id="line-85"></span><span>      </span><span class="hs-special">(</span><span id="local-6989586621679107961"><span class="annot"><span class="annottext">b
+</span><a href="#local-6989586621679107961"><span class="hs-identifier hs-var">a</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679107969"><span class="annot"><span class="annottext">f ()
+</span><a href="#local-6989586621679107969"><span class="hs-identifier hs-var">f_</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">f b -&gt; (b, f ())
+forall (f :: * -&gt; *) (u :: * -&gt; *) a.
+Adjunction f u =&gt;
+f a -&gt; (a, f ())
+</span><span class="hs-identifier hs-var">splitL</span></span><span> </span><span class="annot"><span class="annottext">f b
+</span><a href="#local-6989586621679107958"><span class="hs-identifier hs-var">f</span></a></span><span>
+</span><span id="line-86"></span><span>      </span><span class="hs-special">(</span><span id="local-6989586621679107962"><span class="annot"><span class="annottext">c
+</span><a href="#local-6989586621679107962"><span class="hs-identifier hs-var">a'</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679107970"><span class="annot"><span class="annottext">f' ()
+</span><a href="#local-6989586621679107970"><span class="hs-identifier hs-var">f_'</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">f' c -&gt; (c, f' ())
+forall (f :: * -&gt; *) (u :: * -&gt; *) a.
+Adjunction f u =&gt;
+f a -&gt; (a, f ())
+</span><span class="hs-identifier hs-var">splitL</span></span><span> </span><span class="annot"><span class="annottext">f' c
+</span><a href="#local-6989586621679107959"><span class="hs-identifier hs-var">f'</span></a></span><span>
+</span><span id="line-87"></span><span>
+</span><span id="line-88"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679107607"><span id="local-6989586621679107608"><span id="local-6989586621679107979"><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Comonad</span></span><span> </span><span class="annot"><a href="#local-6989586621679107607"><span class="hs-identifier hs-type">f</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Comonad</span></span><span> </span><span class="annot"><a href="#local-6989586621679107608"><span class="hs-identifier hs-type">g</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Comonad</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.Functor.Day.html#Day"><span class="hs-identifier hs-type">Day</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679107607"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679107608"><span class="hs-identifier hs-type">g</span></a></span><span class="hs-special">)</span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-89"></span><span>  </span><span id="local-6989586621679107983"><span class="annot"><span class="annottext">extract :: forall a. Day f g a -&gt; a
+</span><a href="#local-6989586621679107983"><span class="hs-identifier hs-var hs-var hs-var">extract</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.Functor.Day.html#Day"><span class="hs-identifier hs-type">Day</span></a></span><span> </span><span id="local-6989586621679107987"><span class="annot"><span class="annottext">f b
+</span><a href="#local-6989586621679107987"><span class="hs-identifier hs-var">fb</span></a></span></span><span> </span><span id="local-6989586621679107988"><span class="annot"><span class="annottext">g c
+</span><a href="#local-6989586621679107988"><span class="hs-identifier hs-var">gc</span></a></span></span><span> </span><span id="local-6989586621679107989"><span class="annot"><span class="annottext">b -&gt; c -&gt; a
+</span><a href="#local-6989586621679107989"><span class="hs-identifier hs-var">bca</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">b -&gt; c -&gt; a
+</span><a href="#local-6989586621679107989"><span class="hs-identifier hs-var">bca</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">f b -&gt; b
+forall a. f a -&gt; a
+forall (w :: * -&gt; *) a. Comonad w =&gt; w a -&gt; a
+</span><span class="hs-identifier hs-var">extract</span></span><span> </span><span class="annot"><span class="annottext">f b
+</span><a href="#local-6989586621679107987"><span class="hs-identifier hs-var">fb</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">g c -&gt; c
+forall a. g a -&gt; a
+forall (w :: * -&gt; *) a. Comonad w =&gt; w a -&gt; a
+</span><span class="hs-identifier hs-var">extract</span></span><span> </span><span class="annot"><span class="annottext">g c
+</span><a href="#local-6989586621679107988"><span class="hs-identifier hs-var">gc</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-90"></span><span>  </span><span id="local-6989586621679107990"><span class="annot"><span class="annottext">duplicate :: forall a. Day f g a -&gt; Day f g (Day f g a)
+</span><a href="#local-6989586621679107990"><span class="hs-identifier hs-var hs-var hs-var">duplicate</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.Functor.Day.html#Day"><span class="hs-identifier hs-type">Day</span></a></span><span> </span><span id="local-6989586621679107994"><span class="annot"><span class="annottext">f b
+</span><a href="#local-6989586621679107994"><span class="hs-identifier hs-var">fb</span></a></span></span><span> </span><span id="local-6989586621679107995"><span class="annot"><span class="annottext">g c
+</span><a href="#local-6989586621679107995"><span class="hs-identifier hs-var">gc</span></a></span></span><span> </span><span id="local-6989586621679107996"><span class="annot"><span class="annottext">b -&gt; c -&gt; a
+</span><a href="#local-6989586621679107996"><span class="hs-identifier hs-var">bca</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">f (f b)
+-&gt; g (g c) -&gt; (f b -&gt; g c -&gt; Day f g a) -&gt; Day f g (Day f g a)
+forall (f :: * -&gt; *) (g :: * -&gt; *) a b c.
+f b -&gt; g c -&gt; (b -&gt; c -&gt; a) -&gt; Day f g a
+</span><a href="Data.Functor.Day.html#Day"><span class="hs-identifier hs-var">Day</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">f b -&gt; f (f b)
+forall a. f a -&gt; f (f a)
+forall (w :: * -&gt; *) a. Comonad w =&gt; w a -&gt; w (w a)
+</span><span class="hs-identifier hs-var">duplicate</span></span><span> </span><span class="annot"><span class="annottext">f b
+</span><a href="#local-6989586621679107994"><span class="hs-identifier hs-var">fb</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">g c -&gt; g (g c)
+forall a. g a -&gt; g (g a)
+forall (w :: * -&gt; *) a. Comonad w =&gt; w a -&gt; w (w a)
+</span><span class="hs-identifier hs-var">duplicate</span></span><span> </span><span class="annot"><span class="annottext">g c
+</span><a href="#local-6989586621679107995"><span class="hs-identifier hs-var">gc</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621679107997"><span class="annot"><span class="annottext">f b
+</span><a href="#local-6989586621679107997"><span class="hs-identifier hs-var">fb'</span></a></span></span><span> </span><span id="local-6989586621679107998"><span class="annot"><span class="annottext">g c
+</span><a href="#local-6989586621679107998"><span class="hs-identifier hs-var">gc'</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">f b -&gt; g c -&gt; (b -&gt; c -&gt; a) -&gt; Day f g a
+forall (f :: * -&gt; *) (g :: * -&gt; *) a b c.
+f b -&gt; g c -&gt; (b -&gt; c -&gt; a) -&gt; Day f g a
+</span><a href="Data.Functor.Day.html#Day"><span class="hs-identifier hs-var">Day</span></a></span><span> </span><span class="annot"><span class="annottext">f b
+</span><a href="#local-6989586621679107997"><span class="hs-identifier hs-var">fb'</span></a></span><span> </span><span class="annot"><span class="annottext">g c
+</span><a href="#local-6989586621679107998"><span class="hs-identifier hs-var">gc'</span></a></span><span> </span><span class="annot"><span class="annottext">b -&gt; c -&gt; a
+</span><a href="#local-6989586621679107996"><span class="hs-identifier hs-var">bca</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-91"></span><span>
+</span><span id="line-92"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679107625"><span id="local-6989586621679107626"><span id="local-6989586621679108007"><span id="local-6989586621679108011"><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">ComonadApply</span></span><span> </span><span class="annot"><a href="#local-6989586621679107625"><span class="hs-identifier hs-type">f</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ComonadApply</span></span><span> </span><span class="annot"><a href="#local-6989586621679107626"><span class="hs-identifier hs-type">g</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ComonadApply</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.Functor.Day.html#Day"><span class="hs-identifier hs-type">Day</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679107625"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679107626"><span class="hs-identifier hs-type">g</span></a></span><span class="hs-special">)</span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-93"></span><span>  </span><span class="annot"><a href="Data.Functor.Day.html#Day"><span class="hs-identifier hs-type">Day</span></a></span><span> </span><span id="local-6989586621679108018"><span class="annot"><span class="annottext">f b
+</span><a href="#local-6989586621679108018"><span class="hs-identifier hs-var">fa</span></a></span></span><span> </span><span id="local-6989586621679108019"><span class="annot"><span class="annottext">g c
+</span><a href="#local-6989586621679108019"><span class="hs-identifier hs-var">fb</span></a></span></span><span> </span><span id="local-6989586621679108020"><span class="annot"><span class="annottext">b -&gt; c -&gt; a -&gt; b
+</span><a href="#local-6989586621679108020"><span class="hs-identifier hs-var">u</span></a></span></span><span> </span><span id="local-6989586621679108021"><span class="annot"><span class="annottext">&lt;@&gt; :: forall a b. Day f g (a -&gt; b) -&gt; Day f g a -&gt; Day f g b
+</span><a href="#local-6989586621679108021"><span class="hs-operator hs-var hs-var hs-var">&lt;@&gt;</span></a></span></span><span> </span><span class="annot"><a href="Data.Functor.Day.html#Day"><span class="hs-identifier hs-type">Day</span></a></span><span> </span><span id="local-6989586621679108027"><span class="annot"><span class="annottext">f b
+</span><a href="#local-6989586621679108027"><span class="hs-identifier hs-var">gc</span></a></span></span><span> </span><span id="local-6989586621679108028"><span class="annot"><span class="annottext">g c
+</span><a href="#local-6989586621679108028"><span class="hs-identifier hs-var">gd</span></a></span></span><span> </span><span id="local-6989586621679108029"><span class="annot"><span class="annottext">b -&gt; c -&gt; a
+</span><a href="#local-6989586621679108029"><span class="hs-identifier hs-var">v</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-94"></span><span>    </span><span class="annot"><span class="annottext">f (b, b) -&gt; g (c, c) -&gt; ((b, b) -&gt; (c, c) -&gt; b) -&gt; Day f g b
+forall (f :: * -&gt; *) (g :: * -&gt; *) a b c.
+f b -&gt; g c -&gt; (b -&gt; c -&gt; a) -&gt; Day f g a
+</span><a href="Data.Functor.Day.html#Day"><span class="hs-identifier hs-var">Day</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">(</span><span class="hs-special">,</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(b -&gt; b -&gt; (b, b)) -&gt; f b -&gt; f (b -&gt; (b, b))
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">f b
+</span><a href="#local-6989586621679108018"><span class="hs-identifier hs-var">fa</span></a></span><span> </span><span class="annot"><span class="annottext">f (b -&gt; (b, b)) -&gt; f b -&gt; f (b, b)
+forall a b. f (a -&gt; b) -&gt; f a -&gt; f b
+forall (w :: * -&gt; *) a b.
+ComonadApply w =&gt;
+w (a -&gt; b) -&gt; w a -&gt; w b
+</span><span class="hs-operator hs-var">&lt;@&gt;</span></span><span> </span><span class="annot"><span class="annottext">f b
+</span><a href="#local-6989586621679108027"><span class="hs-identifier hs-var">gc</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="hs-special">(</span><span class="hs-special">,</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(c -&gt; c -&gt; (c, c)) -&gt; g c -&gt; g (c -&gt; (c, c))
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">g c
+</span><a href="#local-6989586621679108019"><span class="hs-identifier hs-var">fb</span></a></span><span> </span><span class="annot"><span class="annottext">g (c -&gt; (c, c)) -&gt; g c -&gt; g (c, c)
+forall a b. g (a -&gt; b) -&gt; g a -&gt; g b
+forall (w :: * -&gt; *) a b.
+ComonadApply w =&gt;
+w (a -&gt; b) -&gt; w a -&gt; w b
+</span><span class="hs-operator hs-var">&lt;@&gt;</span></span><span> </span><span class="annot"><span class="annottext">g c
+</span><a href="#local-6989586621679108028"><span class="hs-identifier hs-var">gd</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-95"></span><span>        </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span class="hs-special">(</span><span id="local-6989586621679108030"><span class="annot"><span class="annottext">b
+</span><a href="#local-6989586621679108030"><span class="hs-identifier hs-var">a</span></a></span></span><span class="hs-special">,</span><span id="local-6989586621679108031"><span class="annot"><span class="annottext">b
+</span><a href="#local-6989586621679108031"><span class="hs-identifier hs-var">c</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span id="local-6989586621679108032"><span class="annot"><span class="annottext">c
+</span><a href="#local-6989586621679108032"><span class="hs-identifier hs-var">b</span></a></span></span><span class="hs-special">,</span><span id="local-6989586621679108033"><span class="annot"><span class="annottext">c
+</span><a href="#local-6989586621679108033"><span class="hs-identifier hs-var">d</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">b -&gt; c -&gt; a -&gt; b
+</span><a href="#local-6989586621679108020"><span class="hs-identifier hs-var">u</span></a></span><span> </span><span class="annot"><span class="annottext">b
+</span><a href="#local-6989586621679108030"><span class="hs-identifier hs-var">a</span></a></span><span> </span><span class="annot"><span class="annottext">c
+</span><a href="#local-6989586621679108032"><span class="hs-identifier hs-var">b</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">b -&gt; c -&gt; a
+</span><a href="#local-6989586621679108029"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="annot"><span class="annottext">b
+</span><a href="#local-6989586621679108031"><span class="hs-identifier hs-var">c</span></a></span><span> </span><span class="annot"><span class="annottext">c
+</span><a href="#local-6989586621679108033"><span class="hs-identifier hs-var">d</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-96"></span><span>
+</span><span id="line-97"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679107638"><span class="annot"><span class="hs-identifier hs-type">Comonad</span></span><span> </span><span class="annot"><a href="#local-6989586621679107638"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ComonadTrans</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.Functor.Day.html#Day"><span class="hs-identifier hs-type">Day</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679107638"><span class="hs-identifier hs-type">f</span></a></span><span class="hs-special">)</span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-98"></span><span>  </span><span id="local-6989586621679108040"><span class="annot"><span class="annottext">lower :: forall (w :: * -&gt; *) a. Comonad w =&gt; Day f w a -&gt; w a
+</span><a href="#local-6989586621679108040"><span class="hs-identifier hs-var hs-var hs-var">lower</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.Functor.Day.html#Day"><span class="hs-identifier hs-type">Day</span></a></span><span> </span><span id="local-6989586621679108044"><span class="annot"><span class="annottext">f b
+</span><a href="#local-6989586621679108044"><span class="hs-identifier hs-var">fb</span></a></span></span><span> </span><span id="local-6989586621679108045"><span class="annot"><span class="annottext">w c
+</span><a href="#local-6989586621679108045"><span class="hs-identifier hs-var">gc</span></a></span></span><span> </span><span id="local-6989586621679108046"><span class="annot"><span class="annottext">b -&gt; c -&gt; a
+</span><a href="#local-6989586621679108046"><span class="hs-identifier hs-var">bca</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">b -&gt; c -&gt; a
+</span><a href="#local-6989586621679108046"><span class="hs-identifier hs-var">bca</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">f b -&gt; b
+forall a. f a -&gt; a
+forall (w :: * -&gt; *) a. Comonad w =&gt; w a -&gt; a
+</span><span class="hs-identifier hs-var">extract</span></span><span> </span><span class="annot"><span class="annottext">f b
+</span><a href="#local-6989586621679108044"><span class="hs-identifier hs-var">fb</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(c -&gt; a) -&gt; w c -&gt; w a
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">w c
+</span><a href="#local-6989586621679108045"><span class="hs-identifier hs-var">gc</span></a></span><span>
+</span><span id="line-99"></span><span>
+</span><span id="line-100"></span><span class="hs-comment">-- | Day convolution provides a monoidal product. The associativity</span><span>
+</span><span id="line-101"></span><span class="hs-comment">-- of this monoid is witnessed by 'assoc' and 'disassoc'.</span><span>
+</span><span id="line-102"></span><span class="hs-comment">--</span><span>
+</span><span id="line-103"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-104"></span><span class="hs-comment">-- 'assoc' . 'disassoc' = 'id'</span><span>
+</span><span id="line-105"></span><span class="hs-comment">-- 'disassoc' . 'assoc' = 'id'</span><span>
+</span><span id="line-106"></span><span class="hs-comment">-- 'fmap' f '.' 'assoc' = 'assoc' '.' 'fmap' f</span><span>
+</span><span id="line-107"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-108"></span><span id="local-6989586621679107643"><span id="local-6989586621679107644"><span id="local-6989586621679107645"><span id="local-6989586621679107646"><span class="annot"><a href="Data.Functor.Day.html#assoc"><span class="hs-identifier hs-type">assoc</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Data.Functor.Day.html#Day"><span class="hs-identifier hs-type">Day</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679107643"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.Functor.Day.html#Day"><span class="hs-identifier hs-type">Day</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679107644"><span class="hs-identifier hs-type">g</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679107645"><span class="hs-identifier hs-type">h</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679107646"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Data.Functor.Day.html#Day"><span class="hs-identifier hs-type">Day</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.Functor.Day.html#Day"><span class="hs-identifier hs-type">Day</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679107643"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679107644"><span class="hs-identifier hs-type">g</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679107645"><span class="hs-identifier hs-type">h</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679107646"><span class="hs-identifier hs-type">a</span></a></span></span></span></span></span><span>
+</span><span id="line-109"></span><span id="assoc"><span class="annot"><span class="annottext">assoc :: forall (f :: * -&gt; *) (g :: * -&gt; *) (h :: * -&gt; *) a.
+Day f (Day g h) a -&gt; Day (Day f g) h a
+</span><a href="Data.Functor.Day.html#assoc"><span class="hs-identifier hs-var hs-var">assoc</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.Functor.Day.html#Day"><span class="hs-identifier hs-type">Day</span></a></span><span> </span><span id="local-6989586621679108048"><span class="annot"><span class="annottext">f b
+</span><a href="#local-6989586621679108048"><span class="hs-identifier hs-var">fb</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.Functor.Day.html#Day"><span class="hs-identifier hs-type">Day</span></a></span><span> </span><span id="local-6989586621679108049"><span class="annot"><span class="annottext">g b
+</span><a href="#local-6989586621679108049"><span class="hs-identifier hs-var">gd</span></a></span></span><span> </span><span id="local-6989586621679108050"><span class="annot"><span class="annottext">h c
+</span><a href="#local-6989586621679108050"><span class="hs-identifier hs-var">he</span></a></span></span><span> </span><span id="local-6989586621679108051"><span class="annot"><span class="annottext">b -&gt; c -&gt; c
+</span><a href="#local-6989586621679108051"><span class="hs-identifier hs-var">dec</span></a></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621679108052"><span class="annot"><span class="annottext">b -&gt; c -&gt; a
+</span><a href="#local-6989586621679108052"><span class="hs-identifier hs-var">bca</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Day f g (b, b) -&gt; h c -&gt; ((b, b) -&gt; c -&gt; a) -&gt; Day (Day f g) h a
+forall (f :: * -&gt; *) (g :: * -&gt; *) a b c.
+f b -&gt; g c -&gt; (b -&gt; c -&gt; a) -&gt; Day f g a
+</span><a href="Data.Functor.Day.html#Day"><span class="hs-identifier hs-var">Day</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">f b -&gt; g b -&gt; (b -&gt; b -&gt; (b, b)) -&gt; Day f g (b, b)
+forall (f :: * -&gt; *) (g :: * -&gt; *) a b c.
+f b -&gt; g c -&gt; (b -&gt; c -&gt; a) -&gt; Day f g a
+</span><a href="Data.Functor.Day.html#Day"><span class="hs-identifier hs-var">Day</span></a></span><span> </span><span class="annot"><span class="annottext">f b
+</span><a href="#local-6989586621679108048"><span class="hs-identifier hs-var">fb</span></a></span><span> </span><span class="annot"><span class="annottext">g b
+</span><a href="#local-6989586621679108049"><span class="hs-identifier hs-var">gd</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">,</span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">h c
+</span><a href="#local-6989586621679108050"><span class="hs-identifier hs-var">he</span></a></span><span> </span><span class="annot"><span class="annottext">(((b, b) -&gt; c -&gt; a) -&gt; Day (Day f g) h a)
+-&gt; ((b, b) -&gt; c -&gt; a) -&gt; Day (Day f g) h a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span>
+</span><span id="line-110"></span><span>  </span><span class="hs-glyph">\</span><span> </span><span class="hs-special">(</span><span id="local-6989586621679108053"><span class="annot"><span class="annottext">b
+</span><a href="#local-6989586621679108053"><span class="hs-identifier hs-var">b</span></a></span></span><span class="hs-special">,</span><span id="local-6989586621679108054"><span class="annot"><span class="annottext">b
+</span><a href="#local-6989586621679108054"><span class="hs-identifier hs-var">d</span></a></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621679108055"><span class="annot"><span class="annottext">c
+</span><a href="#local-6989586621679108055"><span class="hs-identifier hs-var">e</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">b -&gt; c -&gt; a
+</span><a href="#local-6989586621679108052"><span class="hs-identifier hs-var">bca</span></a></span><span> </span><span class="annot"><span class="annottext">b
+</span><a href="#local-6989586621679108053"><span class="hs-identifier hs-var">b</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">b -&gt; c -&gt; c
+</span><a href="#local-6989586621679108051"><span class="hs-identifier hs-var">dec</span></a></span><span> </span><span class="annot"><span class="annottext">b
+</span><a href="#local-6989586621679108054"><span class="hs-identifier hs-var">d</span></a></span><span> </span><span class="annot"><span class="annottext">c
+</span><a href="#local-6989586621679108055"><span class="hs-identifier hs-var">e</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-111"></span><span>
+</span><span id="line-112"></span><span class="hs-comment">-- | Day convolution provides a monoidal product. The associativity</span><span>
+</span><span id="line-113"></span><span class="hs-comment">-- of this monoid is witnessed by 'assoc' and 'disassoc'.</span><span>
+</span><span id="line-114"></span><span class="hs-comment">--</span><span>
+</span><span id="line-115"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-116"></span><span class="hs-comment">-- 'assoc' . 'disassoc' = 'id'</span><span>
+</span><span id="line-117"></span><span class="hs-comment">-- 'disassoc' . 'assoc' = 'id'</span><span>
+</span><span id="line-118"></span><span class="hs-comment">-- 'fmap' f '.' 'disassoc' = 'disassoc' '.' 'fmap' f</span><span>
+</span><span id="line-119"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-120"></span><span id="local-6989586621679107655"><span id="local-6989586621679107656"><span id="local-6989586621679107657"><span id="local-6989586621679107658"><span class="annot"><a href="Data.Functor.Day.html#disassoc"><span class="hs-identifier hs-type">disassoc</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Data.Functor.Day.html#Day"><span class="hs-identifier hs-type">Day</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.Functor.Day.html#Day"><span class="hs-identifier hs-type">Day</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679107655"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679107656"><span class="hs-identifier hs-type">g</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679107657"><span class="hs-identifier hs-type">h</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679107658"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Data.Functor.Day.html#Day"><span class="hs-identifier hs-type">Day</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679107655"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.Functor.Day.html#Day"><span class="hs-identifier hs-type">Day</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679107656"><span class="hs-identifier hs-type">g</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679107657"><span class="hs-identifier hs-type">h</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679107658"><span class="hs-identifier hs-type">a</span></a></span></span></span></span></span><span>
+</span><span id="line-121"></span><span id="disassoc"><span class="annot"><span class="annottext">disassoc :: forall (f :: * -&gt; *) (g :: * -&gt; *) (h :: * -&gt; *) a.
+Day (Day f g) h a -&gt; Day f (Day g h) a
+</span><a href="Data.Functor.Day.html#disassoc"><span class="hs-identifier hs-var hs-var">disassoc</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.Functor.Day.html#Day"><span class="hs-identifier hs-type">Day</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.Functor.Day.html#Day"><span class="hs-identifier hs-type">Day</span></a></span><span> </span><span id="local-6989586621679108056"><span class="annot"><span class="annottext">f b
+</span><a href="#local-6989586621679108056"><span class="hs-identifier hs-var">fb</span></a></span></span><span> </span><span id="local-6989586621679108057"><span class="annot"><span class="annottext">g c
+</span><a href="#local-6989586621679108057"><span class="hs-identifier hs-var">gc</span></a></span></span><span> </span><span id="local-6989586621679108058"><span class="annot"><span class="annottext">b -&gt; c -&gt; b
+</span><a href="#local-6989586621679108058"><span class="hs-identifier hs-var">bce</span></a></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621679108059"><span class="annot"><span class="annottext">h c
+</span><a href="#local-6989586621679108059"><span class="hs-identifier hs-var">hd</span></a></span></span><span> </span><span id="local-6989586621679108060"><span class="annot"><span class="annottext">b -&gt; c -&gt; a
+</span><a href="#local-6989586621679108060"><span class="hs-identifier hs-var">eda</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">f b -&gt; Day g h (c, c) -&gt; (b -&gt; (c, c) -&gt; a) -&gt; Day f (Day g h) a
+forall (f :: * -&gt; *) (g :: * -&gt; *) a b c.
+f b -&gt; g c -&gt; (b -&gt; c -&gt; a) -&gt; Day f g a
+</span><a href="Data.Functor.Day.html#Day"><span class="hs-identifier hs-var">Day</span></a></span><span> </span><span class="annot"><span class="annottext">f b
+</span><a href="#local-6989586621679108056"><span class="hs-identifier hs-var">fb</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">g c -&gt; h c -&gt; (c -&gt; c -&gt; (c, c)) -&gt; Day g h (c, c)
+forall (f :: * -&gt; *) (g :: * -&gt; *) a b c.
+f b -&gt; g c -&gt; (b -&gt; c -&gt; a) -&gt; Day f g a
+</span><a href="Data.Functor.Day.html#Day"><span class="hs-identifier hs-var">Day</span></a></span><span> </span><span class="annot"><span class="annottext">g c
+</span><a href="#local-6989586621679108057"><span class="hs-identifier hs-var">gc</span></a></span><span> </span><span class="annot"><span class="annottext">h c
+</span><a href="#local-6989586621679108059"><span class="hs-identifier hs-var">hd</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">,</span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">((b -&gt; (c, c) -&gt; a) -&gt; Day f (Day g h) a)
+-&gt; (b -&gt; (c, c) -&gt; a) -&gt; Day f (Day g h) a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span> </span><span id="local-6989586621679108061"><span class="annot"><span class="annottext">b
+</span><a href="#local-6989586621679108061"><span class="hs-identifier hs-var">b</span></a></span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679108062"><span class="annot"><span class="annottext">c
+</span><a href="#local-6989586621679108062"><span class="hs-identifier hs-var">c</span></a></span></span><span class="hs-special">,</span><span id="local-6989586621679108063"><span class="annot"><span class="annottext">c
+</span><a href="#local-6989586621679108063"><span class="hs-identifier hs-var">d</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-122"></span><span>  </span><span class="annot"><span class="annottext">b -&gt; c -&gt; a
+</span><a href="#local-6989586621679108060"><span class="hs-identifier hs-var">eda</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">b -&gt; c -&gt; b
+</span><a href="#local-6989586621679108058"><span class="hs-identifier hs-var">bce</span></a></span><span> </span><span class="annot"><span class="annottext">b
+</span><a href="#local-6989586621679108061"><span class="hs-identifier hs-var">b</span></a></span><span> </span><span class="annot"><span class="annottext">c
+</span><a href="#local-6989586621679108062"><span class="hs-identifier hs-var">c</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">c
+</span><a href="#local-6989586621679108063"><span class="hs-identifier hs-var">d</span></a></span><span>
+</span><span id="line-123"></span><span>
+</span><span id="line-124"></span><span class="hs-comment">-- | The monoid for 'Day' convolution on the cartesian monoidal structure is symmetric.</span><span>
+</span><span id="line-125"></span><span class="hs-comment">--</span><span>
+</span><span id="line-126"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-127"></span><span class="hs-comment">-- 'fmap' f '.' 'swapped' = 'swapped' '.' 'fmap' f</span><span>
+</span><span id="line-128"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-129"></span><span id="local-6989586621679107667"><span id="local-6989586621679107668"><span id="local-6989586621679107669"><span class="annot"><a href="Data.Functor.Day.html#swapped"><span class="hs-identifier hs-type">swapped</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Data.Functor.Day.html#Day"><span class="hs-identifier hs-type">Day</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679107667"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679107668"><span class="hs-identifier hs-type">g</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679107669"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Data.Functor.Day.html#Day"><span class="hs-identifier hs-type">Day</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679107668"><span class="hs-identifier hs-type">g</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679107667"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679107669"><span class="hs-identifier hs-type">a</span></a></span></span></span></span><span>
+</span><span id="line-130"></span><span id="swapped"><span class="annot"><span class="annottext">swapped :: forall (f :: * -&gt; *) (g :: * -&gt; *) a. Day f g a -&gt; Day g f a
+</span><a href="Data.Functor.Day.html#swapped"><span class="hs-identifier hs-var hs-var">swapped</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.Functor.Day.html#Day"><span class="hs-identifier hs-type">Day</span></a></span><span> </span><span id="local-6989586621679108064"><span class="annot"><span class="annottext">f b
+</span><a href="#local-6989586621679108064"><span class="hs-identifier hs-var">fb</span></a></span></span><span> </span><span id="local-6989586621679108065"><span class="annot"><span class="annottext">g c
+</span><a href="#local-6989586621679108065"><span class="hs-identifier hs-var">gc</span></a></span></span><span> </span><span id="local-6989586621679108066"><span class="annot"><span class="annottext">b -&gt; c -&gt; a
+</span><a href="#local-6989586621679108066"><span class="hs-identifier hs-var">abc</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">g c -&gt; f b -&gt; (c -&gt; b -&gt; a) -&gt; Day g f a
+forall (f :: * -&gt; *) (g :: * -&gt; *) a b c.
+f b -&gt; g c -&gt; (b -&gt; c -&gt; a) -&gt; Day f g a
+</span><a href="Data.Functor.Day.html#Day"><span class="hs-identifier hs-var">Day</span></a></span><span> </span><span class="annot"><span class="annottext">g c
+</span><a href="#local-6989586621679108065"><span class="hs-identifier hs-var">gc</span></a></span><span> </span><span class="annot"><span class="annottext">f b
+</span><a href="#local-6989586621679108064"><span class="hs-identifier hs-var">fb</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(b -&gt; c -&gt; a) -&gt; c -&gt; b -&gt; a
+forall a b c. (a -&gt; b -&gt; c) -&gt; b -&gt; a -&gt; c
+</span><span class="hs-identifier hs-var">flip</span></span><span> </span><span class="annot"><span class="annottext">b -&gt; c -&gt; a
+</span><a href="#local-6989586621679108066"><span class="hs-identifier hs-var">abc</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-131"></span><span>
+</span><span id="line-132"></span><span class="hs-comment">-- | 'Identity' is the unit of 'Day' convolution</span><span>
+</span><span id="line-133"></span><span class="hs-comment">--</span><span>
+</span><span id="line-134"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-135"></span><span class="hs-comment">-- 'intro1' '.' 'elim1' = 'id'</span><span>
+</span><span id="line-136"></span><span class="hs-comment">-- 'elim1' '.' 'intro1' = 'id'</span><span>
+</span><span id="line-137"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-138"></span><span id="local-6989586621679107679"><span id="local-6989586621679107680"><span class="annot"><a href="Data.Functor.Day.html#intro1"><span class="hs-identifier hs-type">intro1</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621679107679"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679107680"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Data.Functor.Day.html#Day"><span class="hs-identifier hs-type">Day</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Identity</span></span><span> </span><span class="annot"><a href="#local-6989586621679107679"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679107680"><span class="hs-identifier hs-type">a</span></a></span></span></span><span>
+</span><span id="line-139"></span><span id="intro1"><span class="annot"><span class="annottext">intro1 :: forall (f :: * -&gt; *) a. f a -&gt; Day Identity f a
+</span><a href="Data.Functor.Day.html#intro1"><span class="hs-identifier hs-var hs-var">intro1</span></a></span></span><span> </span><span id="local-6989586621679108069"><span class="annot"><span class="annottext">f a
+</span><a href="#local-6989586621679108069"><span class="hs-identifier hs-var">fa</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Identity () -&gt; f a -&gt; (() -&gt; a -&gt; a) -&gt; Day Identity f a
+forall (f :: * -&gt; *) (g :: * -&gt; *) a b c.
+f b -&gt; g c -&gt; (b -&gt; c -&gt; a) -&gt; Day f g a
+</span><a href="Data.Functor.Day.html#Day"><span class="hs-identifier hs-var">Day</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">() -&gt; Identity ()
+forall a. a -&gt; Identity a
+</span><span class="hs-identifier hs-var">Identity</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">f a
+</span><a href="#local-6989586621679108069"><span class="hs-identifier hs-var">fa</span></a></span><span> </span><span class="annot"><span class="annottext">((() -&gt; a -&gt; a) -&gt; Day Identity f a)
+-&gt; (() -&gt; a -&gt; a) -&gt; Day Identity f a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span class="annot"><span class="annottext">()
+</span><span class="hs-identifier">_</span></span><span> </span><span id="local-6989586621679108070"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679108070"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679108070"><span class="hs-identifier hs-var">a</span></a></span><span>
+</span><span id="line-140"></span><span>
+</span><span id="line-141"></span><span class="hs-comment">-- | 'Identity' is the unit of 'Day' convolution</span><span>
+</span><span id="line-142"></span><span class="hs-comment">--</span><span>
+</span><span id="line-143"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-144"></span><span class="hs-comment">-- 'intro2' '.' 'elim2' = 'id'</span><span>
+</span><span id="line-145"></span><span class="hs-comment">-- 'elim2' '.' 'intro2' = 'id'</span><span>
+</span><span id="line-146"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-147"></span><span id="local-6989586621679107685"><span id="local-6989586621679107686"><span class="annot"><a href="Data.Functor.Day.html#intro2"><span class="hs-identifier hs-type">intro2</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621679107685"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679107686"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Data.Functor.Day.html#Day"><span class="hs-identifier hs-type">Day</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679107685"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Identity</span></span><span> </span><span class="annot"><a href="#local-6989586621679107686"><span class="hs-identifier hs-type">a</span></a></span></span></span><span>
+</span><span id="line-148"></span><span id="intro2"><span class="annot"><span class="annottext">intro2 :: forall (f :: * -&gt; *) a. f a -&gt; Day f Identity a
+</span><a href="Data.Functor.Day.html#intro2"><span class="hs-identifier hs-var hs-var">intro2</span></a></span></span><span> </span><span id="local-6989586621679108071"><span class="annot"><span class="annottext">f a
+</span><a href="#local-6989586621679108071"><span class="hs-identifier hs-var">fa</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">f a -&gt; Identity () -&gt; (a -&gt; () -&gt; a) -&gt; Day f Identity a
+forall (f :: * -&gt; *) (g :: * -&gt; *) a b c.
+f b -&gt; g c -&gt; (b -&gt; c -&gt; a) -&gt; Day f g a
+</span><a href="Data.Functor.Day.html#Day"><span class="hs-identifier hs-var">Day</span></a></span><span> </span><span class="annot"><span class="annottext">f a
+</span><a href="#local-6989586621679108071"><span class="hs-identifier hs-var">fa</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">() -&gt; Identity ()
+forall a. a -&gt; Identity a
+</span><span class="hs-identifier hs-var">Identity</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">a -&gt; () -&gt; a
+forall a b. a -&gt; b -&gt; a
+</span><span class="hs-identifier hs-var">const</span></span><span>
+</span><span id="line-149"></span><span>
+</span><span id="line-150"></span><span class="hs-comment">-- | 'Identity' is the unit of 'Day' convolution</span><span>
+</span><span id="line-151"></span><span class="hs-comment">--</span><span>
+</span><span id="line-152"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-153"></span><span class="hs-comment">-- 'intro1' '.' 'elim1' = 'id'</span><span>
+</span><span id="line-154"></span><span class="hs-comment">-- 'elim1' '.' 'intro1' = 'id'</span><span>
+</span><span id="line-155"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-156"></span><span id="local-6989586621679107691"><span id="local-6989586621679107692"><span class="annot"><a href="Data.Functor.Day.html#elim1"><span class="hs-identifier hs-type">elim1</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Functor</span></span><span> </span><span class="annot"><a href="#local-6989586621679107691"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Data.Functor.Day.html#Day"><span class="hs-identifier hs-type">Day</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Identity</span></span><span> </span><span class="annot"><a href="#local-6989586621679107691"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679107692"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679107691"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679107692"><span class="hs-identifier hs-type">a</span></a></span></span></span><span>
+</span><span id="line-157"></span><span id="elim1"><span class="annot"><span class="annottext">elim1 :: forall (f :: * -&gt; *) a. Functor f =&gt; Day Identity f a -&gt; f a
+</span><a href="Data.Functor.Day.html#elim1"><span class="hs-identifier hs-var hs-var">elim1</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.Functor.Day.html#Day"><span class="hs-identifier hs-type">Day</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Identity</span></span><span> </span><span id="local-6989586621679108075"><span class="annot"><span class="annottext">b
+</span><a href="#local-6989586621679108075"><span class="hs-identifier hs-var">b</span></a></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621679108076"><span class="annot"><span class="annottext">f c
+</span><a href="#local-6989586621679108076"><span class="hs-identifier hs-var">fc</span></a></span></span><span> </span><span id="local-6989586621679108077"><span class="annot"><span class="annottext">b -&gt; c -&gt; a
+</span><a href="#local-6989586621679108077"><span class="hs-identifier hs-var">bca</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">b -&gt; c -&gt; a
+</span><a href="#local-6989586621679108077"><span class="hs-identifier hs-var">bca</span></a></span><span> </span><span class="annot"><span class="annottext">b
+</span><a href="#local-6989586621679108075"><span class="hs-identifier hs-var">b</span></a></span><span> </span><span class="annot"><span class="annottext">(c -&gt; a) -&gt; f c -&gt; f a
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">f c
+</span><a href="#local-6989586621679108076"><span class="hs-identifier hs-var">fc</span></a></span><span>
+</span><span id="line-158"></span><span>
+</span><span id="line-159"></span><span class="hs-comment">-- | 'Identity' is the unit of 'Day' convolution</span><span>
+</span><span id="line-160"></span><span class="hs-comment">--</span><span>
+</span><span id="line-161"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-162"></span><span class="hs-comment">-- 'intro2' '.' 'elim2' = 'id'</span><span>
+</span><span id="line-163"></span><span class="hs-comment">-- 'elim2' '.' 'intro2' = 'id'</span><span>
+</span><span id="line-164"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-165"></span><span id="local-6989586621679107697"><span id="local-6989586621679107698"><span class="annot"><a href="Data.Functor.Day.html#elim2"><span class="hs-identifier hs-type">elim2</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Functor</span></span><span> </span><span class="annot"><a href="#local-6989586621679107697"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Data.Functor.Day.html#Day"><span class="hs-identifier hs-type">Day</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679107697"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Identity</span></span><span> </span><span class="annot"><a href="#local-6989586621679107698"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679107697"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679107698"><span class="hs-identifier hs-type">a</span></a></span></span></span><span>
+</span><span id="line-166"></span><span id="elim2"><span class="annot"><span class="annottext">elim2 :: forall (f :: * -&gt; *) a. Functor f =&gt; Day f Identity a -&gt; f a
+</span><a href="Data.Functor.Day.html#elim2"><span class="hs-identifier hs-var hs-var">elim2</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.Functor.Day.html#Day"><span class="hs-identifier hs-type">Day</span></a></span><span> </span><span id="local-6989586621679108080"><span class="annot"><span class="annottext">f b
+</span><a href="#local-6989586621679108080"><span class="hs-identifier hs-var">fb</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Identity</span></span><span> </span><span id="local-6989586621679108081"><span class="annot"><span class="annottext">c
+</span><a href="#local-6989586621679108081"><span class="hs-identifier hs-var">c</span></a></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621679108082"><span class="annot"><span class="annottext">b -&gt; c -&gt; a
+</span><a href="#local-6989586621679108082"><span class="hs-identifier hs-var">bca</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(b -&gt; c -&gt; a) -&gt; c -&gt; b -&gt; a
+forall a b c. (a -&gt; b -&gt; c) -&gt; b -&gt; a -&gt; c
+</span><span class="hs-identifier hs-var">flip</span></span><span> </span><span class="annot"><span class="annottext">b -&gt; c -&gt; a
+</span><a href="#local-6989586621679108082"><span class="hs-identifier hs-var">bca</span></a></span><span> </span><span class="annot"><span class="annottext">c
+</span><a href="#local-6989586621679108081"><span class="hs-identifier hs-var">c</span></a></span><span> </span><span class="annot"><span class="annottext">(b -&gt; a) -&gt; f b -&gt; f a
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">f b
+</span><a href="#local-6989586621679108080"><span class="hs-identifier hs-var">fb</span></a></span><span>
+</span><span id="line-167"></span><span>
+</span><span id="line-168"></span><span class="hs-comment">-- | Collapse via a monoidal functor.</span><span>
+</span><span id="line-169"></span><span class="hs-comment">--</span><span>
+</span><span id="line-170"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-171"></span><span class="hs-comment">-- 'dap' ('day' f g) = f '&lt;*&gt;' g</span><span>
+</span><span id="line-172"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-173"></span><span id="local-6989586621679107703"><span id="local-6989586621679107704"><span class="annot"><a href="Data.Functor.Day.html#dap"><span class="hs-identifier hs-type">dap</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Applicative</span></span><span> </span><span class="annot"><a href="#local-6989586621679107703"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Data.Functor.Day.html#Day"><span class="hs-identifier hs-type">Day</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679107703"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679107703"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679107704"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679107703"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679107704"><span class="hs-identifier hs-type">a</span></a></span></span></span><span>
+</span><span id="line-174"></span><span id="dap"><span class="annot"><span class="annottext">dap :: forall (f :: * -&gt; *) a. Applicative f =&gt; Day f f a -&gt; f a
+</span><a href="Data.Functor.Day.html#dap"><span class="hs-identifier hs-var hs-var">dap</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.Functor.Day.html#Day"><span class="hs-identifier hs-type">Day</span></a></span><span> </span><span id="local-6989586621679108085"><span class="annot"><span class="annottext">f b
+</span><a href="#local-6989586621679108085"><span class="hs-identifier hs-var">fb</span></a></span></span><span> </span><span id="local-6989586621679108086"><span class="annot"><span class="annottext">f c
+</span><a href="#local-6989586621679108086"><span class="hs-identifier hs-var">fc</span></a></span></span><span> </span><span id="local-6989586621679108087"><span class="annot"><span class="annottext">b -&gt; c -&gt; a
+</span><a href="#local-6989586621679108087"><span class="hs-identifier hs-var">abc</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(b -&gt; c -&gt; a) -&gt; f b -&gt; f c -&gt; f a
+forall a b c. (a -&gt; b -&gt; c) -&gt; f a -&gt; f b -&gt; f c
+forall (f :: * -&gt; *) a b c.
+Applicative f =&gt;
+(a -&gt; b -&gt; c) -&gt; f a -&gt; f b -&gt; f c
+</span><span class="hs-identifier hs-var">liftA2</span></span><span> </span><span class="annot"><span class="annottext">b -&gt; c -&gt; a
+</span><a href="#local-6989586621679108087"><span class="hs-identifier hs-var">abc</span></a></span><span> </span><span class="annot"><span class="annottext">f b
+</span><a href="#local-6989586621679108085"><span class="hs-identifier hs-var">fb</span></a></span><span> </span><span class="annot"><span class="annottext">f c
+</span><a href="#local-6989586621679108086"><span class="hs-identifier hs-var">fc</span></a></span><span>
+</span><span id="line-175"></span><span>
+</span><span id="line-176"></span><span class="hs-comment">-- | Apply a natural transformation to the left-hand side of a Day convolution.</span><span>
+</span><span id="line-177"></span><span class="hs-comment">--</span><span>
+</span><span id="line-178"></span><span class="hs-comment">-- This respects the naturality of the natural transformation you supplied:</span><span>
+</span><span id="line-179"></span><span class="hs-comment">--</span><span>
+</span><span id="line-180"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-181"></span><span class="hs-comment">-- 'fmap' f '.' 'trans1' fg = 'trans1' fg '.' 'fmap' f</span><span>
+</span><span id="line-182"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-183"></span><span id="local-6989586621679107709"><span id="local-6989586621679107711"><span id="local-6989586621679107712"><span id="local-6989586621679107713"><span class="annot"><a href="Data.Functor.Day.html#trans1"><span class="hs-identifier hs-type">trans1</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621679107710"><span class="annot"><a href="#local-6989586621679107710"><span class="hs-identifier hs-type">x</span></a></span></span><span class="hs-operator">.</span><span> </span><span class="annot"><a href="#local-6989586621679107709"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679107710"><span class="hs-identifier hs-type">x</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679107711"><span class="hs-identifier hs-type">g</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679107710"><span class="hs-identifier hs-type">x</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Data.Functor.Day.html#Day"><span class="hs-identifier hs-type">Day</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679107709"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679107712"><span class="hs-identifier hs-type">h</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679107713"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Data.Functor.Day.html#Day"><span class="hs-identifier hs-type">Day</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679107711"><span class="hs-identifier hs-type">g</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679107712"><span class="hs-identifier hs-type">h</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679107713"><span class="hs-identifier hs-type">a</span></a></span></span></span></span></span><span>
+</span><span id="line-184"></span><span id="trans1"><span class="annot"><span class="annottext">trans1 :: forall (f :: * -&gt; *) (g :: * -&gt; *) (h :: * -&gt; *) a.
+(forall x. f x -&gt; g x) -&gt; Day f h a -&gt; Day g h a
+</span><a href="Data.Functor.Day.html#trans1"><span class="hs-identifier hs-var hs-var">trans1</span></a></span></span><span> </span><span id="local-6989586621679108089"><span class="annot"><span class="annottext">forall x. f x -&gt; g x
+</span><a href="#local-6989586621679108089"><span class="hs-identifier hs-var">fg</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.Functor.Day.html#Day"><span class="hs-identifier hs-type">Day</span></a></span><span> </span><span id="local-6989586621679108090"><span class="annot"><span class="annottext">f b
+</span><a href="#local-6989586621679108090"><span class="hs-identifier hs-var">fb</span></a></span></span><span> </span><span id="local-6989586621679108091"><span class="annot"><span class="annottext">h c
+</span><a href="#local-6989586621679108091"><span class="hs-identifier hs-var">hc</span></a></span></span><span> </span><span id="local-6989586621679108092"><span class="annot"><span class="annottext">b -&gt; c -&gt; a
+</span><a href="#local-6989586621679108092"><span class="hs-identifier hs-var">bca</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">g b -&gt; h c -&gt; (b -&gt; c -&gt; a) -&gt; Day g h a
+forall (f :: * -&gt; *) (g :: * -&gt; *) a b c.
+f b -&gt; g c -&gt; (b -&gt; c -&gt; a) -&gt; Day f g a
+</span><a href="Data.Functor.Day.html#Day"><span class="hs-identifier hs-var">Day</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">f b -&gt; g b
+forall x. f x -&gt; g x
+</span><a href="#local-6989586621679108089"><span class="hs-identifier hs-var">fg</span></a></span><span> </span><span class="annot"><span class="annottext">f b
+</span><a href="#local-6989586621679108090"><span class="hs-identifier hs-var">fb</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">h c
+</span><a href="#local-6989586621679108091"><span class="hs-identifier hs-var">hc</span></a></span><span> </span><span class="annot"><span class="annottext">b -&gt; c -&gt; a
+</span><a href="#local-6989586621679108092"><span class="hs-identifier hs-var">bca</span></a></span><span>
+</span><span id="line-185"></span><span>
+</span><span id="line-186"></span><span class="hs-comment">-- | Apply a natural transformation to the right-hand side of a Day convolution.</span><span>
+</span><span id="line-187"></span><span class="hs-comment">--</span><span>
+</span><span id="line-188"></span><span class="hs-comment">-- This respects the naturality of the natural transformation you supplied:</span><span>
+</span><span id="line-189"></span><span class="hs-comment">--</span><span>
+</span><span id="line-190"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-191"></span><span class="hs-comment">-- 'fmap' f '.' 'trans2' fg = 'trans2' fg '.' 'fmap' f</span><span>
+</span><span id="line-192"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-193"></span><span id="local-6989586621679107720"><span id="local-6989586621679107722"><span id="local-6989586621679107723"><span id="local-6989586621679107724"><span class="annot"><a href="Data.Functor.Day.html#trans2"><span class="hs-identifier hs-type">trans2</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621679107721"><span class="annot"><a href="#local-6989586621679107721"><span class="hs-identifier hs-type">x</span></a></span></span><span class="hs-operator">.</span><span> </span><span class="annot"><a href="#local-6989586621679107720"><span class="hs-identifier hs-type">g</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679107721"><span class="hs-identifier hs-type">x</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679107722"><span class="hs-identifier hs-type">h</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679107721"><span class="hs-identifier hs-type">x</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Data.Functor.Day.html#Day"><span class="hs-identifier hs-type">Day</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679107723"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679107720"><span class="hs-identifier hs-type">g</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679107724"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Data.Functor.Day.html#Day"><span class="hs-identifier hs-type">Day</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679107723"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679107722"><span class="hs-identifier hs-type">h</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679107724"><span class="hs-identifier hs-type">a</span></a></span></span></span></span></span><span>
+</span><span id="line-194"></span><span id="trans2"><span class="annot"><span class="annottext">trans2 :: forall (g :: * -&gt; *) (h :: * -&gt; *) (f :: * -&gt; *) a.
+(forall x. g x -&gt; h x) -&gt; Day f g a -&gt; Day f h a
+</span><a href="Data.Functor.Day.html#trans2"><span class="hs-identifier hs-var hs-var">trans2</span></a></span></span><span> </span><span id="local-6989586621679108093"><span class="annot"><span class="annottext">forall x. g x -&gt; h x
+</span><a href="#local-6989586621679108093"><span class="hs-identifier hs-var">gh</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.Functor.Day.html#Day"><span class="hs-identifier hs-type">Day</span></a></span><span> </span><span id="local-6989586621679108094"><span class="annot"><span class="annottext">f b
+</span><a href="#local-6989586621679108094"><span class="hs-identifier hs-var">fb</span></a></span></span><span> </span><span id="local-6989586621679108095"><span class="annot"><span class="annottext">g c
+</span><a href="#local-6989586621679108095"><span class="hs-identifier hs-var">gc</span></a></span></span><span> </span><span id="local-6989586621679108096"><span class="annot"><span class="annottext">b -&gt; c -&gt; a
+</span><a href="#local-6989586621679108096"><span class="hs-identifier hs-var">bca</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">f b -&gt; h c -&gt; (b -&gt; c -&gt; a) -&gt; Day f h a
+forall (f :: * -&gt; *) (g :: * -&gt; *) a b c.
+f b -&gt; g c -&gt; (b -&gt; c -&gt; a) -&gt; Day f g a
+</span><a href="Data.Functor.Day.html#Day"><span class="hs-identifier hs-var">Day</span></a></span><span> </span><span class="annot"><span class="annottext">f b
+</span><a href="#local-6989586621679108094"><span class="hs-identifier hs-var">fb</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">g c -&gt; h c
+forall x. g x -&gt; h x
+</span><a href="#local-6989586621679108093"><span class="hs-identifier hs-var">gh</span></a></span><span> </span><span class="annot"><span class="annottext">g c
+</span><a href="#local-6989586621679108095"><span class="hs-identifier hs-var">gc</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">b -&gt; c -&gt; a
+</span><a href="#local-6989586621679108096"><span class="hs-identifier hs-var">bca</span></a></span><span>
+</span><span id="line-195"></span><span>
+</span><span id="line-196"></span><span id="local-6989586621679107731"><span id="local-6989586621679107732"><span id="local-6989586621679107734"><span id="local-6989586621679107735"><span id="local-6989586621679107736"><span id="local-6989586621679107737"><span class="annot"><a href="Data.Functor.Day.html#cayley"><span class="hs-identifier hs-type">cayley</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Procompose</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Cayley</span></span><span> </span><span class="annot"><a href="#local-6989586621679107731"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679107732"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Cayley</span></span><span> </span><span class="annot"><a href="#local-6989586621679107734"><span class="hs-identifier hs-type">g</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679107735"><span class="hs-identifier hs-type">q</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679107736"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679107737"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Cayley</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.Functor.Day.html#Day"><span class="hs-identifier hs-type">Day</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679107731"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679107734"><span class="hs-identifier hs-type">g</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Procompose</span></span><span> </span><span class="annot"><a href="#local-6989586621679107732"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679107735"><span class="hs-identifier hs-type">q</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679107736"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679107737"><span class="hs-identifier hs-type">b</span></a></span></span></span></span></span></span></span><span>
+</span><span id="line-197"></span><span id="cayley"><span class="annot"><span class="annottext">cayley :: forall (f :: * -&gt; *) (p :: * -&gt; * -&gt; *) (g :: * -&gt; *)
+       (q :: * -&gt; * -&gt; *) a b.
+Procompose (Cayley f p) (Cayley g q) a b
+-&gt; Cayley (Day f g) (Procompose p q) a b
+</span><a href="Data.Functor.Day.html#cayley"><span class="hs-identifier hs-var hs-var">cayley</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Procompose</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Cayley</span></span><span> </span><span id="local-6989586621679108099"><span class="annot"><span class="annottext">f (p x b)
+</span><a href="#local-6989586621679108099"><span class="hs-identifier hs-var">p</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Cayley</span></span><span> </span><span id="local-6989586621679108100"><span class="annot"><span class="annottext">g (q a x)
+</span><a href="#local-6989586621679108100"><span class="hs-identifier hs-var">q</span></a></span></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Day f g (Procompose p q a b)
+-&gt; Cayley (Day f g) (Procompose p q) a b
+forall {k} {k1} {k2} (f :: k -&gt; *) (p :: k1 -&gt; k2 -&gt; k) (a :: k1)
+       (b :: k2).
+f (p a b) -&gt; Cayley f p a b
+</span><span class="hs-identifier hs-var">Cayley</span></span><span> </span><span class="annot"><span class="annottext">(Day f g (Procompose p q a b)
+ -&gt; Cayley (Day f g) (Procompose p q) a b)
+-&gt; Day f g (Procompose p q a b)
+-&gt; Cayley (Day f g) (Procompose p q) a b
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">f (p x b)
+-&gt; g (q a x)
+-&gt; (p x b -&gt; q a x -&gt; Procompose p q a b)
+-&gt; Day f g (Procompose p q a b)
+forall (f :: * -&gt; *) (g :: * -&gt; *) a b c.
+f b -&gt; g c -&gt; (b -&gt; c -&gt; a) -&gt; Day f g a
+</span><a href="Data.Functor.Day.html#Day"><span class="hs-identifier hs-var">Day</span></a></span><span> </span><span class="annot"><span class="annottext">f (p x b)
+</span><a href="#local-6989586621679108099"><span class="hs-identifier hs-var">p</span></a></span><span> </span><span class="annot"><span class="annottext">g (q a x)
+</span><a href="#local-6989586621679108100"><span class="hs-identifier hs-var">q</span></a></span><span> </span><span class="annot"><span class="annottext">p x b -&gt; q a x -&gt; Procompose p q a b
+forall {k} {k1} {k2} (p :: k -&gt; k1 -&gt; *) (x :: k) (c :: k1)
+       (q :: k2 -&gt; k -&gt; *) (d :: k2).
+p x c -&gt; q d x -&gt; Procompose p q d c
+</span><span class="hs-identifier hs-var">Procompose</span></span><span>
+</span><span id="line-198"></span><span>
+</span><span id="line-199"></span><span class="annot"><span class="hs-comment">-- | Proposition 4.1 from Pastro and Street</span></span><span>
+</span><span id="line-200"></span><span id="local-6989586621679107761"><span id="local-6989586621679107762"><span id="local-6989586621679107763"><span id="local-6989586621679107764"><span id="local-6989586621679107765"><span class="annot"><a href="Data.Functor.Day.html#dayley"><span class="hs-identifier hs-type">dayley</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Category</span></span><span> </span><span class="annot"><a href="#local-6989586621679107761"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Procompose</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Cayley</span></span><span> </span><span class="annot"><a href="#local-6989586621679107762"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679107761"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Cayley</span></span><span> </span><span class="annot"><a href="#local-6989586621679107763"><span class="hs-identifier hs-type">g</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679107761"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679107764"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679107765"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Cayley</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.Functor.Day.html#Day"><span class="hs-identifier hs-type">Day</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679107762"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679107763"><span class="hs-identifier hs-type">g</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679107761"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679107764"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679107765"><span class="hs-identifier hs-type">b</span></a></span></span></span></span></span></span><span>
+</span><span id="line-201"></span><span id="dayley"><span class="annot"><span class="annottext">dayley :: forall (p :: * -&gt; * -&gt; *) (f :: * -&gt; *) (g :: * -&gt; *) a b.
+Category p =&gt;
+Procompose (Cayley f p) (Cayley g p) a b -&gt; Cayley (Day f g) p a b
+</span><a href="Data.Functor.Day.html#dayley"><span class="hs-identifier hs-var hs-var">dayley</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Procompose</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Cayley</span></span><span> </span><span id="local-6989586621679108103"><span class="annot"><span class="annottext">f (p x b)
+</span><a href="#local-6989586621679108103"><span class="hs-identifier hs-var">p</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Cayley</span></span><span> </span><span id="local-6989586621679108104"><span class="annot"><span class="annottext">g (p a x)
+</span><a href="#local-6989586621679108104"><span class="hs-identifier hs-var">q</span></a></span></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Day f g (p a b) -&gt; Cayley (Day f g) p a b
+forall {k} {k1} {k2} (f :: k -&gt; *) (p :: k1 -&gt; k2 -&gt; k) (a :: k1)
+       (b :: k2).
+f (p a b) -&gt; Cayley f p a b
+</span><span class="hs-identifier hs-var">Cayley</span></span><span> </span><span class="annot"><span class="annottext">(Day f g (p a b) -&gt; Cayley (Day f g) p a b)
+-&gt; Day f g (p a b) -&gt; Cayley (Day f g) p a b
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">f (p x b)
+-&gt; g (p a x) -&gt; (p x b -&gt; p a x -&gt; p a b) -&gt; Day f g (p a b)
+forall (f :: * -&gt; *) (g :: * -&gt; *) a b c.
+f b -&gt; g c -&gt; (b -&gt; c -&gt; a) -&gt; Day f g a
+</span><a href="Data.Functor.Day.html#Day"><span class="hs-identifier hs-var">Day</span></a></span><span> </span><span class="annot"><span class="annottext">f (p x b)
+</span><a href="#local-6989586621679108103"><span class="hs-identifier hs-var">p</span></a></span><span> </span><span class="annot"><span class="annottext">g (p a x)
+</span><a href="#local-6989586621679108104"><span class="hs-identifier hs-var">q</span></a></span><span> </span><span class="annot"><span class="annottext">p x b -&gt; p a x -&gt; p a b
+forall b c a. p b c -&gt; p a b -&gt; p a c
+forall {k} (cat :: k -&gt; k -&gt; *) (b :: k) (c :: k) (a :: k).
+Category cat =&gt;
+cat b c -&gt; cat a b -&gt; cat a c
+</span><span class="hs-operator hs-var">(.)</span></span><span>
+</span><span id="line-202"></span></pre></body></html>
