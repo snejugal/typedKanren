@@ -42,10 +42,16 @@ infixr 3 `conj`
 infixr 2 `disj`
 
 -- $setup
--- >>> :set -package typedKanren
--- >>> instance Logical Int
--- >>> instance Logical Bool
+-- >>> import Data.Function ((&))
 -- >>> import Kanren.LogicalBase
+-- >>> import Kanren.Match
+-- >>> :{
+-- noto :: Term Bool -> Term Bool -> Goal ()
+-- noto x y = xIsTrue `disj` xIsFalse
+--  where
+--   xIsTrue = x === Value True `conj` y === Value False
+--   xIsFalse = x === Value False `conj` y === Value True
+-- :}
 
 -- | A computation in the relational world.
 --
@@ -76,7 +82,7 @@ infixr 2 `disj`
 -- To execute a goal and find its solutions, use 'run'.
 --
 -- >>> run (\x -> noto (Value False) x)
--- [Value True]
+-- [True]
 newtype Goal x = Goal {runGoal :: State -> Stream (State, x)}
 
 instance Functor Goal where
@@ -258,7 +264,7 @@ conjMany = foldr conj (pure ())
 -- >>> run (\x -> x === Value 42 `disj` x === Value (42 :: Int))
 -- [42,42]
 -- >>> run (\(x, y) -> x === Value (42 :: Int) `disj` y === Value True)
--- [(42,_.0),(_.1,True)]
+-- [(42,_.1),(_.0,True)]
 disj :: Goal x -> Goal x -> Goal x
 disj left right = delay (unsafeDisjunction left right)
 
@@ -278,7 +284,7 @@ disjMany = delay . go
 --
 -- >>> :{
 --   run (\(x, y) -> conde
---     [ [ x === Value False, y === Value 0 ]
+--     [ [ x === Value False, y === Value (0 :: Int) ]
 --     , [ x === Value True, y === Value 1 ]
 --     ])
 -- :}
@@ -291,7 +297,7 @@ disjMany = delay . go
 --   run (\(x, y) -> disjMany
 --     [ do
 --         x === Value False
---         y === Value 0
+--         y === Value (0 :: Int)
 --     , do
 --         x === Value True
 --         y === Value 1
@@ -304,7 +310,7 @@ disjMany = delay . go
 --
 -- >>> :{
 --   run (\(x, y) -> x & (matche
---     & on _False (\() -> y === Value 0)
+--     & on _False (\() -> y === Value (0 :: Int))
 --     & on _True (\() -> y === Value 1)))
 -- :}
 -- [(False,0),(True,1)]

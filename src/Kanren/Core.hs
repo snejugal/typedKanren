@@ -65,7 +65,6 @@ import StrictList (StrictList (Cons, Nil), mapReversed, toListReversed)
 import Unsafe.Coerce (unsafeCoerce)
 
 -- $setup
--- >>> :set -package typedKanren
 -- >>> import Kanren.Goal
 -- >>> import Kanren.LogicalBase
 
